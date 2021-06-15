@@ -5,6 +5,25 @@
 
 前バージョンの翻訳を新しいバージョンに適用したり、翻訳のチェックが可能です。
 
+※ 現在は以下のような形式になっている文書を対象としています。titleやindexterm等の翻訳には対応していません。
+
+```
+<para>
+<!--
+英語原文
+-->
+日本語訳
+</para>
+```
+
+すべての文書形式に完璧に対応はせずに、そこそこで諦める方針です。
+
+## インストール
+
+```sh
+go install github.com/noborus/jpug-doc-tool
+```
+
 ## 使い方
 
 [jpug-doc](https://github.com/pgsql-jp/jpug-doc/)を別途チェックアウトしてある状態で、`doc/src/sgml/` に移動して、jpug-doc-toolを実行します。
@@ -13,3 +32,103 @@
 $ cd github.com/pgsql-jp/jpug-doc/doc/src/sgml
 $ jpug-doc-tool サブコマンド
 ```
+
+### 英文、翻訳文の抽出
+
+まず最初に元ドキュメントから英文と翻訳文を抽出します。`doc_ja_12`のブランチ名か`pg124tail`のようなタグ名に切り替えます。
+
+```sh
+git checkout doc_ja_12
+```
+
+抽出するには `jpug-doc-tool extract`を実行します。
+
+```sh
+cd github.com/pgsql-jp/jpug-doc/doc/src/sgml
+jpug-doc-tool extract
+```
+
+実行したディレクトリに `.jpug-doc-tool/acronyms.sgml.t` のようにsgmlに対応した対訳のセットファイルが作られます。
+
+## 英文、日本語文の出力
+
+`list`サブコマンドにより .tファイルの内容を見やすく出力します。
+
+引数がない場合は全部を出力します。
+
+```sh
+jpug-doc-tool list
+```
+
+sgmlファイルを指定すれば、そのsgmlファイルに対応している英文、日本語文を出力します。
+
+```sh
+jpug-doc-tool list acronyms.sgml
+```
+
+オプションにより英語のみ(`--en`)、日本語のみ(`--ja`)を指定できます。
+
+```sh
+jpug-doc-tool list --en acronyms.sgml
+```
+
+## 置き換え
+
+英文、翻訳文の抽出した翻訳文を新しいバージョンに適用して、英語のみの文書から英語、翻訳文の形式に置き換えます。新しいブランチに切り替えてから `replace`を実行します。ファイル名を指定しなかった場合は全*sgmlファイルを置き換え対象にします。
+
+```sh
+git checkout doc_ja_13
+jpug-doc-tool replace [ファイル名.sgml]
+```
+
+置き換えるのは、para内にコメント（英語原文）がない部分のみです。すでに翻訳済みの部分は何もしません。
+
+## チェック
+
+para内にコメントがない部分があったら表示します。 
+
+```sh
+jpug-doc-tool check
+```
+
+以下のようなparaは未翻訳であろうと推測して出力します。
+
+NGなので出力
+```
+<para>
+test
+</para>
+```
+
+OKなのでスルー
+```
+<para>
+<!--
+test
+-->
+テスト
+</para>
+```
+
+## 英単語チェック
+
+抽出した、英文、日本語文から日本語文に含まれる英単語が英文にも含まれているかチェックします。
+
+```sh
+jpug-doc-tool check -w
+```
+
+以下のようになっている箇所では`ok`が英単語なので、コメントの方に`ok`が含まれているかをチェックします。
+
+```
+<para>
+<!--
+test is ok
+-->
+テストはok
+</para>
+```
+
+これによりURLが古くなっている場合に検出できる可能性が高いです。
+
+
