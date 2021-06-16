@@ -68,11 +68,14 @@ var MultiSpace = regexp.MustCompile(`\s+`)
 // カタログから英語と日本語を取得
 var SPLITCATALOG = regexp.MustCompile(`(?s)⦃(.*?)⦀(.*?)⦄`)
 
-// 英単語
+// 英単語 + /
 var ENWORD = regexp.MustCompile(`[/a-zA-Z]+`)
 
 // 数値
-var ENNUM = regexp.MustCompile(`[/0-9]+`)
+var ENNUM = regexp.MustCompile(`[0-9]+`)
+
+// カタカナ
+var KATAKANA = regexp.MustCompile(`[ァ-ヺー・]+`)
 
 // 最後尾の日本語以外を除外
 var STRIPNONJA = regexp.MustCompile(`[\s\,\(\)\.a-zA-Z0-9\-\/\<\>\n*]+$`)

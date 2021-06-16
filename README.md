@@ -33,7 +33,20 @@ $ cd github.com/pgsql-jp/jpug-doc/doc/src/sgml
 $ jpug-doc-tool サブコマンド
 ```
 
-### 英文、翻訳文の抽出
+※ 一部文字色を変えて出力されます。デフォルトでは端末出力の場合のみ色が付き、リダイレクトした場合は付きません。
+環境変数`FORCE_COLOR`により色付きの条件を変更できます。
+
+色を変更しない
+```sh
+export FORCE_COLOR=0
+```
+
+色を必ず（リダイレクトしても）変更する
+```sh
+export FORCE_COLOR=1
+```
+
+## 英文、日本語文の抽出
 
 まず最初に元ドキュメントから英文と翻訳文を抽出します。`doc_ja_12`のブランチ名か`pg124tail`のようなタグ名に切り替えます。
 
@@ -59,6 +72,7 @@ jpug-doc-tool extract
 ```sh
 jpug-doc-tool list
 ```
+![list.png](https://raw.githubusercontent.com/noborus/jpug-doc-tool/main/doc/list.png)
 
 sgmlファイルを指定すれば、そのsgmlファイルに対応している英文、日本語文を出力します。
 
@@ -85,11 +99,14 @@ jpug-doc-tool replace [ファイル名.sgml]
 
 ## チェック
 
-para内にコメントがない部分があったら表示します。 
+para内にコメントがない部分があったら表示します。 単純にコメントが含まれていないかをチェックするだけなので、
+修正する必要があるとは限りません。目で見て必要な場合に修正します。
 
 ```sh
 jpug-doc-tool check
 ```
+
+![list.png](https://raw.githubusercontent.com/noborus/jpug-doc-tool/main/doc/check.png)
 
 以下のようなparaは未翻訳であろうと推測して出力します。
 
@@ -113,6 +130,8 @@ test
 ## 英単語チェック
 
 抽出した、英文、日本語文から日本語文に含まれる英単語が英文にも含まれているかチェックします。
+これは最新の翻訳状態でチェックする必要があるので、実行する前に`jpug-doc-tool extract`により翻訳のリストを更新してから実行します。
+```
 
 ```sh
 jpug-doc-tool check -w
