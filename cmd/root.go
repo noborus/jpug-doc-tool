@@ -15,22 +15,22 @@ var cfgFile string
 var DICDIR = "./.jpug-doc-tool/"
 
 func ignoreFileNames(fileNames []string) []string {
-	var ignoreFile map[string]bool = map[string]bool{
-		"jpug-doc.sgml": true,
-		"config0.sgml":  true,
-		"config1.sgml":  true,
-		"config2.sgml":  true,
-		"config3.sgml":  true,
-		"func0.sgml":    true,
-		"func1.sgml":    true,
-		"func2.sgml":    true,
-		"func3.sgml":    true,
-		"func4.sgml":    true,
+	var ignoreFile map[string]struct{} = map[string]struct{}{
+		"jpug-doc.sgml": {},
+		"config0.sgml":  {},
+		"config1.sgml":  {},
+		"config2.sgml":  {},
+		"config3.sgml":  {},
+		"func0.sgml":    {},
+		"func1.sgml":    {},
+		"func2.sgml":    {},
+		"func3.sgml":    {},
+		"func4.sgml":    {},
 	}
 
 	ret := make([]string, 0, len(fileNames))
 	for _, fileName := range fileNames {
-		if ignoreFile[fileName] {
+		if _, ok := ignoreFile[fileName]; ok {
 			continue
 		}
 		ret = append(ret, fileName)

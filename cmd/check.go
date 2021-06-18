@@ -29,6 +29,10 @@ func commentCheck(fileName string) string {
 				fmt.Fprintln(out, "========================================>")
 				continue
 			}
+			// <literal>.*</literal>又は<literal>.*</literal><returnvalue>.*</returnvalue>又は+programlisting のみのparaだった場合は無視する
+			if RELITERAL.Match(para) || RELIRET.Match(para) || RELIRETPROG.Match(para) {
+				continue
+			}
 			fmt.Fprintln(out, "<========================================")
 			fmt.Fprintln(out, gchalk.Red("コメントがありません"))
 			fmt.Fprintln(out, string(para))
@@ -101,6 +105,7 @@ var checkCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var word bool
 		var err error
+
 		if word, err = cmd.PersistentFlags().GetBool("word"); err != nil {
 			log.Println(err)
 			return

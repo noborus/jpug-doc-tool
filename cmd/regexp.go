@@ -16,6 +16,17 @@ func paraAll(src []byte) [][]byte {
 	return ret
 }
 
+// <para><literal></literal></para>に一致させる
+var RELITERAL = regexp.MustCompile(`(?s)(<para>\n*)\s*<literal>.*</literal>\n*(\s*</para>)`)
+
+// <para><literal></literal><returnvalue></returnvalue></para>に一致させる
+var RELIRET = regexp.MustCompile(`(?s)(<para>\n*)\s*<literal>.*</literal>\n*\s*<returnvalue>.*</returnvalue>(\s*</para>)`)
+
+// <para><literal></literal><returnvalue></returnvalue><programlisting></programlisting></para>に一致させる
+var RELIRETPROG = regexp.MustCompile(`(?s)(<para>\n*)\s*<literal>.*</literal>\n*\s*<returnvalue>.*</returnvalue>\n*\s*<programlisting>.*</programlisting>(\s*</para>)`)
+
+// var RELIRET = regexp.MustCompile(`(?s)(<para>\n*)\s*<literal>.*</literal>\n`)
+
 // <row> </row> に一致させる
 var REROWS = regexp.MustCompile(`(?s)(<row>\n*)(.*?)(\s+</row>)`)
 
