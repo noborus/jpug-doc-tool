@@ -12,12 +12,7 @@ import (
 )
 
 // commentCheck は<para>内にコメント（<!-- -->)が含まれているかチェックする
-func commentCheck(fileName string) string {
-	src, err := ReadFile(fileName)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+func commentCheck(src []byte) string {
 	out := new(bytes.Buffer)
 	for _, para := range REPARA.FindAll(src, -1) {
 		if !containComment(para) {
@@ -44,11 +39,11 @@ func commentCheck(fileName string) string {
 }
 
 // enWordCheck は日本語翻訳中にある英単語が英語に含まれているかをチェックする
-func enWordCheck(fileName string) string {
+func enWordCheck(src []byte) string {
 	out := new(bytes.Buffer)
-	dicname := DICDIR + fileName + ".t"
-	catalog := loadCatalog(dicname)
-	for en, ja := range catalog {
+	for _, pair := range Extraction(src) {
+		en := pair.en
+		ja := pair.ja
 		ja = STRIPNONJA.ReplaceAllString(ja, "")
 		words := ENWORD.FindAllString(ja, -1)
 		num := ENNUM.FindAllString(ja, -1)
@@ -83,14 +78,23 @@ func check(fileNames []string, word bool) string {
 	for _, fileName := range fileNames {
 		wCheck := ""
 		cCheck := ""
+		src, err := ReadFile(fileName)
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		if word {
-			wCheck = enWordCheck(fileName)
+			wCheck = enWordCheck(src)
 		} else {
-			cCheck = commentCheck(fileName)
+			cCheck = commentCheck(src)
 		}
 		if len(wCheck) > 0 || len(cCheck) > 0 {
 			fmt.Fprintln(out, gchalk.Green(fileName))
+		}
+		if len(wCheck) > 0 {
 			fmt.Fprintln(out, wCheck)
+		}
+		if len(cCheck) > 0 {
 			fmt.Fprintln(out, cCheck)
 		}
 	}
@@ -111,13 +115,11 @@ var checkCmd = &cobra.Command{
 			return
 		}
 
+		fileNames := targetFileName()
 		if len(args) > 0 {
-			out := check(args, word)
-			fmt.Println(out)
-			return
+			fileNames = args
 		}
 
-		fileNames := targetFileName()
 		out := check(fileNames, word)
 		fmt.Println(out)
 	},
