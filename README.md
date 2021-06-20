@@ -97,6 +97,34 @@ jpug-doc-tool replace [ファイル名.sgml]
 
 置き換えるのは、para内にコメント（英語原文）がない部分のみです。すでに翻訳済みの部分は何もしません。
 
+### 類似文を対象にする
+
+オプションを付けずに`replace`を実行した場合は、スペース、改行等を除いて完全に一致した場合のみ置き換えますが、`-s` 又は `--similar`にスコア（100点満点）をつけると「レーベンシュタイン距離」により文字列の類似度を測って指定したスコア以上であれば置き換えます。時間もかかるのでファイルを指定しての実行をオススメします。
+
+```sh
+jpug-doc-tool replace -s 90 [ファイル名.sgml]
+```
+
+90点以上であれば、数文字が違うだけの少し変更した文章についても置き換えます。完全一致ではないときには以下のようにマッチ度と元文章を付けて置き換えます。目で見て、不要な部分を消して修正する必要があります。
+
+```diff
+-- a/doc/src/sgml/func.sgml
++++ b/doc/src/sgml/func.sgml
+@@ -12337,8 +12337,14 @@ SELECT EXTRACT(CENTURY FROM TIMESTAMP '2001-02-16 20:38:40');
+       <term><literal>day</literal></term>
+       <listitem>
+        <para>
++<!--
+         For <type>timestamp</type> values, the day (of the month) field
+         (1&ndash;31) ; for <type>interval</type> values, the number of days
++-->
++<!-- マッチ度[94.656489]
++For <type>timestamp</type> values, the day (of the month) field (1 - 31) ; for <type>interval</type> values, the number of days
++-->
++<type>timestamp</type>値については、(月内の)日付フィールド(1〜31)。<type>interval</type>値については日数。
+        </para>
+```
+
 ## チェック
 
 para内にコメントがない部分があったら表示します。 単純にコメントが含まれていないかをチェックするだけなので、
@@ -130,8 +158,6 @@ test
 ## 英単語チェック
 
 抽出した、英文、日本語文から日本語文に含まれる英単語が英文にも含まれているかチェックします。
-これは最新の翻訳状態でチェックする必要があるので、実行する前に`jpug-doc-tool extract`により翻訳のリストを更新してから実行します。
-```
 
 ```sh
 jpug-doc-tool check -w
@@ -149,5 +175,3 @@ test is ok
 ```
 
 これによりURLが古くなっている場合に検出できる可能性が高いです。
-
-
