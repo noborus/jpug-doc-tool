@@ -41,6 +41,17 @@ func Test_paraAll(t *testing.T) {
 				[]byte("<para>test</para>"),
 			},
 		},
+		{
+			name: "test4",
+			args: args{
+				src: []byte(`<!--
+<para>test</para>
+-->`),
+			},
+			want: [][]byte{
+				[]byte("<!--\n<para>test</para>"),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
