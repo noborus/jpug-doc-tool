@@ -111,3 +111,59 @@ func Test_stripNONJA(t *testing.T) {
 		})
 	}
 }
+
+func Test_splitComment(t *testing.T) {
+	type args struct {
+		src []byte
+	}
+	tests := []struct {
+		name   string
+		args   args
+		wantEn []byte
+		wantJa []byte
+		wantEx []byte
+	}{
+		{
+			name: "test1",
+			args: args{
+				[]byte(`<para>
+<!--
+  comment
+-->
+日本語
+</para>`),
+			},
+			wantEn: []byte("\n  comment\n"),
+			wantJa: []byte("\n日本語\n"),
+			wantEx: []byte("</para>"),
+		},
+		{
+			name: "test2",
+			args: args{
+				[]byte(`<para>
+<!--
+  comment
+-->
+日本語
+<orderedlist spacing="compact">`),
+			},
+			wantEn: []byte("\n  comment\n"),
+			wantJa: []byte("\n日本語\n"),
+			wantEx: []byte(`<orderedlist`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotEn, gotJa, gotEx := splitComment(tt.args.src)
+			if !reflect.DeepEqual(gotEn, tt.wantEn) {
+				t.Errorf("splitComment() gotEn = %v, want %v", gotEn, tt.wantEn)
+			}
+			if !reflect.DeepEqual(gotJa, tt.wantJa) {
+				t.Errorf("splitComment() gotJa = %v, want %v", gotJa, tt.wantJa)
+			}
+			if !reflect.DeepEqual(gotEx, tt.wantEx) {
+				t.Errorf("splitComment() gotEx = %s, want %s", gotEx, tt.wantEx)
+			}
+		})
+	}
+}

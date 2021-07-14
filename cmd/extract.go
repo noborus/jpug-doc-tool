@@ -14,6 +14,12 @@ type Pair struct {
 	ja string
 }
 
+// コメント（英語原文）と続く文書（日本語翻訳）のペア、残り文字列、エラーを返す
+// <!--
+// english
+// -->
+// japanese
+// の形式に一致しない場合はエラーを返す
 func enjaPair(para []byte) (Pair, []byte, error) {
 	re := EXCOMMENT.FindSubmatch(para)
 	if len(re) < 3 {

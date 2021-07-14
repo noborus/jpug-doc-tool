@@ -71,7 +71,12 @@ func containCommentEnd(src []byte) bool {
 
 // コメント（英語原文）と続く文書（日本語翻訳）を取得
 // 100%一致する訳ではない
-var EXCOMMENT = regexp.MustCompile(`(?s)<!--(.*?)-->(.*?)(</row>|<!--|<note>|<informaltable>|<footnote>|<screen>|<synopsis>|<variablelist>|<programlisting>|<itemizedlist>|<simplelist>|<itemizedlist|<orderedlist>|</para>)`)
+var EXCOMMENT = regexp.MustCompile(`(?s)<!--(.*?)-->(.*?)(</row>|<!--|<note>|<informaltable>|<footnote>|<screen>|<synopsis>|<variablelist>|<programlisting>|<itemizedlist>|<simplelist>|<itemizedlist|<orderedlist|</para>)`)
+
+func splitComment(src []byte) (en []byte, ja []byte, ex []byte) {
+	re := EXCOMMENT.FindSubmatch(src)
+	return re[1], re[2], re[3]
+}
 
 // 複数のスペースと一致
 var MultiSpace = regexp.MustCompile(`\s+`)
