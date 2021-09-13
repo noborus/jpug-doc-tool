@@ -87,8 +87,14 @@ var SPLITCATALOG = regexp.MustCompile(`(?s)⦃(.*?)⦀(.*?)⦄`)
 // 英単語 + /
 var ENWORD = regexp.MustCompile(`[/a-zA-Z]+`)
 
+// XMLタグ
+var XMLTAG = regexp.MustCompile(`<[^/]*?>`)
+
 // 数値
-var ENNUM = regexp.MustCompile(`[0-9]+`)
+var ENNUM = regexp.MustCompile(`[0-9,]+`)
+
+// カンマを除外
+var STRIPNUM = regexp.MustCompile(`,`)
 
 // カタカナ
 var KATAKANA = regexp.MustCompile(`[ァ-ヺー・]+`)
