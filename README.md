@@ -7,7 +7,7 @@
 
 ※ 現在は以下のような形式になっている文書を対象としています。titleやindexterm等の翻訳には対応していません。
 
-```
+```xml
 <para>
 <!--
 英語原文
@@ -21,7 +21,7 @@
 ## インストール
 
 ```sh
-go install github.com/noborus/jpug-doc-tool
+go install github.com/noborus/jpug-doc-tool@latest
 ```
 
 ## 使い方
@@ -29,19 +29,21 @@ go install github.com/noborus/jpug-doc-tool
 [jpug-doc](https://github.com/pgsql-jp/jpug-doc/)を別途チェックアウトしてある状態で、`doc/src/sgml/` に移動して、jpug-doc-toolを実行します。
 
 ```sh
-$ cd github.com/pgsql-jp/jpug-doc/doc/src/sgml
-$ jpug-doc-tool サブコマンド
+cd github.com/pgsql-jp/jpug-doc/doc/src/sgml
+jpug-doc-tool サブコマンド
 ```
 
 ※ 一部文字色を変えて出力されます。デフォルトでは端末出力の場合のみ色が付き、リダイレクトした場合は付きません。
 環境変数`FORCE_COLOR`により色付きの条件を変更できます。
 
 色を変更しない
+
 ```sh
 export FORCE_COLOR=0
 ```
 
 色を必ず（リダイレクトしても）変更する
+
 ```sh
 export FORCE_COLOR=1
 ```
@@ -72,6 +74,7 @@ jpug-doc-tool extract
 ```sh
 jpug-doc-tool list
 ```
+
 ![list.png](https://raw.githubusercontent.com/noborus/jpug-doc-tool/main/doc/list.png)
 
 sgmlファイルを指定すれば、そのsgmlファイルに対応している英文、日本語文を出力します。
@@ -127,8 +130,12 @@ jpug-doc-tool replace -s 90 [ファイル名.sgml]
 
 ## チェック
 
-para内にコメントがない部分があったら表示します。 単純にコメントが含まれていないかをチェックするだけなので、
-修正する必要があるとは限りません。目で見て必要な場合に修正します。
+para内の原文と英語をチェックして問題がありそうな箇所を表示します。
+表示された内容が修正する必要があるとは限りません。目で見て必要な場合に修正します。
+
+### コメント形式のチェック
+
+オプションがない場合はコメント形式を単純にコメントが含まれていないかをチェックするだけなので、
 
 ```sh
 jpug-doc-tool check
@@ -139,14 +146,16 @@ jpug-doc-tool check
 以下のようなparaは未翻訳であろうと推測して出力します。
 
 NGなので出力
-```
+
+```xml
 <para>
 test
 </para>
 ```
 
 OKなのでスルー
-```
+
+```xml
 <para>
 <!--
 test
@@ -155,7 +164,7 @@ test
 </para>
 ```
 
-## 英単語チェック
+### 英単語チェック
 
 抽出した、英文、日本語文から日本語文に含まれる英単語が英文にも含まれているかチェックします。
 
@@ -165,7 +174,7 @@ jpug-doc-tool check -w
 
 以下のようになっている箇所では`ok`が英単語なので、コメントの方に`ok`が含まれているかをチェックします。
 
-```
+```xml
 <para>
 <!--
 test is ok
@@ -175,3 +184,46 @@ test is ok
 ```
 
 これによりURLが古くなっている場合に検出できる可能性が高いです。
+
+### 数値チェック
+
+英文にある数値が日本語にもあるかチェックします。
+
+```sh
+jpug-doc-tool check -n
+```
+
+数値の表記方法が変わっている場合に正しいかどうか判断できないので出力されます。
+
+```text
+config.sgml
+<========================================
+原文にある[200]が含まれていません
+Vacuum also allows removal of old files from the <filename>pg_xact</filename> subdirectory, which is why the default is a relatively low 200 million transactions. This parameter can only be set at server start, but the setting can be reduced for individual tables by changing table storage parameters. For more information see <xref linkend="vacuum-for-wraparound"/>.
+-----------------------------------------
+vacuumは同時に<filename>pg_xact</filename>サブディレクトリから古いファイルの削除を許可します。
+       これが、比較的低い2億トランザクションがデフォルトである理由です。
+       このパラメータはサーバ起動時にのみ設定可能です。
+しかし、この設定はテーブルストレージパラメータの変更により、それぞれのテーブルで減らすことができます。
+詳細は<xref linkend="vacuum-for-wraparound"/>を参照してください。
+========================================>
+```
+
+### タグチェック
+
+英文にある内部タグが日本語にもあるかチェックします。
+
+```sh
+jpug-doc-tool check -t
+```
+
+```text
+<========================================
+原文にある[<emphasis>]が含まれていません
+It is recommended that you use the <application>pg_dump</application> and <application>pg_dumpall</application> programs from the <emphasis>newer</emphasis> version of <productname>PostgreSQL</productname>, to take advantage of enhancements that might have been made in these programs. Current releases of the dump programs can read data from any server version back to 7.0.
+-----------------------------------------
+新しいバージョンの<productname>PostgreSQL</productname>の<application>pg_dump</application>と<application>pg_dumpall</application>を使用することを勧めます。
+これらのプログラムで拡張された機能を利用する可能性があるためです。
+現在のリリースのダンププログラムは7.0以降のバージョンのサーバからデータを読み取ることができます。
+========================================>
+```

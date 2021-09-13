@@ -18,22 +18,14 @@ func commentCheck(src []byte) string {
 	for _, para := range REPARA.FindAll(src, -1) {
 		if !containComment(para) {
 			if containCommentEnd(para) {
-				fmt.Fprintln(out, "<========================================")
-				fmt.Fprintln(out, gchalk.Red("コメントが始まっていません"))
-				fmt.Fprintf(out, string(para))
-				fmt.Fprintln(out)
-				fmt.Fprintln(out, "========================================>")
+				checkOutput(out, gchalk.Red("コメントが始まっていません"), string(para), "")
 				continue
 			}
 			// <literal>.*</literal>又は<literal>.*</literal><returnvalue>.*</returnvalue>又は+programlisting のみのparaだった場合は無視する
 			if RELITERAL.Match(para) || RELIRET.Match(para) || RELIRETPROG.Match(para) {
 				continue
 			}
-			fmt.Fprintln(out, "<========================================")
-			fmt.Fprintln(out, gchalk.Red("コメントがありません"))
-			fmt.Fprintln(out, string(para))
-			fmt.Fprintln(out)
-			fmt.Fprintln(out, "========================================>")
+			checkOutput(out, gchalk.Red("コメントがありません"), string(para), "")
 		}
 	}
 	return out.String()
@@ -105,43 +97,36 @@ func enWordCheck(src []byte, word bool, tag bool, num bool) string {
 		if word {
 			unword := wordCheck(en, ja)
 			if len(unword) > 0 {
-				fmt.Fprintln(out, "<========================================")
-				fmt.Fprintln(out, fmt.Sprintf("[%s]が含まれていません", gchalk.Red(strings.Join(unword, " ｜ "))))
-				fmt.Fprintln(out, en)
-				fmt.Fprintln(out, "-----------------------------------------")
-				fmt.Fprintln(out, ja)
-				fmt.Fprintln(out, "========================================>")
-				fmt.Fprintln(out)
+				checkOutput(out, fmt.Sprintf("[%s]が含まれていません", gchalk.Red(strings.Join(unword, " ｜ "))), en, ja)
 			}
 		}
 
 		if tag {
 			untag := tagCheck(en, ja)
 			if len(untag) > 0 {
-				fmt.Fprintln(out, "<========================================")
-				fmt.Fprintln(out, fmt.Sprintf("原文にあるタグ[%s]が含まれていません", gchalk.Red(strings.Join(untag, " ｜ "))))
-				fmt.Fprintln(out, en)
-				fmt.Fprintln(out, "-----------------------------------------")
-				fmt.Fprintln(out, ja)
-				fmt.Fprintln(out, "========================================>")
-				fmt.Fprintln(out)
+				checkOutput(out, fmt.Sprintf("原文にある[%s]が含まれていません", gchalk.Red(strings.Join(untag, " ｜ "))), en, ja)
 			}
 		}
 
 		if num {
 			unNum := numCheck(en, ja)
 			if len(unNum) > 0 {
-				fmt.Fprintln(out, "<========================================")
-				fmt.Fprintln(out, fmt.Sprintf("原文にある[%s]が含まれていません", gchalk.Red(strings.Join(unNum, " ｜ "))))
-				fmt.Fprintln(out, en)
-				fmt.Fprintln(out, "-----------------------------------------")
-				fmt.Fprintln(out, ja)
-				fmt.Fprintln(out, "========================================>")
-				fmt.Fprintln(out)
+				checkOutput(out, fmt.Sprintf("原文にある[%s]が含まれていません", gchalk.Red(strings.Join(unNum, " ｜ "))), en, ja)
 			}
 		}
 	}
 	return out.String()
+}
+
+// メッセージ、原文、日本語の形式で出力する
+func checkOutput(out *bytes.Buffer, str string, en string, ja string) {
+	fmt.Fprintln(out, "<========================================")
+	fmt.Fprintln(out, str)
+	fmt.Fprintln(out, en)
+	fmt.Fprintln(out, "-----------------------------------------")
+	fmt.Fprintln(out, ja)
+	fmt.Fprintln(out, "========================================>")
+	fmt.Fprintln(out)
 }
 
 func check(fileNames []string, word bool, tag bool, num bool) string {
