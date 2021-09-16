@@ -167,3 +167,36 @@ func Test_splitComment(t *testing.T) {
 		})
 	}
 }
+
+func Test_stripPROGRAMLISTING(t *testing.T) {
+	type args struct {
+		src []byte
+	}
+	tests := []struct {
+		name string
+		args args
+		want []byte
+	}{
+		{
+			name: "test1",
+			args: args{
+				[]byte(`a<programlisting>16</programlisting>b`),
+			},
+			want: []byte("ab"),
+		},
+		{
+			name: "test2",
+			args: args{
+				[]byte(`a<screen>16</screen>b`),
+			},
+			want: []byte("ab"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := stripPROGRAMLISTING(tt.args.src); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("stripPROGRAMLISTING() = [%v], want [%v]", string(got), string(tt.want))
+			}
+		})
+	}
+}

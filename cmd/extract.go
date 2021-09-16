@@ -42,6 +42,7 @@ func enjaPair(para []byte) (Pair, []byte, error) {
 	return pair, nil, nil
 }
 
+// src を原文と日本語訳の対の配列に変換する
 func Extraction(src []byte) []Pair {
 	var pairs []Pair
 	paras := REPARA.FindAll([]byte(src), -1)

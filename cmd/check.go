@@ -48,6 +48,7 @@ func tagCheck(en string, ja string) []string {
 
 // 原文内の数値が日本語内にあるかチェックする
 func numCheck(en string, ja string) []string {
+	en = STRIPPROGRAMLISTING.ReplaceAllString(en, "")
 	en = STRIPNUM.ReplaceAllString(en, "")
 	ja = STRIPNUM.ReplaceAllString(ja, "")
 	nums := ENNUM.FindAllString(en, -1)
@@ -64,6 +65,7 @@ func numCheck(en string, ja string) []string {
 	return unNum
 }
 
+// 日本語訳内の英単語が原文に含まれているかチェックする
 func wordCheck(en string, ja string) []string {
 	ja = STRIPNONJA.ReplaceAllString(ja, "")
 	words := ENWORD.FindAllString(ja, -1)
@@ -84,8 +86,8 @@ func wordCheck(en string, ja string) []string {
 	return unword
 }
 
-// enWordCheck は日本語翻訳中にある英単語が英語に含まれているかをチェックする
-func enWordCheck(src []byte, word bool, tag bool, num bool) string {
+// fileCheck は日本語翻訳中にある英単語が英語に含まれているかをチェックする
+func fileCheck(src []byte, word bool, tag bool, num bool) string {
 	out := new(bytes.Buffer)
 	for _, pair := range Extraction(src) {
 		en := pair.en
@@ -122,7 +124,7 @@ func enWordCheck(src []byte, word bool, tag bool, num bool) string {
 func checkOutput(out *bytes.Buffer, str string, en string, ja string) {
 	fmt.Fprintln(out, "<========================================")
 	fmt.Fprintln(out, str)
-	fmt.Fprintln(out, en)
+	fmt.Fprintln(out, gchalk.Green(en))
 	fmt.Fprintln(out, "-----------------------------------------")
 	fmt.Fprintln(out, ja)
 	fmt.Fprintln(out, "========================================>")
@@ -139,7 +141,7 @@ func check(fileNames []string, word bool, tag bool, num bool) string {
 			log.Fatal(err)
 		}
 
-		wCheck = enWordCheck(src, word, tag, num)
+		wCheck = fileCheck(src, word, tag, num)
 		if !word && !tag && !num {
 			cCheck = commentCheck(src)
 		}

@@ -93,6 +93,13 @@ var XMLTAG = regexp.MustCompile(`<[^/]*?>`)
 // 数値
 var ENNUM = regexp.MustCompile(`[0-9,]+`)
 
+// <programlisting>.*</programlisting> を除外
+var STRIPPROGRAMLISTING = regexp.MustCompile(`<(programlisting|screen)>.*</(programlisting|screen)>`)
+
+func stripPROGRAMLISTING(src []byte) []byte {
+	return STRIPPROGRAMLISTING.ReplaceAll(src, []byte(""))
+}
+
 // カンマを除外
 var STRIPNUM = regexp.MustCompile(`,`)
 
