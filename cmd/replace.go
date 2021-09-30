@@ -37,38 +37,8 @@ func loadCatalog(fileName string) Catalog {
 
 func (rep Rep) Replace(src []byte) []byte {
 	ret := rep.paraReplace(src)
-	// ret = catalog.xrefReplace(ret)
 	return ret
 }
-
-/*
-var FUNCREPLACE = regexp.MustCompile(`(?sU)<function>(PQ.*)</function>`)
-
-func (catalog Catalog) xrefReplace(src []byte) []byte {
-	re := EXCOMMENT.FindSubmatch(src)
-	if len(re) < 3 {
-		return src
-	}
-	enstr := strings.ReplaceAll(string(re[1]), "\n", " ")
-	enstr = MultiSpace.ReplaceAllString(enstr, " ")
-	enstr = strings.TrimSpace(enstr)
-
-	jastr := strings.TrimSpace(string(re[2]))
-	pair := Pair{
-		en: enstr,
-		ja: jastr,
-	}
-	ret := src
-	words := FUNCREPLACE.FindAllString(pair.ja, -1)
-	for _, w := range words {
-		xref := FUNCREPLACE.ReplaceAllString(w, "<xref linkend=\"libpq-$1\"/>")
-		if strings.Contains(pair.en, xref) {
-			ret = FUNCREPLACE.ReplaceAll(src, []byte("<xref linkend=\"libpq-$1\"/>"))
-		}
-	}
-	return ret
-}
-*/
 
 func (rep Rep) paraReplace(src []byte) []byte {
 	if RECOMMENT.Match(src) {
