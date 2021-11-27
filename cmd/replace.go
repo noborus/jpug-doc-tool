@@ -2,25 +2,33 @@ package cmd
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/url"
 	"os"
 	"strings"
 
 	"github.com/agnivade/levenshtein"
 	"github.com/spf13/cobra"
+	"golang.org/x/oauth2/clientcredentials"
 )
 
 type Catalog map[string]string
 type Rep struct {
 	catalog Catalog
+	mt      bool
 	similar int
 }
+
+const APIURL = "https://mt-auto-minhon-mlt.ucri.jgn-x.jp/"
 
 func loadCatalog(fileName string) Catalog {
 	src, err := ReadFile(fileName)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
+		fmt.Fprint(os.Stderr, err.Error())
 		return nil
 	}
 	catalog := make(map[string]string)
@@ -40,6 +48,92 @@ func (rep Rep) Replace(src []byte) []byte {
 	return ret
 }
 
+type TextraResult struct {
+	Resultset struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Request struct {
+			URL   string `json:"url"`
+			Text  string `json:"text"`
+			Split int    `json:"split"`
+			Data  string `json:"data"`
+		} `json:"request"`
+		Result struct {
+			Text        string `json:"text"`
+			Information struct {
+				TextS    string `json:"text-s"`
+				TextT    string `json:"text-t"`
+				Sentence []struct {
+					TextS string `json:"text-s"`
+					TextT string `json:"text-t"`
+					Split []struct {
+						TextS   string `json:"text-s"`
+						TextT   string `json:"text-t"`
+						Process struct {
+							Regex         []interface{} `json:"regex"`
+							ReplaceBefore []interface{} `json:"replace-before"`
+							Preprocess    []interface{} `json:"preprocess"`
+							Translate     struct {
+								Reverse       []interface{}     `json:"reverse"`
+								Specification []interface{}     `json:"specification"`
+								TextS         string            `json:"text-s"`
+								TextT         string            `json:"text-t"`
+								Associate     [][]interface{}   `json:"associate"`
+								Oov           interface{}       `json:"oov"`
+								Exception     string            `json:"exception"`
+								Associates    [][][]interface{} `json:"associates"`
+							} `json:"translate"`
+							ReplaceAfter []interface{} `json:"replace-after"`
+						} `json:"process"`
+					} `json:"split"`
+				} `json:"sentence"`
+			} `json:"information"`
+		} `json:"result"`
+	} `json:"resultset"`
+}
+
+func textraTranslate(enstr string) string {
+	ctx := context.Background()
+	conf := &clientcredentials.Config{
+		ClientID:     Conf.ClientID,
+		ClientSecret: Conf.ClientSecret,
+		TokenURL:     APIURL + "oauth2/token.php",
+	}
+
+	client := conf.Client(ctx)
+	token, err := conf.Token(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	//fmt.Printf("%#v\n", token)
+	values := url.Values{
+		"access_token": []string{token.AccessToken},
+		"key":          []string{Conf.ClientID},
+		"api_name":     []string{Conf.APIName},
+		"api_param":    []string{Conf.APIParam},
+		"name":         []string{Conf.Name},
+		"type":         []string{"json"},
+		"text":         []string{enstr},
+	}
+	//fmt.Println(values.Encode())
+
+	resp, err := client.PostForm(APIURL+"api/", values)
+	if err != nil {
+		log.Fatal(err)
+	}
+	//dumpResp, _ := httputil.DumpResponse(resp, true)
+	//fmt.Printf("%s", dumpResp)
+	s, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	data := new(TextraResult)
+	if err := json.Unmarshal(s, data); err != nil {
+		log.Fatal(err)
+	}
+	return data.Resultset.Result.Text
+}
+
 func (rep Rep) paraReplace(src []byte) []byte {
 	if RECOMMENT.Match(src) {
 		return src
@@ -55,6 +149,16 @@ func (rep Rep) paraReplace(src []byte) []byte {
 	if ja, ok := rep.catalog[enstr]; ok {
 		para := fmt.Sprintf("$1<!--\n%s\n-->\n%s$3", en, strings.TrimRight(ja, "\n"))
 		ret := REPARA.ReplaceAll(src, []byte(para))
+		return ret
+	}
+
+	if rep.mt {
+		fmt.Print("API問い合わせ...")
+		ja := textraTranslate(enstr)
+		ja = KUTEN.ReplaceAllString(ja, "。\n")
+		para := fmt.Sprintf("$1<!--\n%s\n-->\n<!-- 機械翻訳 -->\n%s$3", en, strings.TrimRight(ja, "\n"))
+		ret := REPARA.ReplaceAll(src, []byte(para))
+		fmt.Print("Done\n")
 		return ret
 	}
 
@@ -82,18 +186,19 @@ func (rep Rep) paraReplace(src []byte) []byte {
 	return src
 }
 
-func replace(fileNames []string, similar int) {
+func replace(fileNames []string, mt bool, similar int) {
 	for _, fileName := range fileNames {
 		dicname := DICDIR + fileName + ".t"
 		catalog := loadCatalog(dicname)
 		rep := Rep{
 			similar: similar,
 			catalog: catalog,
+			mt:      mt,
 		}
 
 		src, err := ReadFile(fileName)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, err.Error())
+			fmt.Fprint(os.Stderr, err.Error())
 			continue
 		}
 
@@ -106,7 +211,7 @@ func replace(fileNames []string, similar int) {
 		fmt.Printf("replace: %s\n", fileName)
 		out, err := os.Create(fileName)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, err.Error())
+			fmt.Fprint(os.Stderr, err.Error())
 			continue
 		}
 		fmt.Fprint(out, string(ret))
@@ -120,25 +225,30 @@ var replaceCmd = &cobra.Command{
 	Short: "英語のパラグラフを「<!--英語-->日本語翻訳」に置き換える",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
+		var mt bool
 		var similar int
 		var err error
+		fmt.Printf("%#v\n", Conf.Name)
 		if similar, err = cmd.PersistentFlags().GetInt("similar"); err != nil {
 			log.Println(err)
 			return
 		}
-
+		if mt, err = cmd.PersistentFlags().GetBool("mt"); err != nil {
+			log.Println(err)
+			return
+		}
 		if len(args) > 0 {
-			replace(args, similar)
+			replace(args, mt, similar)
 			return
 		}
 
 		fileNames := targetFileName()
-		replace(fileNames, similar)
+		replace(fileNames, mt, similar)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(replaceCmd)
 	replaceCmd.PersistentFlags().IntP("similar", "s", 0, "Degree of similarity")
-
+	replaceCmd.PersistentFlags().BoolP("mt", "", false, "Use machine translation")
 }

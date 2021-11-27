@@ -23,7 +23,7 @@ type Pair struct {
 func enjaPair(para []byte) (Pair, []byte, error) {
 	re := EXCOMMENT.FindSubmatch(para)
 	if len(re) < 3 {
-		return Pair{}, nil, fmt.Errorf("No match")
+		return Pair{}, nil, fmt.Errorf("no match")
 	}
 	enstr := strings.ReplaceAll(string(re[1]), "\n", " ")
 	enstr = MultiSpace.ReplaceAllString(enstr, " ")
@@ -107,8 +107,6 @@ func extract(fileNames []string) {
 		}
 		f.Close()
 	}
-	return
-
 }
 
 // extractCmd represents the extract command
