@@ -145,7 +145,6 @@ var replaceCmd = &cobra.Command{
 		var mt bool
 		var similar int
 		var err error
-		fmt.Printf("%#v\n", Config.Name)
 		if similar, err = cmd.PersistentFlags().GetInt("similar"); err != nil {
 			log.Println(err)
 			return
