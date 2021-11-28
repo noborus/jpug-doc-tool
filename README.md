@@ -20,7 +20,7 @@
 
 ## インストール
 
-```sh
+```console
 go install github.com/noborus/jpug-doc-tool@latest
 ```
 
@@ -28,7 +28,7 @@ go install github.com/noborus/jpug-doc-tool@latest
 
 [jpug-doc](https://github.com/pgsql-jp/jpug-doc/)を別途チェックアウトしてある状態で、`doc/src/sgml/` に移動して、jpug-doc-toolを実行します。
 
-```sh
+```console
 cd github.com/pgsql-jp/jpug-doc/doc/src/sgml
 jpug-doc-tool サブコマンド
 ```
@@ -38,27 +38,62 @@ jpug-doc-tool サブコマンド
 
 色を変更しない
 
-```sh
+```console
 export FORCE_COLOR=0
 ```
 
 色を必ず（リダイレクトしても）変更する
 
-```sh
+```console
 export FORCE_COLOR=1
 ```
 
+## 機械翻訳
+
+[みんなの自動翻訳＠TexTra®](https://mt-auto-minhon-mlt.ucri.jgn-x.jp/)のAPをを利用して、翻訳します。
+
+みんなの自動翻訳＠TexTraのアカウントが必要です。まずアカウントを作成してください。
+
+アカウントを作成したら、`$(HOME)/.jpug-doc-tool.yaml` にAPIの設定を書きます。
+
+```yaml
+ClientID: 1234567890abcdef123456789abc # (API key)
+ClientSecret: e123123456456abcdefabcdefabcdef1 # (API secret)
+Name: "noborus" # (ログインID)
+APIAutoTranslate: "mt" #
+APIAutoTranslateType: "c-1640_en_ja" # （翻訳エンジン） 汎用NT は "generalNT_en_ja" になります。
+```
+
+ログイン後 [☁ Web API] → [自動翻訳リクエスト　一覧] → [ℹ API] 等から `API key`と`API secret`、`name`の`ログインID:` を確認してコピー、ペーストしてください。
+
+![API]((https://raw.githubusercontent.com/noborus/jpug-doc-tool/main/doc/APIkey.png)
+
+翻訳エンジンは "c-1640_en_ja" がPostgreSQLマニュアル翻訳用にカスタマイズしたエンジンです。
+もしエラーになる場合は "generalNT_en_ja" にして試してみてください。
+
+ "c-1640_en_ja" が使用できない場合は、ユーザーのグループ化が必要かもしれません。みんなの自動翻訳＠TexTraのアカウントを伝えてください。
+
+設定できたら翻訳できるか試します。 `mt`サブコマンドで英語→日本語の翻訳ができます。
+
+```console
+$ jpug-doc-tool mt "This is a pen."
+Using config file: /home/noborus/.jpug-doc-tool.yaml
+これはペンです。
+```
+
+この翻訳設定は置き換えでも使用します。
+
 ## 英文、日本語文の抽出
 
-まず最初に元ドキュメントから英文と翻訳文を抽出します。`doc_ja_12`のブランチ名か`pg124tail`のようなタグ名に切り替えます。
+まず最初に元ドキュメントから英文と翻訳文を抽出します。`doc_ja_13`のブランチ名か`pg131tail`のようなタグ名に切り替えます。
 
-```sh
-git checkout doc_ja_12
+```console
+git checkout doc_ja_13
 ```
 
 抽出するには `jpug-doc-tool extract`を実行します。
 
-```sh
+```console
 cd github.com/pgsql-jp/jpug-doc/doc/src/sgml
 jpug-doc-tool extract
 ```
@@ -71,7 +106,7 @@ jpug-doc-tool extract
 
 引数がない場合は全部を出力します。
 
-```sh
+```console
 jpug-doc-tool list
 ```
 
@@ -79,13 +114,13 @@ jpug-doc-tool list
 
 sgmlファイルを指定すれば、そのsgmlファイルに対応している英文、日本語文を出力します。
 
-```sh
+```console
 jpug-doc-tool list acronyms.sgml
 ```
 
 オプションにより英語のみ(`--en`)、日本語のみ(`--ja`)を指定できます。
 
-```sh
+```console
 jpug-doc-tool list --en acronyms.sgml
 ```
 
@@ -93,18 +128,51 @@ jpug-doc-tool list --en acronyms.sgml
 
 英文、翻訳文の抽出した翻訳文を新しいバージョンに適用して、英語のみの文書から英語、翻訳文の形式に置き換えます。新しいブランチに切り替えてから `replace`を実行します。ファイル名を指定しなかった場合は全*sgmlファイルを置き換え対象にします。
 
-```sh
+```console
 git checkout doc_ja_13
 jpug-doc-tool replace [ファイル名.sgml]
 ```
 
 置き換えるのは、para内にコメント（英語原文）がない部分のみです。すでに翻訳済みの部分は何もしません。
 
+オプションを付けずに`replace`を実行した場合は、スペース、改行等を除いて完全に一致した場合のみ置き換えます。
+
+### 機械翻訳で翻訳する
+
+`replace`に `--mt`オプションをつけると、機械翻訳によって置き換えます。時間もかかるのでファイルを指定しての実行をオススメします。
+
+```console
+jpug-doc-tool --mt [ファイル名.sgml]
+```
+
+実行すると時間がかかるためAPI問い合わせした場合は以下のように`API...`、`Done`と表示されます。
+
+```console
+API...Done
+API...Done
+...
+```
+
+置き換えした箇所は以下のように`《機械翻訳》｀のコメントの後に翻訳文が追加されています。
+
+```diff
+  <para>
+--- a/doc/src/sgml/hash.sgml
++++ b/doc/src/sgml/hash.sgml
++<!--
+   Hash indexes support only single-column indexes and do not allow
+   uniqueness checking.
++-->
++<!-- 《機械翻訳》 -->
++ハッシュのインデックスはサポートの単一カラムのインデックスのみで、一意性のチェックはできません。
+  </para>
+```
+
 ### 類似文を対象にする
 
-オプションを付けずに`replace`を実行した場合は、スペース、改行等を除いて完全に一致した場合のみ置き換えますが、`-s` 又は `--similar`にスコア（100点満点）をつけると「レーベンシュタイン距離」により文字列の類似度を測って指定したスコア以上であれば置き換えます。時間もかかるのでファイルを指定しての実行をオススメします。
+`-s` 又は `--similar`にスコア（100点満点）のオプションをつけると「レーベンシュタイン距離」により文字列の類似度を測って指定したスコア以上であれば置き換えます。時間もかかるのでファイルを指定しての実行をオススメします。
 
-```sh
+```console
 jpug-doc-tool replace -s 90 [ファイル名.sgml]
 ```
 
@@ -137,7 +205,7 @@ para内の原文と英語をチェックして問題がありそうな箇所を�
 
 オプションがない場合はコメント形式を単純にコメントが含まれていないかをチェックするだけなので、
 
-```sh
+```console
 jpug-doc-tool check
 ```
 
@@ -168,7 +236,7 @@ test
 
 抽出した、英文、日本語文から日本語文に含まれる英単語が英文にも含まれているかチェックします。
 
-```sh
+```console
 jpug-doc-tool check -w
 ```
 
@@ -189,7 +257,7 @@ test is ok
 
 英文にある数値が日本語にもあるかチェックします。
 
-```sh
+```console
 jpug-doc-tool check -n
 ```
 
@@ -213,7 +281,7 @@ vacuumは同時に<filename>pg_xact</filename>サブディレクトリから古�
 
 英文にある内部タグが日本語にもあるかチェックします。
 
-```sh
+```console
 jpug-doc-tool check -t
 ```
 
