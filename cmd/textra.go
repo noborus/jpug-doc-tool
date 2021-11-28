@@ -39,37 +39,8 @@ type MTResult struct {
 			Data  string `json:"data"`
 		} `json:"request"`
 		Result struct {
-			Text        string `json:"text"`
-			Information struct {
-				TextS    string `json:"text-s"`
-				TextT    string `json:"text-t"`
-				Sentence []struct {
-					TextS string `json:"text-s"`
-					TextT string `json:"text-t"`
-					Split []struct {
-						TextS   string `json:"text-s"`
-						TextT   string `json:"text-t"`
-						Process struct {
-							Regex         []interface{} `json:"regex"`
-							ReplaceBefore []interface{} `json:"replace-before"`
-							Preprocess    struct {
-								TextS      string `json:"text-s"`
-								TextT      string `json:"text-t"`
-								Exactmatch []struct {
-									Source   string `json:"source"`
-									Target   string `json:"target"`
-									Dict     string `json:"dict"`
-									Term     string `json:"term"`
-									Score    string `json:"score"`
-									Position string `json:"position"`
-								} `json:"exactmatch"`
-							} `json:"preprocess"`
-							Translate    interface{}   `json:"translate"`
-							ReplaceAfter []interface{} `json:"replace-after"`
-						} `json:"process"`
-					} `json:"split"`
-				} `json:"sentence"`
-			} `json:"information"`
+			Text        string      `json:"text"`
+			Information interface{} `json:"information"`
 		} `json:"result"`
 	} `json:"resultset"`
 }
