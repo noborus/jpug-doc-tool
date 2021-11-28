@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
 
 	"github.com/agnivade/levenshtein"
 	"github.com/spf13/cobra"
+	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 )
 
@@ -21,6 +23,8 @@ type Rep struct {
 	catalog Catalog
 	mt      bool
 	similar int
+	client  *http.Client
+	token   *oauth2.Token
 }
 
 const APIURL = "https://mt-auto-minhon-mlt.ucri.jgn-x.jp/"
@@ -92,22 +96,10 @@ type TextraResult struct {
 	} `json:"resultset"`
 }
 
-func textraTranslate(enstr string) string {
-	ctx := context.Background()
-	conf := &clientcredentials.Config{
-		ClientID:     Conf.ClientID,
-		ClientSecret: Conf.ClientSecret,
-		TokenURL:     APIURL + "oauth2/token.php",
-	}
-
-	client := conf.Client(ctx)
-	token, err := conf.Token(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
+func (rep Rep) textraTranslate(enstr string) string {
 	//fmt.Printf("%#v\n", token)
 	values := url.Values{
-		"access_token": []string{token.AccessToken},
+		"access_token": []string{rep.token.AccessToken},
 		"key":          []string{Conf.ClientID},
 		"api_name":     []string{Conf.APIName},
 		"api_param":    []string{Conf.APIParam},
@@ -117,7 +109,7 @@ func textraTranslate(enstr string) string {
 	}
 	//fmt.Println(values.Encode())
 
-	resp, err := client.PostForm(APIURL+"api/", values)
+	resp, err := rep.client.PostForm(APIURL+"api/", values)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -154,7 +146,7 @@ func (rep Rep) paraReplace(src []byte) []byte {
 
 	if rep.mt {
 		fmt.Print("API問い合わせ...")
-		ja := textraTranslate(enstr)
+		ja := rep.textraTranslate(enstr)
 		ja = KUTEN.ReplaceAllString(ja, "。\n")
 		para := fmt.Sprintf("$1<!--\n%s\n-->\n<!-- 機械翻訳 -->\n%s$3", en, strings.TrimRight(ja, "\n"))
 		ret := REPARA.ReplaceAll(src, []byte(para))
@@ -186,6 +178,22 @@ func (rep Rep) paraReplace(src []byte) []byte {
 	return src
 }
 
+func apiClient() (*http.Client, *oauth2.Token) {
+	ctx := context.Background()
+	conf := &clientcredentials.Config{
+		ClientID:     Conf.ClientID,
+		ClientSecret: Conf.ClientSecret,
+		TokenURL:     APIURL + "oauth2/token.php",
+	}
+
+	client := conf.Client(ctx)
+	token, err := conf.Token(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return client, token
+}
+
 func replace(fileNames []string, mt bool, similar int) {
 	for _, fileName := range fileNames {
 		dicname := DICDIR + fileName + ".t"
@@ -202,6 +210,9 @@ func replace(fileNames []string, mt bool, similar int) {
 			continue
 		}
 
+		client, token := apiClient()
+		rep.client = client
+		rep.token = token
 		ret := REPARA.ReplaceAllFunc(src, rep.Replace)
 
 		if bytes.Equal(src, ret) {
