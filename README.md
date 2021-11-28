@@ -66,7 +66,7 @@ APIAutoTranslateType: "c-1640_en_ja" # （翻訳エンジン） 汎用NT は "ge
 
 ログイン後 [☁ Web API] → [自動翻訳リクエスト　一覧] → [ℹ API] 等から `API key`と`API secret`、`name`の`ログインID:` を確認してコピー、ペーストしてください。
 
-![API]((https://raw.githubusercontent.com/noborus/jpug-doc-tool/main/doc/APIkey.png)
+![API](https://raw.githubusercontent.com/noborus/jpug-doc-tool/main/doc/APIkey.png)
 
 翻訳エンジンは "c-1640_en_ja" がPostgreSQLマニュアル翻訳用にカスタマイズしたエンジンです。
 もしエラーになる場合は "generalNT_en_ja" にして試してみてください。
