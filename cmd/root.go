@@ -14,18 +14,33 @@ import (
 var cfgFile string
 var DICDIR = "./.jpug-doc-tool/"
 
+type apiConfig struct {
+	ClientID             string
+	ClientSecret         string
+	Name                 string
+	APIAutoTranslate     string
+	APIAutoTranslateType string
+}
+
+var Config apiConfig
+
 func ignoreFileNames(fileNames []string) []string {
 	var ignoreFile map[string]struct{} = map[string]struct{}{
-		"jpug-doc.sgml": {},
-		"config0.sgml":  {},
-		"config1.sgml":  {},
-		"config2.sgml":  {},
-		"config3.sgml":  {},
-		"func0.sgml":    {},
-		"func1.sgml":    {},
-		"func2.sgml":    {},
-		"func3.sgml":    {},
-		"func4.sgml":    {},
+		"jpug-doc.sgml":  {},
+		"config0.sgml":   {},
+		"config1.sgml":   {},
+		"config2.sgml":   {},
+		"config3.sgml":   {},
+		"func0.sgml":     {},
+		"func1.sgml":     {},
+		"func2.sgml":     {},
+		"func3.sgml":     {},
+		"func4.sgml":     {},
+		"catalogs0.sgml": {},
+		"catalogs1.sgml": {},
+		"catalogs2.sgml": {},
+		"catalogs3.sgml": {},
+		"catalogs4.sgml": {},
 	}
 
 	ret := make([]string, 0, len(fileNames))
@@ -104,6 +119,11 @@ func initConfig() {
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
+	} else {
+		home, err := os.UserHomeDir()
+		cobra.CheckErr(err)
+		viper.AddConfigPath(home)
+		viper.SetConfigName(".jpug-doc-tool")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
@@ -111,6 +131,11 @@ func initConfig() {
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+	}
+	if err := viper.Unmarshal(&Config); err != nil {
+		fmt.Println("config file Unmarshal error")
+		fmt.Println(err)
+		os.Exit(1)
 	}
 }
 

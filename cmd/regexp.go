@@ -9,11 +9,7 @@ var REPARA = regexp.MustCompile(`(?s)(<para>\n*)(.*?)(\s*</para>)`)
 
 // 文書から <para> </para>を取得してsliceで返す
 func paraAll(src []byte) [][]byte {
-	var ret [][]byte
-	for _, para := range REPARA.FindAll(src, -1) {
-		ret = append(ret, para)
-	}
-	return ret
+	return REPARA.FindAll(src, -1)
 }
 
 // <para><literal></literal></para>に一致させる
@@ -32,11 +28,7 @@ var REROWS = regexp.MustCompile(`(?s)(<row>\n*)(.*?)(\s+</row>)`)
 
 // 文書から <rows> </rows>を取得してsliceで返す
 func rowsAll(src []byte) [][]byte {
-	var ret [][]byte
-	for _, para := range REROWS.FindAll(src, -1) {
-		ret = append(ret, para)
-	}
-	return ret
+	return REROWS.FindAll(src, -1)
 }
 
 // <entry> </entry> と一致
@@ -52,10 +44,7 @@ var RECOMMENT = regexp.MustCompile(`(?s)<!--(.*?)-->`)
 
 // コメントが含まれていれば true
 func containComment(src []byte) bool {
-	if RECOMMENT.Match(src) {
-		return true
-	}
-	return false
+	return RECOMMENT.Match(src)
 }
 
 // XMLのコメント閉じタグに一致
@@ -63,10 +52,7 @@ var RECOMMENTEND = regexp.MustCompile(`-->`)
 
 // 先にコメントが含まれているかチェックして、コメント閉じタグのみの場合に true
 func containCommentEnd(src []byte) bool {
-	if RECOMMENTEND.Match(src) {
-		return true
-	}
-	return false
+	return RECOMMENTEND.Match(src)
 }
 
 // コメント（英語原文）と続く文書（日本語翻訳）を取得
@@ -112,3 +98,5 @@ var STRIPNONJA = regexp.MustCompile(`[\s\,\(\)\.a-zA-Z0-9\-\/\<\>\n*]+$`)
 func stripNONJA(src []byte) []byte {
 	return STRIPNONJA.ReplaceAll(src, []byte(""))
 }
+
+var KUTEN = regexp.MustCompile(`。`)

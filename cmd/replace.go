@@ -12,15 +12,18 @@ import (
 )
 
 type Catalog map[string]string
+
 type Rep struct {
 	catalog Catalog
+	mt      bool
 	similar int
+	api     MTClient
 }
 
 func loadCatalog(fileName string) Catalog {
 	src, err := ReadFile(fileName)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
+		fmt.Fprint(os.Stderr, err.Error())
 		return nil
 	}
 	catalog := make(map[string]string)
@@ -58,6 +61,16 @@ func (rep Rep) paraReplace(src []byte) []byte {
 		return ret
 	}
 
+	if rep.mt {
+		fmt.Print("API...")
+		ja := rep.api.textraTranslate(enstr)
+		ja = KUTEN.ReplaceAllString(ja, "。\n")
+		para := fmt.Sprintf("$1<!--\n%s\n-->\n<!-- 《機械翻訳》 -->\n%s$3", en, strings.TrimRight(ja, "\n"))
+		ret := REPARA.ReplaceAll(src, []byte(para))
+		fmt.Print("Done\n")
+		return ret
+	}
+
 	if rep.similar == 0 {
 		return src
 	}
@@ -82,36 +95,45 @@ func (rep Rep) paraReplace(src []byte) []byte {
 	return src
 }
 
-func replace(fileNames []string, similar int) {
+func replace(fileNames []string, mt bool, similar int) {
 	for _, fileName := range fileNames {
 		dicname := DICDIR + fileName + ".t"
 		catalog := loadCatalog(dicname)
+
 		rep := Rep{
 			similar: similar,
 			catalog: catalog,
+			mt:      mt,
 		}
+		rep.api = apiClient(Config)
 
 		src, err := ReadFile(fileName)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, err.Error())
+			fmt.Fprint(os.Stderr, err.Error())
 			continue
 		}
 
 		ret := REPARA.ReplaceAllFunc(src, rep.Replace)
-
 		if bytes.Equal(src, ret) {
 			continue
 		}
 
-		fmt.Printf("replace: %s\n", fileName)
-		out, err := os.Create(fileName)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, err.Error())
-			continue
+		if err := rewriteFile(fileName, ret); err != nil {
+			fmt.Fprint(os.Stderr, err.Error())
 		}
-		fmt.Fprint(out, string(ret))
-		out.Close()
 	}
+}
+
+//  file rewrite.
+func rewriteFile(fileName string, body []byte) error {
+	fmt.Printf("replace: %s\n", fileName)
+	out, err := os.Create(fileName)
+	if err != nil {
+		return err
+	}
+	fmt.Fprint(out, string(body))
+	out.Close()
+	return nil
 }
 
 // replaceCmd represents the replace command
@@ -120,25 +142,30 @@ var replaceCmd = &cobra.Command{
 	Short: "英語のパラグラフを「<!--英語-->日本語翻訳」に置き換える",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
+		var mt bool
 		var similar int
 		var err error
+		fmt.Printf("%#v\n", Config.Name)
 		if similar, err = cmd.PersistentFlags().GetInt("similar"); err != nil {
 			log.Println(err)
 			return
 		}
-
+		if mt, err = cmd.PersistentFlags().GetBool("mt"); err != nil {
+			log.Println(err)
+			return
+		}
 		if len(args) > 0 {
-			replace(args, similar)
+			replace(args, mt, similar)
 			return
 		}
 
 		fileNames := targetFileName()
-		replace(fileNames, similar)
+		replace(fileNames, mt, similar)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(replaceCmd)
 	replaceCmd.PersistentFlags().IntP("similar", "s", 0, "Degree of similarity")
-
+	replaceCmd.PersistentFlags().BoolP("mt", "", false, "Use machine translation")
 }
