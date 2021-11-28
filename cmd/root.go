@@ -14,15 +14,15 @@ import (
 var cfgFile string
 var DICDIR = "./.jpug-doc-tool/"
 
-type config struct {
-	ClientID     string
-	ClientSecret string
-	Name         string
-	APIName      string
-	APIParam     string
+type apiConfig struct {
+	ClientID             string
+	ClientSecret         string
+	Name                 string
+	APIAutoTranslate     string
+	APIAutoTranslateType string
 }
 
-var Conf config
+var Config apiConfig
 
 func ignoreFileNames(fileNames []string) []string {
 	var ignoreFile map[string]struct{} = map[string]struct{}{
@@ -132,7 +132,7 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 	}
-	if err := viper.Unmarshal(&Conf); err != nil {
+	if err := viper.Unmarshal(&Config); err != nil {
 		fmt.Println("config file Unmarshal error")
 		fmt.Println(err)
 		os.Exit(1)
