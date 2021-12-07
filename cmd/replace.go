@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/agnivade/levenshtein"
+	"github.com/noborus/go-textra"
 	"github.com/spf13/cobra"
 )
 
@@ -17,7 +18,8 @@ type Rep struct {
 	catalog Catalog
 	mt      bool
 	similar int
-	api     MTClient
+	api     *textra.TexTra
+	apiType string
 }
 
 func loadCatalog(fileName string) Catalog {
@@ -63,7 +65,11 @@ func (rep Rep) paraReplace(src []byte) []byte {
 
 	if rep.mt {
 		fmt.Print("API...")
-		ja := rep.api.textraTranslate(enstr)
+		ja, err := rep.api.Translate(rep.apiType, enstr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "replace: %s", err)
+			return src
+		}
 		ja = KUTEN.ReplaceAllString(ja, "。\n")
 		para := fmt.Sprintf("$1<!--\n%s\n-->\n<!-- 《機械翻訳》 -->\n%s$3", en, strings.TrimRight(ja, "\n"))
 		ret := REPARA.ReplaceAll(src, []byte(para))
@@ -96,6 +102,15 @@ func (rep Rep) paraReplace(src []byte) []byte {
 }
 
 func replace(fileNames []string, mt bool, similar int) {
+	apiConfig := textra.Config{}
+	apiConfig.ClientID = Config.ClientID
+	apiConfig.ClientSecret = Config.ClientSecret
+	apiConfig.Name = Config.Name
+	cli, err := textra.New(apiConfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "textra: %s", err)
+	}
+
 	for _, fileName := range fileNames {
 		dicname := DICDIR + fileName + ".t"
 		catalog := loadCatalog(dicname)
@@ -104,8 +119,13 @@ func replace(fileNames []string, mt bool, similar int) {
 			similar: similar,
 			catalog: catalog,
 			mt:      mt,
+			apiType: Config.APIAutoTranslateType,
 		}
-		rep.api = apiClient(Config)
+		if mt && cli != nil {
+			rep.api = cli
+		} else {
+			rep.mt = false
+		}
 
 		src, err := ReadFile(fileName)
 		if err != nil {

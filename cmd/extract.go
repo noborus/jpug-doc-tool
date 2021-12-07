@@ -49,7 +49,7 @@ func Extraction(src []byte) []Pair {
 	for _, para := range paras {
 		pair, left, err := enjaPair(para)
 		if err != nil {
-			continue
+			pair.en = string(para)
 		}
 		pairs = append(pairs, pair)
 		for len(left) > 0 {

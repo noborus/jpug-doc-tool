@@ -49,7 +49,7 @@ func Test_paraAll(t *testing.T) {
 -->`),
 			},
 			want: [][]byte{
-				[]byte("<!--\n<para>test</para>"),
+				[]byte("<para>test</para>"),
 			},
 		},
 	}
