@@ -50,15 +50,15 @@ export FORCE_COLOR=1
 
 ## 機械翻訳
 
-[みんなの自動翻訳＠TexTra®](https://mt-auto-minhon-mlt.ucri.jgn-x.jp/)のAPをを利用して、翻訳します。
+[みんなの自動翻訳＠TexTra®](https://mt-auto-minhon-mlt.ucri.jgn-x.jp/)のAPIをを利用して、翻訳します。
 
 みんなの自動翻訳＠TexTraのアカウントが必要です。まずアカウントを作成してください。
 
 アカウントを作成したら、`$(HOME)/.jpug-doc-tool.yaml` にAPIの設定を書きます。
 
 ```yaml
-ClientID: 1234567890abcdef123456789abc # (API key)
-ClientSecret: e123123456456abcdefabcdefabcdef1 # (API secret)
+ClientID: 1234567890abcdef1234567dummy # (API key)
+ClientSecret: e123123456456abcdefabcdefabdummy # (API secret)
 Name: "noborus" # (ログインID)
 APIAutoTranslate: "mt" #
 APIAutoTranslateType: "c-1640_en_ja" # （翻訳エンジン） 汎用NT は "generalNT_en_ja" になります。
