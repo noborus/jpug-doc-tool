@@ -47,6 +47,9 @@ func containComment(src []byte) bool {
 	return RECOMMENT.Match(src)
 }
 
+// XMLのコメント開始タグに一致
+var RECOMMENTSTART = regexp.MustCompile(`<!--`)
+
 // XMLのコメント閉じタグに一致
 var RECOMMENTEND = regexp.MustCompile(`-->`)
 

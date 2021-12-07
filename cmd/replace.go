@@ -63,8 +63,13 @@ func (rep Rep) paraReplace(src []byte) []byte {
 		return ret
 	}
 
+	// <literal>.*</literal>又は<literal>.*</literal><returnvalue>.*</returnvalue>又は+programlisting のみのparaだった場合は無視する
+	if RELITERAL.Match(src) || RELIRET.Match(src) || RELIRETPROG.Match(src) || RECOMMENTSTART.Match(src) {
+		return src
+	}
+
 	if rep.mt {
-		fmt.Print("API...")
+		fmt.Printf("API...[%.30s] ", enstr)
 		ja, err := rep.api.Translate(rep.apiType, enstr)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "replace: %s", err)
