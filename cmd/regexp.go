@@ -5,7 +5,7 @@ import (
 )
 
 // <para> </para> に一致させる
-var REPARA = regexp.MustCompile(`(?s)(<para>\n*)(.*?)(\s*</para>)`)
+var REPARA = regexp.MustCompile(`(<!--\n?\s+)?(?s)(<para>\n*)(.*?)(\s*</para>)`)
 
 // 文書から <para> </para>を取得してsliceで返す
 func paraAll(src []byte) [][]byte {
