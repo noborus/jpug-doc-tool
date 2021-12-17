@@ -5,7 +5,7 @@ import (
 )
 
 // <para> </para> に一致させる
-var REPARA = regexp.MustCompile(`(<!--\n?\s+)?(?s)(<para>\n*)(.*?)(\s*</para>)`)
+var REPARA = regexp.MustCompile(`(<!--\n?\s+)?(?s)(<para>\n*)(.*?)(\s*</para>)(\n*\s*-->)?`)
 
 // 文書から <para> </para>を取得してsliceで返す
 func paraAll(src []byte) [][]byte {
@@ -58,6 +58,17 @@ func containCommentEnd(src []byte) bool {
 	return RECOMMENTEND.Match(src)
 }
 
+// 最初がコメント始まりに一致
+var STARTCOMMENT = regexp.MustCompile(`^<!--`)
+
+// 最後がコメント終わりに一致
+var ENDCOMMENT = regexp.MustCompile(`-->$`)
+
+// 最後がコメント終わりであればtrue
+func endComment(src []byte) bool {
+	return ENDCOMMENT.Match(src)
+}
+
 // コメント（英語原文）と続く文書（日本語翻訳）を取得
 // 100%一致する訳ではない
 var EXCOMMENT = regexp.MustCompile(`(?s)<!--(.*?)-->(.*?)(</row>|<!--|<note>|<informaltable>|<footnote>|<screen>|<synopsis>|<variablelist>|<programlisting>|<itemizedlist>|<simplelist>|<itemizedlist|<orderedlist|</para>)`)
@@ -71,7 +82,7 @@ func splitComment(src []byte) (en []byte, ja []byte, ex []byte) {
 var MultiSpace = regexp.MustCompile(`\s+`)
 
 // カタログから英語と日本語を取得
-var SPLITCATALOG = regexp.MustCompile(`(?s)⦃(.*?)⦀(.*?)⦄`)
+var SPLITCATALOG = regexp.MustCompile(`(?s)␝(.*?)␟(.*?)␞`)
 
 // 英単語 + /
 var ENWORD = regexp.MustCompile(`[/a-zA-Z]+`)

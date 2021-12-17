@@ -102,8 +102,8 @@ func extract(fileNames []string) {
 		}
 
 		for _, pair := range pairs {
-			fmt.Fprintf(f, "⦃%s⦀", pair.en)
-			fmt.Fprintf(f, "%s⦄\n", pair.ja)
+			fmt.Fprintf(f, "␝%s␟", pair.en)
+			fmt.Fprintf(f, "%s␞\n", pair.ja)
 		}
 		f.Close()
 	}

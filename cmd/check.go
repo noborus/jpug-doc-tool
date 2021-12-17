@@ -15,6 +15,7 @@ import (
 // commentCheck は<para>内にコメント（<!-- -->)が含まれているかチェックする
 func commentCheck(src []byte) string {
 	out := new(bytes.Buffer)
+	preComment := false
 	for _, para := range REPARA.FindAll(src, -1) {
 		if !containComment(para) {
 			if containCommentEnd(para) {
@@ -25,7 +26,16 @@ func commentCheck(src []byte) string {
 			if RELITERAL.Match(para) || RELIRET.Match(para) || RELIRETPROG.Match(para) {
 				continue
 			}
-			checkOutput(out, gchalk.Red("コメントがありません"), string(para), "")
+			if !preComment {
+				checkOutput(out, gchalk.Red("コメントがありません"), string(para), "")
+			}
+			preComment = false
+			continue
+		}
+		if endComment(para) {
+			preComment = true
+		} else {
+			preComment = false
 		}
 	}
 	return out.String()
