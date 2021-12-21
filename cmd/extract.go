@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"os"
@@ -38,23 +39,51 @@ func enjaPair(para []byte) (Pair, []byte, error) {
 	if string(re[3]) == "<!--" {
 		return pair, para[len(re[0])+3:], nil
 	}
-
+	if string(re[3]) == "<itemizedlist>" {
+		left := para[len(re[0])+14:]
+		left = bytes.ReplaceAll(left, []byte("<listitem>"), []byte(""))
+		return pair, left, nil
+	}
 	return pair, nil, nil
+}
+
+func enCandidate(en string) string {
+	en = RECOMMENTSTART.ReplaceAllString(en, "")
+	en = RECOMMENTEND.ReplaceAllString(en, "")
+	en = MultiSpace.ReplaceAllString(en, " ")
+	en = strings.ReplaceAll(en, "\n", " ")
+	en = strings.TrimSpace(en)
+	return en
 }
 
 // src を原文と日本語訳の対の配列に変換する
 func Extraction(src []byte) []Pair {
 	var pairs []Pair
 	paras := REPARA.FindAll([]byte(src), -1)
+	en := ""
 	for _, para := range paras {
 		pair, left, err := enjaPair(para)
 		if err != nil {
-			pair.en = string(para)
+			if STARTCOMMENT.Match(para) && en == "" {
+				en = enCandidate(string(para))
+			} else {
+				pair.en = en
+				pair.ja = string(para)
+				en = ""
+			}
 		}
 		pairs = append(pairs, pair)
 		for len(left) > 0 {
+			tmpLeft := left
 			pair, left, err = enjaPair(left)
 			if err != nil {
+				if en == "" {
+					en = enCandidate(string(tmpLeft))
+				} else {
+					pair.en = en
+					pair.ja = string(para)
+					en = ""
+				}
 				continue
 			}
 			pairs = append(pairs, pair)
@@ -117,10 +146,10 @@ var extractCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) > 0 {
 			extract(args)
+			return
 		}
 		fileNames := targetFileName()
 		extract(fileNames)
-
 	},
 }
 
