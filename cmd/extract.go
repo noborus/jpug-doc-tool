@@ -98,7 +98,7 @@ func Extraction(src []byte) []Pair {
 		}
 		enstr := string(re[1])
 		enstr = ENTRYSTRIP.ReplaceAllString(enstr, "")
-		enstr = strings.ReplaceAll(enstr, "\n", " ")
+		enstr = MultiNL.ReplaceAllString(enstr, " ")
 		enstr = MultiSpace.ReplaceAllString(enstr, " ")
 		enstr = strings.TrimSpace(enstr)
 

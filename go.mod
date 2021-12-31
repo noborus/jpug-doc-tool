@@ -6,6 +6,7 @@ require (
 	github.com/agnivade/levenshtein v1.1.1
 	github.com/jwalton/gchalk v1.2.1
 	github.com/noborus/go-textra v0.0.0-20211213062037-cd7ba585e45f
+	github.com/spf13/afero v1.7.1 // indirect
 	github.com/spf13/cobra v1.3.0
 	github.com/spf13/viper v1.10.1
 	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f // indirect

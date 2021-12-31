@@ -80,6 +80,7 @@ func splitComment(src []byte) (en []byte, ja []byte, ex []byte) {
 
 // 複数のスペースと一致
 var MultiSpace = regexp.MustCompile(`\s+`)
+var MultiNL = regexp.MustCompile(`\n+`)
 
 // カタログから英語と日本語を取得
 var SPLITCATALOG = regexp.MustCompile(`(?s)␝(.*?)␟(.*?)␞`)
@@ -88,7 +89,7 @@ var SPLITCATALOG = regexp.MustCompile(`(?s)␝(.*?)␟(.*?)␞`)
 var ENWORD = regexp.MustCompile(`[/a-zA-Z]+`)
 
 // XMLタグ
-var XMLTAG = regexp.MustCompile(`<[^/]*?>`)
+var XMLTAG = regexp.MustCompile(`<[^>]*?>|<[^<>]+/>`)
 
 // 数値
 var ENNUM = regexp.MustCompile(`[0-9,]+`)

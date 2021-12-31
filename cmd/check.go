@@ -46,10 +46,13 @@ func tagCheck(en string, ja string) []string {
 	tags := XMLTAG.FindAllString(en, -1)
 	unTag := make([]string, 0)
 	for _, t := range tags {
-		if t == "<programlisting>" || t == "<screen>" || t == "<footnote>" || t == "<synopsis>" {
-			continue
+		if t == "<programlisting>" || t == "<screen>" || t == "<footnote>" || t == "<synopsis>" || t == "<replaceable>" {
+			break
 		}
-		if !strings.Contains(strings.ToLower(ja), strings.ToLower(t)) {
+		if t == "</para>" {
+			break
+		}
+		if !strings.Contains(ja, t) {
 			unTag = append(unTag, t)
 		}
 	}
@@ -102,9 +105,11 @@ func fileCheck(src []byte, word bool, tag bool, num bool) string {
 	for _, pair := range Extraction(src) {
 		en := pair.en
 		ja := pair.ja
-		if len(ja) == 0 {
+		if len(en) == 0 || len(ja) == 0 {
 			continue
 		}
+		ja = MultiNL.ReplaceAllString(ja, " ")
+		ja = MultiSpace.ReplaceAllString(ja, " ")
 
 		if word {
 			unword := wordCheck(en, ja)
