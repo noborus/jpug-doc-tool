@@ -40,7 +40,7 @@ func loadIgnore(fileName string) IgnoreList {
 func commentCheck(src []byte) []result {
 	var results []result
 	preComment := false
-	for _, para := range REPARA.FindAll(src, -1) {
+	for _, para := range CHECKPARA.FindAll(src, -1) {
 		if !containComment(para) {
 			if containCommentEnd(para) {
 				r := makeResult(gchalk.Red("コメントが始まっていません"), string(para), "")

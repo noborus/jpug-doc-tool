@@ -51,14 +51,14 @@ func promptReplace(src []byte, replace []byte) []byte {
 	if !prompter.YN("replace?", false) {
 		return src
 	}
-	return REPLACEPARA.ReplaceAll(src, []byte(replace))
+	return REPARA.ReplaceAll(src, []byte(replace))
 }
 
 func (rep Rep) paraReplace(src []byte) []byte {
 	if RECOMMENT.Match(src) {
 		return src
 	}
-	re := REPLACEPARA.FindSubmatch(src)
+	re := REPARA.FindSubmatch(src)
 	en := strings.TrimRight(string(re[2]), "\n")
 
 	enstr := strings.ReplaceAll(en, "\n", " ")
@@ -73,7 +73,7 @@ func (rep Rep) paraReplace(src []byte) []byte {
 			fmt.Println(string(ja))
 			return promptReplace(src, []byte(para))
 		}
-		return REPLACEPARA.ReplaceAll(src, []byte(para))
+		return REPARA.ReplaceAll(src, []byte(para))
 	}
 
 	// <literal>.*</literal>又は<literal>.*</literal><returnvalue>.*</returnvalue>又は+programlisting のみのparaだった場合は無視する
@@ -101,7 +101,7 @@ func (rep Rep) paraReplace(src []byte) []byte {
 			fmt.Println(string(ja))
 			return promptReplace(src, []byte(para))
 		}
-		return REPLACEPARA.ReplaceAll(src, []byte(para))
+		return REPARA.ReplaceAll(src, []byte(para))
 	}
 
 	if rep.similar == 0 {
@@ -128,7 +128,7 @@ func (rep Rep) paraReplace(src []byte) []byte {
 			fmt.Println(string(dja))
 			return promptReplace(src, []byte(para))
 		}
-		return REPLACEPARA.ReplaceAll(src, []byte(para))
+		return REPARA.ReplaceAll(src, []byte(para))
 	}
 	return src
 }
@@ -166,7 +166,7 @@ func replace(fileNames []string, mt bool, similar int, prompt bool) {
 			continue
 		}
 
-		ret := REPLACEPARA.ReplaceAllFunc(src, rep.Replace)
+		ret := REPARA.ReplaceAllFunc(src, rep.Replace)
 		if bytes.Equal(src, ret) {
 			continue
 		}

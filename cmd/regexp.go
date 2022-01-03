@@ -5,12 +5,14 @@ import (
 )
 
 // <para> </para> に一致させる
-var REPARA = regexp.MustCompile(`(<!--\n?\s+)?(?s)(<para>\n*)(.*?)(\s*</para>)(\n*\s*-->)?`)
-var REPLACEPARA = regexp.MustCompile(`(?s)(<para>\n*)(.*?)(\s*</para>)`)
+var REPARA = regexp.MustCompile(`(?s)(<para>\n*)(.*?)(\s*</para>)`)
+
+// <para> </para> に一致させる（チェック用）
+var CHECKPARA = regexp.MustCompile(`(<!--\n?\s+)?(?s)(<para>\n*)(.*?)(\s*</para>)(\n*\s*-->)?`)
 
 // 文書から <para> </para>を取得してsliceで返す
 func paraAll(src []byte) [][]byte {
-	return REPARA.FindAll(src, -1)
+	return CHECKPARA.FindAll(src, -1)
 }
 
 // <para><literal></literal></para>に一致させる
