@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Songmu/prompter"
 	"github.com/agnivade/levenshtein"
 	"github.com/noborus/go-textra"
 	"github.com/spf13/cobra"
@@ -17,6 +18,7 @@ type Catalog map[string]string
 type Rep struct {
 	catalog Catalog
 	mt      bool
+	prompt  bool
 	similar int
 	api     *textra.TexTra
 	apiType string
@@ -45,12 +47,18 @@ func (rep Rep) Replace(src []byte) []byte {
 	return ret
 }
 
+func promptReplace(src []byte, replace []byte) []byte {
+	if !prompter.YN("replace?", false) {
+		return src
+	}
+	return REPLACEPARA.ReplaceAll(src, []byte(replace))
+}
+
 func (rep Rep) paraReplace(src []byte) []byte {
 	if RECOMMENT.Match(src) {
 		return src
 	}
-	re := REPARA.FindSubmatch(src)
-
+	re := REPLACEPARA.FindSubmatch(src)
 	en := strings.TrimRight(string(re[2]), "\n")
 
 	enstr := strings.ReplaceAll(en, "\n", " ")
@@ -59,8 +67,13 @@ func (rep Rep) paraReplace(src []byte) []byte {
 
 	if ja, ok := rep.catalog[enstr]; ok {
 		para := fmt.Sprintf("$1<!--\n%s\n-->\n%s$3", en, strings.TrimRight(ja, "\n"))
-		ret := REPARA.ReplaceAll(src, []byte(para))
-		return ret
+		if rep.prompt {
+			fmt.Println(string(src))
+			fmt.Println("前回と一致")
+			fmt.Println(string(ja))
+			return promptReplace(src, []byte(para))
+		}
+		return REPLACEPARA.ReplaceAll(src, []byte(para))
 	}
 
 	// <literal>.*</literal>又は<literal>.*</literal><returnvalue>.*</returnvalue>又は+programlisting のみのparaだった場合は無視する
@@ -75,11 +88,20 @@ func (rep Rep) paraReplace(src []byte) []byte {
 			fmt.Fprintf(os.Stderr, "replace: %s", err)
 			return src
 		}
+		if ja == "" {
+			return src
+		}
 		ja = KUTEN.ReplaceAllString(ja, "。\n")
 		para := fmt.Sprintf("$1<!--\n%s\n-->\n<!-- 《機械翻訳》 -->\n%s$3", en, strings.TrimRight(ja, "\n"))
-		ret := REPARA.ReplaceAll(src, []byte(para))
 		fmt.Print("Done\n")
-		return ret
+
+		if rep.prompt {
+			fmt.Println(string(src))
+			fmt.Println("機械翻訳")
+			fmt.Println(string(ja))
+			return promptReplace(src, []byte(para))
+		}
+		return REPLACEPARA.ReplaceAll(src, []byte(para))
 	}
 
 	if rep.similar == 0 {
@@ -100,13 +122,18 @@ func (rep Rep) paraReplace(src []byte) []byte {
 	}
 	if maxdis > float64(rep.similar) {
 		para := fmt.Sprintf("$1<!--\n%s\n-->\n<!-- マッチ度[%f]\n%s\n-->\n%s$3", en, maxdis, strings.TrimRight(den, "\n"), strings.TrimRight(dja, "\n"))
-		ret := REPARA.ReplaceAll(src, []byte(para))
-		return ret
+		if rep.prompt {
+			fmt.Println(string(src))
+			fmt.Println("類似置き換え")
+			fmt.Println(string(dja))
+			return promptReplace(src, []byte(para))
+		}
+		return REPLACEPARA.ReplaceAll(src, []byte(para))
 	}
 	return src
 }
 
-func replace(fileNames []string, mt bool, similar int) {
+func replace(fileNames []string, mt bool, similar int, prompt bool) {
 	apiConfig := textra.Config{}
 	apiConfig.ClientID = Config.ClientID
 	apiConfig.ClientSecret = Config.ClientSecret
@@ -131,6 +158,7 @@ func replace(fileNames []string, mt bool, similar int) {
 		} else {
 			rep.mt = false
 		}
+		rep.prompt = prompt
 
 		src, err := ReadFile(fileName)
 		if err != nil {
@@ -138,7 +166,7 @@ func replace(fileNames []string, mt bool, similar int) {
 			continue
 		}
 
-		ret := REPARA.ReplaceAllFunc(src, rep.Replace)
+		ret := REPLACEPARA.ReplaceAllFunc(src, rep.Replace)
 		if bytes.Equal(src, ret) {
 			continue
 		}
@@ -169,6 +197,7 @@ var replaceCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var mt bool
 		var similar int
+		var prompt bool
 		var err error
 		if similar, err = cmd.PersistentFlags().GetInt("similar"); err != nil {
 			log.Println(err)
@@ -178,13 +207,18 @@ var replaceCmd = &cobra.Command{
 			log.Println(err)
 			return
 		}
+		if prompt, err = cmd.PersistentFlags().GetBool("prompt"); err != nil {
+			log.Println(err)
+			return
+		}
+
 		if len(args) > 0 {
-			replace(args, mt, similar)
+			replace(args, mt, similar, prompt)
 			return
 		}
 
 		fileNames := targetFileName()
-		replace(fileNames, mt, similar)
+		replace(fileNames, mt, similar, prompt)
 	},
 }
 
@@ -192,4 +226,6 @@ func init() {
 	rootCmd.AddCommand(replaceCmd)
 	replaceCmd.PersistentFlags().IntP("similar", "s", 0, "Degree of similarity")
 	replaceCmd.PersistentFlags().BoolP("mt", "", false, "Use machine translation")
+	replaceCmd.PersistentFlags().BoolP("prompt", "i", false, "Prompt before each replacement")
+
 }
