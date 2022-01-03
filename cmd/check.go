@@ -1,25 +1,50 @@
 package cmd
 
 import (
-	"bytes"
+	"bufio"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 
+	"github.com/Songmu/prompter"
 	"github.com/jwalton/gchalk"
 	"github.com/spf13/cobra"
 	"golang.org/x/text/width"
 )
 
+type result struct {
+	comment string
+	en      string
+	ja      string
+}
+
+type IgnoreList map[string]bool
+
+func loadIgnore(fileName string) IgnoreList {
+	f, err := os.Open(fileName)
+	if err != nil {
+		return nil
+	}
+	ignores := make(map[string]bool)
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		ignores[scanner.Text()] = true
+	}
+	return ignores
+}
+
 // commentCheck は<para>内にコメント（<!-- -->)が含まれているかチェックする
-func commentCheck(src []byte) string {
-	out := new(bytes.Buffer)
+func commentCheck(src []byte) []result {
+	var results []result
 	preComment := false
 	for _, para := range REPARA.FindAll(src, -1) {
 		if !containComment(para) {
 			if containCommentEnd(para) {
-				checkOutput(out, gchalk.Red("コメントが始まっていません"), string(para), "")
+				r := makeResult(gchalk.Red("コメントが始まっていません"), string(para), "")
+				results = append(results, r)
 				continue
 			}
 			// <literal>.*</literal>又は<literal>.*</literal><returnvalue>.*</returnvalue>又は+programlisting のみのparaだった場合は無視する
@@ -27,7 +52,8 @@ func commentCheck(src []byte) string {
 				continue
 			}
 			if !preComment {
-				checkOutput(out, gchalk.Red("コメントがありません"), string(para), "")
+				r := makeResult(gchalk.Red("コメントがありません"), string(para), "")
+				results = append(results, r)
 			}
 			preComment = false
 			continue
@@ -38,7 +64,7 @@ func commentCheck(src []byte) string {
 			preComment = false
 		}
 	}
-	return out.String()
+	return results
 }
 
 // 原文内のタグが日本語内にあるかチェックする
@@ -46,10 +72,7 @@ func tagCheck(en string, ja string) []string {
 	tags := XMLTAG.FindAllString(en, -1)
 	unTag := make([]string, 0)
 	for _, t := range tags {
-		if t == "<programlisting>" || t == "<screen>" || t == "<footnote>" || t == "<synopsis>" || t == "<replaceable>" {
-			break
-		}
-		if t == "</para>" {
+		if t == "<programlisting>" || t == "<screen>" || t == "<footnote>" || t == "<synopsis>" || t == "<replaceable>" || t == "</para>" {
 			break
 		}
 		if !strings.Contains(ja, t) {
@@ -100,12 +123,17 @@ func wordCheck(en string, ja string) []string {
 }
 
 // fileCheck は日本語翻訳中にある英単語が英語に含まれているかをチェックする
-func fileCheck(src []byte, word bool, tag bool, num bool) string {
-	out := new(bytes.Buffer)
+func fileCheck(fileName string, src []byte, word bool, tag bool, num bool) []result {
+	var results []result
+	ignoreName := DICDIR + fileName + ".ignore"
+	ignores := loadIgnore(ignoreName)
 	for _, pair := range Extraction(src) {
 		en := pair.en
 		ja := pair.ja
 		if len(en) == 0 || len(ja) == 0 {
+			continue
+		}
+		if ignores[en] {
 			continue
 		}
 		ja = MultiNL.ReplaceAllString(ja, " ")
@@ -114,64 +142,93 @@ func fileCheck(src []byte, word bool, tag bool, num bool) string {
 		if word {
 			unword := wordCheck(en, ja)
 			if len(unword) > 0 {
-				checkOutput(out, fmt.Sprintf("[%s]が含まれていません", gchalk.Red(strings.Join(unword, " ｜ "))), en, ja)
+				r := makeResult(fmt.Sprintf("[%s]が含まれていません", gchalk.Red(strings.Join(unword, " ｜ "))), en, ja)
+				results = append(results, r)
 			}
 		}
 
 		if tag {
 			untag := tagCheck(en, ja)
 			if len(untag) > 0 {
-				checkOutput(out, fmt.Sprintf("原文にある[%s]が含まれていません", gchalk.Red(strings.Join(untag, " ｜ "))), en, ja)
+				r := makeResult(fmt.Sprintf("原文にある[%s]が含まれていません", gchalk.Red(strings.Join(untag, " ｜ "))), en, ja)
+				results = append(results, r)
 			}
 		}
 
 		if num {
 			unNum := numCheck(en, ja)
 			if len(unNum) > 0 {
-				checkOutput(out, fmt.Sprintf("原文にある[%s]が含まれていません", gchalk.Red(strings.Join(unNum, " ｜ "))), en, ja)
+				r := makeResult(fmt.Sprintf("原文にある[%s]が含まれていません", gchalk.Red(strings.Join(unNum, " ｜ "))), en, ja)
+				results = append(results, r)
 			}
 		}
 	}
-	return out.String()
+	return results
 }
 
 // メッセージ、原文、日本語の形式で出力する
-func checkOutput(out *bytes.Buffer, str string, en string, ja string) {
-	fmt.Fprintln(out, "<========================================")
-	fmt.Fprintln(out, str)
-	fmt.Fprintln(out, gchalk.Green(en))
-	fmt.Fprintln(out, "-----------------------------------------")
-	fmt.Fprintln(out, ja)
-	fmt.Fprintln(out, "========================================>")
-	fmt.Fprintln(out)
+func makeResult(str string, en string, ja string) result {
+	var r result
+	r.comment = str
+	r.en = en
+	r.ja = ja
+	return r
 }
 
-func check(fileNames []string, word bool, tag bool, num bool) string {
-	out := new(bytes.Buffer)
+func printResult(r result) {
+	fmt.Println("<========================================")
+	fmt.Println(r.comment)
+	fmt.Println(gchalk.Green(r.en))
+	if r.ja != "" {
+		fmt.Println("-----------------------------------------")
+		fmt.Println(r.ja)
+	}
+	fmt.Println("========================================>")
+}
+
+func check(fileNames []string, ignore bool, word bool, tag bool, num bool) {
 	for _, fileName := range fileNames {
-		wCheck := ""
-		cCheck := ""
+		var results []result
+		var ignores []string
 		src, err := ReadFile(fileName)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		wCheck = fileCheck(src, word, tag, num)
+		results = fileCheck(fileName, src, word, tag, num)
 		if !word && !tag && !num {
-			cCheck = commentCheck(src)
+			results = commentCheck(src)
 		}
 
-		if len(wCheck) > 0 || len(cCheck) > 0 {
-			fmt.Fprintln(out, gchalk.Green(fileName))
+		if len(results) > 0 {
+			fmt.Println(gchalk.Green(fileName))
+			for _, r := range results {
+				printResult(r)
+				if ignore {
+					if prompter.YN("ignore?", false) {
+						ignores = append(ignores, r.en)
+					}
+				}
+			}
 		}
-		if len(wCheck) > 0 {
-			fmt.Fprintln(out, wCheck)
-		}
-		if len(cCheck) > 0 {
-			fmt.Fprintln(out, cCheck)
+		if len(ignores) > 0 {
+			registerIgnore(fileName, ignores)
 		}
 	}
-	return out.String()
+}
+
+func registerIgnore(fileName string, ignores []string) {
+	ignoreName := DICDIR + fileName + ".ignore"
+
+	f, err := os.OpenFile(ignoreName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer f.Close()
+	for _, ig := range ignores {
+		fmt.Fprintf(f, "%s\n", ig)
+	}
 }
 
 // checkCmd represents the check command
@@ -183,6 +240,7 @@ var checkCmd = &cobra.Command{
 		var word bool
 		var tag bool
 		var num bool
+		var ignore bool
 		var err error
 		if word, err = cmd.PersistentFlags().GetBool("word"); err != nil {
 			log.Println(err)
@@ -196,13 +254,16 @@ var checkCmd = &cobra.Command{
 			log.Println(err)
 			return
 		}
+		if ignore, err = cmd.PersistentFlags().GetBool("ignore"); err != nil {
+			log.Println(err)
+			return
+		}
 		fileNames := targetFileName()
 		if len(args) > 0 {
 			fileNames = args
 		}
 
-		out := check(fileNames, word, tag, num)
-		fmt.Println(out)
+		check(fileNames, ignore, word, tag, num)
 	},
 }
 
@@ -211,4 +272,5 @@ func init() {
 	checkCmd.PersistentFlags().BoolP("word", "w", false, "Word check")
 	checkCmd.PersistentFlags().BoolP("tag", "t", false, "Tag check")
 	checkCmd.PersistentFlags().BoolP("num", "n", false, "Num check")
+	checkCmd.PersistentFlags().BoolP("ignore", "i", false, "Prompt before ignore registration")
 }

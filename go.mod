@@ -3,6 +3,7 @@ module github.com/noborus/jpug-doc-tool
 go 1.16
 
 require (
+	github.com/Songmu/prompter v0.5.0
 	github.com/agnivade/levenshtein v1.1.1
 	github.com/jwalton/gchalk v1.2.1
 	github.com/noborus/go-textra v0.0.0-20211213062037-cd7ba585e45f
