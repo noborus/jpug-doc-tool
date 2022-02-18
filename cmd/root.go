@@ -11,8 +11,10 @@ import (
 	"github.com/spf13/viper"
 )
 
-var cfgFile string
-var DICDIR = "./.jpug-doc-tool/"
+var (
+	cfgFile string
+	DICDIR  = "./.jpug-doc-tool/"
+)
 
 type apiConfig struct {
 	ClientID             string
@@ -153,10 +155,10 @@ func initJpug() {
 		return
 	}
 	if _, err := os.Stat(DICDIR); os.IsNotExist(err) {
-		os.Mkdir(DICDIR, 0755)
+		os.Mkdir(DICDIR, 0o755)
 	}
 	refdir := DICDIR + "/ref"
 	if _, err := os.Stat(refdir); os.IsNotExist(err) {
-		os.Mkdir(refdir, 0755)
+		os.Mkdir(refdir, 0o755)
 	}
 }

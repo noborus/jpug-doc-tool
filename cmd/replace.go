@@ -227,5 +227,4 @@ func init() {
 	replaceCmd.PersistentFlags().IntP("similar", "s", 0, "Degree of similarity")
 	replaceCmd.PersistentFlags().BoolP("mt", "", false, "Use machine translation")
 	replaceCmd.PersistentFlags().BoolP("prompt", "i", false, "Prompt before each replacement")
-
 }

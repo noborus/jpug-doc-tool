@@ -220,7 +220,7 @@ func check(fileNames []string, ignore bool, word bool, tag bool, num bool) {
 func registerIgnore(fileName string, ignores []string) {
 	ignoreName := DICDIR + fileName + ".ignore"
 
-	f, err := os.OpenFile(ignoreName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+	f, err := os.OpenFile(ignoreName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o666)
 	if err != nil {
 		log.Fatal(err)
 	}
