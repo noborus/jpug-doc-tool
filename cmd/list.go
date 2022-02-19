@@ -1,39 +1,11 @@
 package cmd
 
 import (
-	"fmt"
 	"log"
-	"strings"
 
-	"github.com/jwalton/gchalk"
+	"github.com/noborus/jpug-doc-tool/cmd/jpugdoc"
 	"github.com/spf13/cobra"
 )
-
-func list(enonly bool, jaonly bool, fileNames []string) {
-	for _, fileName := range fileNames {
-		dicname := DICDIR + fileName + ".t"
-		catalog := loadCatalog(dicname)
-		for en, ja := range catalog {
-			if !jaonly {
-				fmt.Println(gchalk.Green(en))
-			}
-			if !enonly {
-				fmt.Println(ja)
-			}
-			fmt.Println()
-		}
-	}
-}
-
-func tsvList(fileNames []string) {
-	for _, fileName := range fileNames {
-		dicname := DICDIR + fileName + ".t"
-		catalog := loadCatalog(dicname)
-		for en, ja := range catalog {
-			fmt.Printf("%s\t%s\n", strings.ReplaceAll(en, "\n", " "), strings.ReplaceAll(ja, "\n", " "))
-		}
-	}
-}
 
 // listCmd represents the list command
 var listCmd = &cobra.Command{
@@ -58,19 +30,19 @@ var listCmd = &cobra.Command{
 
 		if len(args) > 0 {
 			if tsv {
-				tsvList(args)
+				jpugdoc.TSVList(args)
 				return
 			}
-			list(enonly, jaonly, args)
+			jpugdoc.List(enonly, jaonly, args)
 			return
 		}
 
 		fileNames := targetFileName()
 		if tsv {
-			tsvList(fileNames)
+			jpugdoc.TSVList(fileNames)
 			return
 		}
-		list(enonly, jaonly, fileNames)
+		jpugdoc.List(enonly, jaonly, fileNames)
 	},
 }
 

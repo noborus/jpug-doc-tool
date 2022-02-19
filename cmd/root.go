@@ -2,58 +2,16 @@ package cmd
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
 
+	"github.com/noborus/jpug-doc-tool/cmd/jpugdoc"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var (
-	cfgFile string
-	DICDIR  = "./.jpug-doc-tool/"
-)
-
-type apiConfig struct {
-	ClientID             string
-	ClientSecret         string
-	Name                 string
-	APIAutoTranslate     string
-	APIAutoTranslateType string
-}
-
-var Config apiConfig
-
-func ignoreFileNames(fileNames []string) []string {
-	var ignoreFile map[string]struct{} = map[string]struct{}{
-		"jpug-doc.sgml":  {},
-		"config0.sgml":   {},
-		"config1.sgml":   {},
-		"config2.sgml":   {},
-		"config3.sgml":   {},
-		"func0.sgml":     {},
-		"func1.sgml":     {},
-		"func2.sgml":     {},
-		"func3.sgml":     {},
-		"func4.sgml":     {},
-		"catalogs0.sgml": {},
-		"catalogs1.sgml": {},
-		"catalogs2.sgml": {},
-		"catalogs3.sgml": {},
-		"catalogs4.sgml": {},
-	}
-
-	ret := make([]string, 0, len(fileNames))
-	for _, fileName := range fileNames {
-		if _, ok := ignoreFile[fileName]; ok {
-			continue
-		}
-		ret = append(ret, fileName)
-	}
-	return ret
-}
+var cfgFile string
 
 func targetFileName() []string {
 	pattern := "./*.sgml"
@@ -70,7 +28,7 @@ func targetFileName() []string {
 		return nil
 	}
 	fileNames = append(fileNames, reFileNames...)
-	fileNames = ignoreFileNames(fileNames)
+	fileNames = jpugdoc.IgnoreFileNames(fileNames)
 	return fileNames
 }
 
@@ -84,20 +42,6 @@ jpug-doc の翻訳を補助ツール。
 翻訳のチェックが可能です。`,
 }
 
-func ReadFile(fileName string) ([]byte, error) {
-	f, err := os.Open(fileName)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	src, err := io.ReadAll(f)
-	if err != nil {
-		return nil, err
-	}
-	return src, nil
-}
-
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
@@ -109,7 +53,7 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	cobra.OnInitialize(initJpug)
+	cobra.OnInitialize(jpugdoc.InitJpug)
 	_ = rootCmd.RegisterFlagCompletionFunc("", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	})
@@ -140,25 +84,9 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 	}
-	if err := viper.Unmarshal(&Config); err != nil {
+	if err := viper.Unmarshal(&jpugdoc.Config); err != nil {
 		fmt.Println("config file Unmarshal error")
 		fmt.Println(err)
 		os.Exit(1)
-	}
-}
-
-func initJpug() {
-	f, err := filepath.Glob("./*.sgml")
-	if err != nil || len(f) == 0 {
-		fmt.Fprintln(os.Stderr, "*sgmlファイルがあるディレクトリで実行してください")
-		fmt.Fprintln(os.Stderr, "cd github.com/pgsql-jp/jpug-doc/doc/src/sgml")
-		return
-	}
-	if _, err := os.Stat(DICDIR); os.IsNotExist(err) {
-		os.Mkdir(DICDIR, 0o755)
-	}
-	refdir := DICDIR + "/ref"
-	if _, err := os.Stat(refdir); os.IsNotExist(err) {
-		os.Mkdir(refdir, 0o755)
 	}
 }
