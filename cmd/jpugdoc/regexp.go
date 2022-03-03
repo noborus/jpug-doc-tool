@@ -89,7 +89,7 @@ var MultiNL = regexp.MustCompile(`\n+`)
 var SPLITCATALOG = regexp.MustCompile(`(?s)␝(.*?)␟(.*?)␞`)
 
 // 英単語 + /
-var ENWORD = regexp.MustCompile(`[/a-zA-Z]+`)
+var ENWORD = regexp.MustCompile(`[/a-zA-Z_]+`)
 
 // XMLタグ
 var XMLTAG = regexp.MustCompile(`<[^>]*?>|<[^<>]+/>`)
