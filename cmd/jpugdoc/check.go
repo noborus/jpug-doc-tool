@@ -19,6 +19,14 @@ type result struct {
 	ja      string
 }
 
+// CheckFlag represents the item to check.
+type CheckFlag struct {
+	Ignore bool
+	Word   bool
+	Tag    bool
+	Num    bool
+}
+
 type IgnoreList map[string]bool
 
 func loadIgnore(fileName string) IgnoreList {
@@ -26,6 +34,8 @@ func loadIgnore(fileName string) IgnoreList {
 	if err != nil {
 		return nil
 	}
+	defer f.Close()
+
 	ignores := make(map[string]bool)
 
 	scanner := bufio.NewScanner(f)
@@ -33,6 +43,20 @@ func loadIgnore(fileName string) IgnoreList {
 		ignores[scanner.Text()] = true
 	}
 	return ignores
+}
+
+func registerIgnore(fileName string, ignores []string) {
+	ignoreName := DICDIR + fileName + ".ignore"
+
+	f, err := os.OpenFile(ignoreName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o666)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer f.Close()
+	for _, ig := range ignores {
+		fmt.Fprintf(f, "%s\n", ig)
+	}
 }
 
 // commentCheck は<para>内にコメント（<!-- -->)が含まれているかチェックする
@@ -122,7 +146,7 @@ func wordCheck(en string, ja string) []string {
 }
 
 // fileCheck は日本語翻訳中にある英単語が英語に含まれているかをチェックする
-func fileCheck(fileName string, src []byte, word bool, tag bool, num bool) []result {
+func fileCheck(fileName string, src []byte, cf CheckFlag) []result {
 	var results []result
 	ignoreName := DICDIR + fileName + ".ignore"
 	ignores := loadIgnore(ignoreName)
@@ -138,7 +162,7 @@ func fileCheck(fileName string, src []byte, word bool, tag bool, num bool) []res
 		ja = MultiNL.ReplaceAllString(ja, " ")
 		ja = MultiSpace.ReplaceAllString(ja, " ")
 
-		if word {
+		if cf.Word {
 			unword := wordCheck(en, ja)
 			if len(unword) > 0 {
 				r := makeResult(fmt.Sprintf("[%s]が含まれていません", gchalk.Red(strings.Join(unword, " ｜ "))), en, ja)
@@ -146,7 +170,7 @@ func fileCheck(fileName string, src []byte, word bool, tag bool, num bool) []res
 			}
 		}
 
-		if tag {
+		if cf.Tag {
 			untag := tagCheck(en, ja)
 			if len(untag) > 0 {
 				r := makeResult(fmt.Sprintf("原文にある[%s]が含まれていません", gchalk.Red(strings.Join(untag, " ｜ "))), en, ja)
@@ -154,7 +178,7 @@ func fileCheck(fileName string, src []byte, word bool, tag bool, num bool) []res
 			}
 		}
 
-		if num {
+		if cf.Num {
 			unNum := numCheck(en, ja)
 			if len(unNum) > 0 {
 				r := makeResult(fmt.Sprintf("原文にある[%s]が含まれていません", gchalk.Red(strings.Join(unNum, " ｜ "))), en, ja)
@@ -185,17 +209,17 @@ func printResult(r result) {
 	fmt.Println("========================================>")
 }
 
-func Check(fileNames []string, ignore bool, word bool, tag bool, num bool) {
+func Check(fileNames []string, cf CheckFlag) {
 	for _, fileName := range fileNames {
 		var results []result
 		var ignores []string
-		src, err := ReadFile(fileName)
+		src, err := ReadAllFile(fileName)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		results = fileCheck(fileName, src, word, tag, num)
-		if !word && !tag && !num {
+		results = fileCheck(fileName, src, cf)
+		if !cf.Word && !cf.Tag && !cf.Num {
 			results = commentCheck(src)
 		}
 
@@ -203,7 +227,7 @@ func Check(fileNames []string, ignore bool, word bool, tag bool, num bool) {
 			fmt.Println(gchalk.Green(fileName))
 			for _, r := range results {
 				printResult(r)
-				if ignore {
+				if cf.Ignore {
 					if prompter.YN("ignore?", false) {
 						ignores = append(ignores, r.en)
 					}
@@ -213,19 +237,5 @@ func Check(fileNames []string, ignore bool, word bool, tag bool, num bool) {
 		if len(ignores) > 0 {
 			registerIgnore(fileName, ignores)
 		}
-	}
-}
-
-func registerIgnore(fileName string, ignores []string) {
-	ignoreName := DICDIR + fileName + ".ignore"
-
-	f, err := os.OpenFile(ignoreName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o666)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer f.Close()
-	for _, ig := range ignores {
-		fmt.Fprintf(f, "%s\n", ig)
 	}
 }

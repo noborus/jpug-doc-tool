@@ -115,7 +115,7 @@ func Extraction(src []byte) []Pair {
 
 func Extract(fileNames []string) {
 	for _, fileName := range fileNames {
-		src, err := ReadFile(fileName)
+		src, err := ReadAllFile(fileName)
 		if err != nil {
 			log.Fatal(err)
 		}

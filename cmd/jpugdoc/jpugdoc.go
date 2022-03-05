@@ -64,7 +64,7 @@ func InitJpug() {
 	}
 }
 
-func ReadFile(fileName string) ([]byte, error) {
+func ReadAllFile(fileName string) ([]byte, error) {
 	f, err := os.Open(fileName)
 	if err != nil {
 		return nil, err

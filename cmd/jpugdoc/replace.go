@@ -23,7 +23,7 @@ type Rep struct {
 }
 
 func loadCatalog(fileName string) Catalog {
-	src, err := ReadFile(fileName)
+	src, err := ReadAllFile(fileName)
 	if err != nil {
 		fmt.Fprint(os.Stderr, err.Error())
 		return nil
@@ -170,7 +170,7 @@ func Replace(fileNames []string, mt bool, similar int, prompt bool) {
 		}
 		rep.prompt = prompt
 
-		src, err := ReadFile(fileName)
+		src, err := ReadAllFile(fileName)
 		if err != nil {
 			fmt.Fprint(os.Stderr, err.Error())
 			continue

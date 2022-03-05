@@ -13,24 +13,27 @@ var checkCmd = &cobra.Command{
 	Short: "文書をチェックする",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		var word bool
-		var tag bool
-		var num bool
-		var ignore bool
+		cf := jpugdoc.CheckFlag{
+			Ignore: false,
+			Word:   false,
+			Tag:    false,
+			Num:    false,
+		}
 		var err error
-		if word, err = cmd.PersistentFlags().GetBool("word"); err != nil {
+
+		if cf.Word, err = cmd.PersistentFlags().GetBool("word"); err != nil {
 			log.Println(err)
 			return
 		}
-		if tag, err = cmd.PersistentFlags().GetBool("tag"); err != nil {
+		if cf.Tag, err = cmd.PersistentFlags().GetBool("tag"); err != nil {
 			log.Println(err)
 			return
 		}
-		if num, err = cmd.PersistentFlags().GetBool("num"); err != nil {
+		if cf.Num, err = cmd.PersistentFlags().GetBool("num"); err != nil {
 			log.Println(err)
 			return
 		}
-		if ignore, err = cmd.PersistentFlags().GetBool("ignore"); err != nil {
+		if cf.Ignore, err = cmd.PersistentFlags().GetBool("ignore"); err != nil {
 			log.Println(err)
 			return
 		}
@@ -39,7 +42,7 @@ var checkCmd = &cobra.Command{
 			fileNames = args
 		}
 
-		jpugdoc.Check(fileNames, ignore, word, tag, num)
+		jpugdoc.Check(fileNames, cf)
 	},
 }
 
