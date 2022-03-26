@@ -55,8 +55,8 @@ func Test_paraAll(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := paraAll(tt.args.src); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("paraAll() = %s, want %s", got, tt.want)
+			if got := ParaAll(tt.args.src); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ParaAll() = %s, want %s", got, tt.want)
 			}
 		})
 	}

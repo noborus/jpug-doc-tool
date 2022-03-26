@@ -11,7 +11,7 @@ var REPARA = regexp.MustCompile(`(?s)(<para>\n*)(.*?)(\s*</para>)`)
 var CHECKPARA = regexp.MustCompile(`(<!--\n?\s+)?(?s)(<para>\n*)(.*?)(\s*</para>)(\n*\s*-->)?`)
 
 // 文書から <para> </para>を取得してsliceで返す
-func paraAll(src []byte) [][]byte {
+func ParaAll(src []byte) [][]byte {
 	return CHECKPARA.FindAll(src, -1)
 }
 
@@ -30,7 +30,7 @@ var RELIRETPROG = regexp.MustCompile(`(?s)(<para>\n*)\s*<literal>.*</literal>\n*
 var REROWS = regexp.MustCompile(`(?s)(<row>\n*)(.*?)(\s+</row>)`)
 
 // 文書から <rows> </rows>を取得してsliceで返す
-func rowsAll(src []byte) [][]byte {
+func RowsAll(src []byte) [][]byte {
 	return REROWS.FindAll(src, -1)
 }
 
@@ -38,7 +38,7 @@ func rowsAll(src []byte) [][]byte {
 var ENTRYSTRIP = regexp.MustCompile(`</?entry>`)
 
 // entryタグを取り除くために使用
-func stripEntry(src []byte) []byte {
+func StripEntry(src []byte) []byte {
 	return ENTRYSTRIP.ReplaceAll(src, []byte(""))
 }
 

@@ -34,8 +34,9 @@ func targetFileName() []string {
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "jpug-doc-tool",
-	Short: "jpug-doc tool",
+	Use:     "jpug-doc-tool",
+	Version: jpugdoc.Version,
+	Short:   "jpug-doc tool",
 	Long: `
 jpug-doc の翻訳を補助ツール。
 前バージョンの翻訳を新しいバージョンに適用したり、

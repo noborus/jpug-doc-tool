@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 )
 
+var Version = "dev"
+
 var DICDIR = "./.jpug-doc-tool/"
 
 type apiConfig struct {
@@ -56,11 +58,18 @@ func InitJpug() {
 		return
 	}
 	if _, err := os.Stat(DICDIR); os.IsNotExist(err) {
-		os.Mkdir(DICDIR, 0o755)
+		err := os.Mkdir(DICDIR, 0o755)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+		}
+		return
 	}
 	refdir := DICDIR + "/ref"
 	if _, err := os.Stat(refdir); os.IsNotExist(err) {
-		os.Mkdir(refdir, 0o755)
+		err := os.Mkdir(refdir, 0o755)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+		}
 	}
 }
 
