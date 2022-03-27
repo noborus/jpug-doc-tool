@@ -21,6 +21,7 @@ func MT(args ...string) {
 	}
 
 	en := strings.Join(args, " ")
+	en = strings.ReplaceAll(en, "\n", " ")
 	ja, err := cli.Translate(c.APIAutoTranslateType, en)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "textra: %s", err)

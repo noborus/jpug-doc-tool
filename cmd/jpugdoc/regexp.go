@@ -8,7 +8,9 @@ import (
 var REPARA = regexp.MustCompile(`(?s)(<para>\n*)(.*?)(\s*</para>)`)
 
 // <para> </para> に一致させる（チェック用）
-var CHECKPARA = regexp.MustCompile(`(<!--\n?\s+)?(?s)(<para>\n*)(.*?)(\s*</para>)(\n*\s*-->)?`)
+var CHECKPARA = regexp.MustCompile(`\s*(<!--\n?\s+)?(?s)(<para>\n*)(.*?)(\s*</para>)(\n*\s*-->)?`)
+
+var BLANKLINE = regexp.MustCompile(`^\s*\n`)
 
 // 文書から <para> </para>を取得してsliceで返す
 func ParaAll(src []byte) [][]byte {

@@ -64,6 +64,7 @@ func commentCheck(src []byte) []result {
 	var results []result
 	preComment := false
 	for _, para := range CHECKPARA.FindAll(src, -1) {
+		para = BLANKLINE.ReplaceAll(para, []byte(""))
 		if !containComment(para) {
 			if containCommentEnd(para) {
 				r := makeResult(gchalk.Red("コメントが始まっていません"), string(para), "")
