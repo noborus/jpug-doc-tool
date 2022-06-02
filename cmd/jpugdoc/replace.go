@@ -8,14 +8,14 @@ import (
 
 	"github.com/Songmu/prompter"
 	"github.com/agnivade/levenshtein"
-	"github.com/iancoleman/orderedmap"
+	"github.com/elliotchance/orderedmap/v2"
 	"github.com/noborus/go-textra"
 )
 
-// type Catalog *orderedmap.OrderedMap
+// type Catalog *orderedmap.OrderedMap[string, string]
 
 type Rep struct {
-	catalog *orderedmap.OrderedMap
+	catalog *orderedmap.OrderedMap[string, string]
 	mt      bool
 	prompt  bool
 	similar int
@@ -23,13 +23,13 @@ type Rep struct {
 	apiType string
 }
 
-func loadCatalog(fileName string) *orderedmap.OrderedMap {
+func loadCatalog(fileName string) *orderedmap.OrderedMap[string, string] {
+	catalog := orderedmap.NewOrderedMap[string, string]()
 	src, err := ReadAllFile(fileName)
 	if err != nil {
 		fmt.Fprint(os.Stderr, err.Error())
-		return nil
+		return catalog
 	}
-	catalog := orderedmap.New()
 
 	catas := SPLITCATALOG.FindAll(src, -1)
 	for _, cata := range catas {
@@ -69,11 +69,11 @@ func (rep Rep) paraReplace(src []byte) []byte {
 	enstr = strings.TrimSpace(enstr)
 
 	if ja, ok := rep.catalog.Get(enstr); ok {
-		para := fmt.Sprintf("$1<!--\n%s\n-->\n%s$3", en, strings.TrimRight(ja.(string), "\n"))
+		para := fmt.Sprintf("$1<!--\n%s\n-->\n%s$3", en, strings.TrimRight(ja, "\n"))
 		if rep.prompt {
 			fmt.Println(string(src))
 			fmt.Println("前回と一致")
-			fmt.Println(ja.(string))
+			fmt.Println(ja)
 			return promptReplace(src, []byte(para))
 		}
 		return REPARA.ReplaceAll(src, []byte(para))
@@ -125,7 +125,7 @@ func (rep Rep) paraReplace(src []byte) []byte {
 		dis := (1 - (float64(distance) / float64(len(enstr)))) * 100
 		if dis > maxdis {
 			den = dicen
-			dja = dicja.(string)
+			dja = dicja
 			maxdis = dis
 		}
 	}

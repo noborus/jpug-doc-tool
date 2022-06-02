@@ -20,7 +20,7 @@ func Test_paraAll(t *testing.T) {
 				src: []byte("    <para>\ntest\n</para>   "),
 			},
 			want: [][]byte{
-				[]byte("<para>\ntest\n</para>"),
+				[]byte("    <para>\ntest\n</para>"),
 			},
 		},
 		{

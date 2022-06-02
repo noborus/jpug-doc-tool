@@ -18,7 +18,7 @@ func List(enonly bool, jaonly bool, fileNames []string) {
 				fmt.Println(v)
 			}
 			if !enonly {
-				fmt.Println(gchalk.Green(val.(string)))
+				fmt.Println(gchalk.Green(val))
 			}
 			fmt.Println()
 		}
@@ -32,7 +32,7 @@ func TSVList(fileNames []string) {
 		keys := catalog.Keys()
 		for _, en := range keys {
 			ja, _ := catalog.Get(en)
-			fmt.Printf("%s\t%s\n", strings.ReplaceAll(en, "\n", " "), strings.ReplaceAll(ja.(string), "\n", " "))
+			fmt.Printf("%s\t%s\n", strings.ReplaceAll(en, "\n", " "), strings.ReplaceAll(ja, "\n", " "))
 		}
 	}
 }
