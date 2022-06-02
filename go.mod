@@ -5,6 +5,7 @@ go 1.16
 require (
 	github.com/Songmu/prompter v0.5.1
 	github.com/agnivade/levenshtein v1.1.1
+	github.com/iancoleman/orderedmap v0.2.0
 	github.com/jwalton/gchalk v1.3.0
 	github.com/noborus/go-textra v0.0.0-20211213062037-cd7ba585e45f
 	github.com/spf13/cobra v1.4.0

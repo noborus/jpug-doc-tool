@@ -27,6 +27,7 @@ var RELIRET = regexp.MustCompile(`(?s)(<para>\n*)\s*<literal>.*</literal>\n*\s*<
 var RELIRETPROG = regexp.MustCompile(`(?s)(<para>\n*)\s*<literal>.*</literal>\n*\s*<returnvalue>.*</returnvalue>\n*\s*<programlisting>.*</programlisting>(\s*</para>)`)
 
 // var RELIRET = regexp.MustCompile(`(?s)(<para>\n*)\s*<literal>.*</literal>\n`)
+var REJASTRING = regexp.MustCompile(`[ぁ-ん]+|[ァ-ヴー]+|[一-龠]/`)
 
 // <row> </row> に一致させる
 var REROWS = regexp.MustCompile(`(?s)(<row>\n*)(.*?)(\s+</row>)`)

@@ -8,13 +8,14 @@ import (
 
 	"github.com/Songmu/prompter"
 	"github.com/agnivade/levenshtein"
+	"github.com/iancoleman/orderedmap"
 	"github.com/noborus/go-textra"
 )
 
-type Catalog map[string]string
+// type Catalog *orderedmap.OrderedMap
 
 type Rep struct {
-	catalog Catalog
+	catalog *orderedmap.OrderedMap
 	mt      bool
 	prompt  bool
 	similar int
@@ -22,20 +23,24 @@ type Rep struct {
 	apiType string
 }
 
-func loadCatalog(fileName string) Catalog {
+func loadCatalog(fileName string) *orderedmap.OrderedMap {
 	src, err := ReadAllFile(fileName)
 	if err != nil {
 		fmt.Fprint(os.Stderr, err.Error())
 		return nil
 	}
-	catalog := make(map[string]string)
+	catalog := orderedmap.New()
 
 	catas := SPLITCATALOG.FindAll(src, -1)
 	for _, cata := range catas {
 		re := SPLITCATALOG.FindSubmatch(cata)
+		if len(re[1]) == 0 {
+			catalog.Set(string(re[2]), "")
+			continue
+		}
 		en := string(re[1])
 		ja := string(re[2])
-		catalog[en] = ja
+		catalog.Set(en, ja)
 	}
 	return catalog
 }
@@ -63,12 +68,12 @@ func (rep Rep) paraReplace(src []byte) []byte {
 	enstr = MultiSpace.ReplaceAllString(enstr, " ")
 	enstr = strings.TrimSpace(enstr)
 
-	if ja, ok := rep.catalog[enstr]; ok {
-		para := fmt.Sprintf("$1<!--\n%s\n-->\n%s$3", en, strings.TrimRight(ja, "\n"))
+	if ja, ok := rep.catalog.Get(enstr); ok {
+		para := fmt.Sprintf("$1<!--\n%s\n-->\n%s$3", en, strings.TrimRight(ja.(string), "\n"))
 		if rep.prompt {
 			fmt.Println(string(src))
 			fmt.Println("前回と一致")
-			fmt.Println(string(ja))
+			fmt.Println(ja.(string))
 			return promptReplace(src, []byte(para))
 		}
 		return REPARA.ReplaceAll(src, []byte(para))
@@ -76,6 +81,10 @@ func (rep Rep) paraReplace(src []byte) []byte {
 
 	// <literal>.*</literal>又は<literal>.*</literal><returnvalue>.*</returnvalue>又は+programlisting のみのparaだった場合は無視する
 	if RELITERAL.Match(src) || RELIRET.Match(src) || RELIRETPROG.Match(src) || RECOMMENTSTART.Match(src) {
+		return src
+	}
+	// 日本語が含まれていた場合は無視
+	if REJASTRING.Match(src) {
 		return src
 	}
 
@@ -109,12 +118,14 @@ func (rep Rep) paraReplace(src []byte) []byte {
 	var maxdis float64
 	den := ""
 	dja := ""
-	for dicen, dicja := range rep.catalog {
+	keys := rep.catalog.Keys()
+	for _, dicen := range keys {
+		dicja, _ := rep.catalog.Get(dicen)
 		distance := levenshtein.ComputeDistance(enstr, dicen)
 		dis := (1 - (float64(distance) / float64(len(enstr)))) * 100
 		if dis > maxdis {
 			den = dicen
-			dja = dicja
+			dja = dicja.(string)
 			maxdis = dis
 		}
 	}

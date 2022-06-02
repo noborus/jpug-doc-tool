@@ -11,12 +11,14 @@ func List(enonly bool, jaonly bool, fileNames []string) {
 	for _, fileName := range fileNames {
 		dicname := DICDIR + fileName + ".t"
 		catalog := loadCatalog(dicname)
-		for en, ja := range catalog {
-			if !jaonly {
-				fmt.Println(gchalk.Green(en))
+		keys := catalog.Keys()
+		for _, v := range keys {
+			val, ok := catalog.Get(v)
+			if ok && !jaonly {
+				fmt.Println(v)
 			}
 			if !enonly {
-				fmt.Println(ja)
+				fmt.Println(gchalk.Green(val.(string)))
 			}
 			fmt.Println()
 		}
@@ -27,8 +29,10 @@ func TSVList(fileNames []string) {
 	for _, fileName := range fileNames {
 		dicname := DICDIR + fileName + ".t"
 		catalog := loadCatalog(dicname)
-		for en, ja := range catalog {
-			fmt.Printf("%s\t%s\n", strings.ReplaceAll(en, "\n", " "), strings.ReplaceAll(ja, "\n", " "))
+		keys := catalog.Keys()
+		for _, en := range keys {
+			ja, _ := catalog.Get(en)
+			fmt.Printf("%s\t%s\n", strings.ReplaceAll(en, "\n", " "), strings.ReplaceAll(ja.(string), "\n", " "))
 		}
 	}
 }
