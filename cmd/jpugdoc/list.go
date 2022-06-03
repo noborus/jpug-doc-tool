@@ -15,10 +15,10 @@ func List(enonly bool, jaonly bool, fileNames []string) {
 		for _, v := range keys {
 			val, ok := catalog.Get(v)
 			if ok && !jaonly {
-				fmt.Println(v)
+				fmt.Println(gchalk.Green(v))
 			}
 			if !enonly {
-				fmt.Println(gchalk.Green(val))
+				fmt.Println(val)
 			}
 			fmt.Println()
 		}
