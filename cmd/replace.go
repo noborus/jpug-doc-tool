@@ -3,7 +3,7 @@ package cmd
 import (
 	"log"
 
-	"github.com/noborus/jpug-doc-tool/cmd/jpugdoc"
+	"github.com/noborus/jpug-doc-tool/jpugdoc"
 	"github.com/spf13/cobra"
 )
 

@@ -1,1 +1,3 @@
 dist/
+*.sgml
+jpug-doc-tool

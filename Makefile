@@ -1,6 +1,6 @@
 BINARY_NAME := jpug-doc-tool
 SRCS := $(shell git ls-files '*.go')
-LDFLAGS := "-X github.com/noborus/jpug-doc-tool/cmd/jpugdoc.Version=$(shell git describe --tags --abbrev=0 --always)"
+LDFLAGS := "-X github.com/noborus/jpug-doc-tool/jpugdoc.Version=$(shell git describe --tags --abbrev=0 --always)"
 
 all: build
 
