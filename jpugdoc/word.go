@@ -27,5 +27,4 @@ func CheckWord(en string, ja string, fileNames []string) {
 		}
 
 	}
-
 }
