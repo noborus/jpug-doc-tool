@@ -57,6 +57,19 @@ func enCandidate(en string) string {
 // src を原文と日本語訳の対の配列に変換する
 func Extraction(src []byte) []Pair {
 	var pairs []Pair
+
+	// title
+	for _, titles := range RECHECKTITLE.FindAll(src, -1) {
+		ts := RETITLE.FindAll(titles, -1)
+		if len(ts) == 2 {
+			pair := Pair{
+				en: string(ts[0]),
+				ja: string(ts[1]),
+			}
+			pairs = append(pairs, pair)
+		}
+	}
+
 	paras := REPARA.FindAll([]byte(src), -1)
 	en := ""
 	for _, para := range paras {

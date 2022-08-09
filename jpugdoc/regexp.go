@@ -10,6 +10,12 @@ var REPARA = regexp.MustCompile(`(?s)(<para>\n*)(.*?)(\s*</para>)`)
 // <para> </para> に一致させる（チェック用）
 var CHECKPARA = regexp.MustCompile(`\s*(<!--\n?\s+)?(?s)(<para>\n*)(.*?)(\s*</para>)(\n*\s*-->)?`)
 
+// <title> </title> に一致させる
+var RETITLE = regexp.MustCompile(`(?s)(<title>\n*)(.*?)(\s*</title>)`)
+
+// <title> </title> をコメントを含めて一致させる
+var RECHECKTITLE = regexp.MustCompile(`(?s)(<!--\n\s*<title>\n*)(.*?)(\s*</title>\n*\s*-->\n\s*<title>(.*?)</title>)`)
+
 var BLANKLINE = regexp.MustCompile(`^\s*\n`)
 
 // 文書から <para> </para>を取得してsliceで返す
