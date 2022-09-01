@@ -1,16 +1,37 @@
 package jpugdoc
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"os/exec"
+	"regexp"
 	"strings"
 )
 
-type Pair struct {
-	en string
-	ja string
+type Catalog struct {
+	pre string
+	en  string
+	ja  string
+}
+
+func versionTag() (string, error) {
+	versionFile := "version.sgml"
+	src, err := ReadAllFile(versionFile)
+	if err != nil {
+		return "", err
+	}
+	ver := regexp.MustCompile(`<!ENTITY version "([0-9\.]+)">`)
+	re := ver.FindSubmatch(src)
+	if len(re) < 1 {
+		return "", fmt.Errorf("no version")
+	}
+	v := strings.ReplaceAll(string(re[1]), ".", "_")
+	tag := fmt.Sprintf("REL_%s", v)
+	return tag, nil
 }
 
 // コメント（英語原文）と続く文書（日本語翻訳）のペア、残り文字列、エラーを返す
@@ -19,17 +40,17 @@ type Pair struct {
 // -->
 // japanese
 // の形式に一致しない場合はエラーを返す
-func enjaPair(para []byte) (Pair, []byte, error) {
+func enjaPair(para []byte) (Catalog, []byte, error) {
 	re := EXCOMMENT.FindSubmatch(para)
 	if len(re) < 3 {
-		return Pair{}, nil, fmt.Errorf("no match")
+		return Catalog{}, nil, fmt.Errorf("no match")
 	}
 	enstr := strings.ReplaceAll(string(re[1]), "\n", " ")
 	enstr = MultiSpace.ReplaceAllString(enstr, " ")
 	enstr = strings.TrimSpace(enstr)
 
 	jastr := strings.TrimSpace(string(re[2]))
-	pair := Pair{
+	pair := Catalog{
 		en: enstr,
 		ja: jastr,
 	}
@@ -54,15 +75,13 @@ func enCandidate(en string) string {
 	return en
 }
 
-// src を原文と日本語訳の対の配列に変換する
-func Extraction(src []byte) []Pair {
-	var pairs []Pair
-
+func oldExtraction(src []byte) []Catalog {
+	var pairs []Catalog
 	// title
 	for _, titles := range RECHECKTITLE.FindAll(src, -1) {
 		ts := RETITLE.FindAll(titles, -1)
 		if len(ts) == 2 {
-			pair := Pair{
+			pair := Catalog{
 				en: string(ts[0]),
 				ja: string(ts[1]),
 			}
@@ -117,7 +136,7 @@ func Extraction(src []byte) []Pair {
 		jastr = ENTRYSTRIP.ReplaceAllString(jastr, "")
 		jastr = strings.TrimSpace(jastr)
 
-		pair := Pair{
+		pair := Catalog{
 			en: enstr,
 			ja: jastr,
 		}
@@ -126,13 +145,91 @@ func Extraction(src []byte) []Pair {
 	return pairs
 }
 
+// src を原文と日本語訳の対の配列に変換する
+func Extraction(src []byte) []Catalog {
+	reader := bytes.NewReader(src)
+	scanner := bufio.NewScanner(reader)
+	var en, ja strings.Builder
+	pre := ""
+	prefix := ""
+	var pairs []Catalog
+	var comment, jadd bool
+	for scanner.Scan() {
+		l := scanner.Text()
+		line := strings.TrimSpace(l)
+
+		if STARTADDCOMMENT.MatchString(line) {
+			pair := Catalog{
+				pre: prefix,
+				en:  strings.Trim(en.String(), "\n"),
+				ja:  strings.Trim(ja.String(), "\n"),
+			}
+			if en.Len() != 0 {
+				pairs = append(pairs, pair)
+			}
+			//fmt.Printf("PAIR:en｛%v｝:ja｛%v｝\n\n", pair.en, pair.ja)
+			en.Reset()
+			ja.Reset()
+			prefix = pre
+			en.WriteString("\n")
+			comment = true
+			continue
+		} else if ENDADDCOMMENT.MatchString(line) {
+			comment = false
+			jadd = true
+			continue
+		}
+		if comment {
+			if l[0] == '-' {
+				continue
+			}
+			l = REPHIGHHUN.ReplaceAllString(l, "-")
+			en.WriteString(l[1:])
+			en.WriteString("\n")
+		} else {
+			if jadd && strings.HasPrefix(l, "+") {
+				ja.WriteString(strings.TrimLeft(l, "+"))
+				ja.WriteString("\n")
+			} else {
+				jadd = false
+			}
+		}
+		pre = l
+	}
+	if en.Len() != 0 {
+		pair := Catalog{
+			pre: prefix,
+			en:  strings.Trim(en.String(), "\n"),
+			ja:  strings.Trim(ja.String(), "\n"),
+		}
+		pairs = append(pairs, pair)
+	}
+
+	return pairs
+	//return oldExtraction(src)
+}
+
 func Extract(fileNames []string) {
+	vTag, err := versionTag()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	for _, fileName := range fileNames {
-		src, err := ReadAllFile(fileName)
+		args := []string{"diff", "-U100", vTag, fileName}
+		cmd := exec.Command("git", args...)
+		stdout, err := cmd.StdoutPipe()
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("exec", err)
 		}
 
+		var src []byte
+		cmd.Start()
+		src, err = io.ReadAll(stdout)
+		if err != nil {
+			log.Fatal("read", err)
+		}
+		cmd.Wait()
 		pairs := Extraction(src)
 
 		dicname := DICDIR + fileName + ".t"
@@ -142,7 +239,8 @@ func Extract(fileNames []string) {
 		}
 
 		for _, pair := range pairs {
-			fmt.Fprintf(f, "␝%s␟", pair.en)
+			fmt.Fprintf(f, "␝%s␟", pair.pre)
+			fmt.Fprintf(f, "%s␟", pair.en)
 			fmt.Fprintf(f, "%s␞\n", pair.ja)
 		}
 		f.Close()

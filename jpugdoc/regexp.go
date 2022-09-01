@@ -81,6 +81,12 @@ func endComment(src []byte) bool {
 	return ENDCOMMENT.Match(src)
 }
 
+// コメント始まりの追加に一致
+var STARTADDCOMMENT = regexp.MustCompile(`\+\s?<!--\s?$`)
+
+// コメント終わりの追加に一致
+var ENDADDCOMMENT = regexp.MustCompile(`\+\s?-->\s?$`)
+
 // コメント（英語原文）と続く文書（日本語翻訳）を取得
 // 100%一致する訳ではない
 var EXCOMMENT = regexp.MustCompile(`(?s)<!--(.*?)-->(.*?)(</row>|<!--|<note>|<informaltable>|<footnote>|<screen>|<synopsis>|<variablelist>|<programlisting>|<itemizedlist>|<simplelist>|<itemizedlist|<orderedlist|</para>)`)
@@ -95,7 +101,7 @@ var MultiSpace = regexp.MustCompile(`\s+`)
 var MultiNL = regexp.MustCompile(`\n+`)
 
 // カタログから英語と日本語を取得
-var SPLITCATALOG = regexp.MustCompile(`(?s)␝(.*?)␟(.*?)␞`)
+var SPLITCATALOG = regexp.MustCompile(`(?s)␝(.*?)␟(.*?)␟(.*?)␞`)
 
 // 英単語 + /
 var ENWORD = regexp.MustCompile(`[/a-zA-Z_]+`)
@@ -127,3 +133,7 @@ func stripNONJA(src []byte) []byte {
 }
 
 var KUTEN = regexp.MustCompile(`。`)
+
+var REPHIGHHUN = regexp.MustCompile(`&#0?45;`)
+
+var REVHIGHHUN = regexp.MustCompile(`--`)

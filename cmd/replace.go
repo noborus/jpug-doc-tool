@@ -13,11 +13,16 @@ var replaceCmd = &cobra.Command{
 	Short: "英語のパラグラフを「<!--英語-->日本語翻訳」に置き換える",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
+		var update bool
 		var mt bool
 		var similar int
 		var prompt bool
 		var err error
 		if similar, err = cmd.PersistentFlags().GetInt("similar"); err != nil {
+			log.Println(err)
+			return
+		}
+		if update, err = cmd.PersistentFlags().GetBool("update"); err != nil {
 			log.Println(err)
 			return
 		}
@@ -31,18 +36,19 @@ var replaceCmd = &cobra.Command{
 		}
 
 		if len(args) > 0 {
-			jpugdoc.Replace(args, mt, similar, prompt)
+			jpugdoc.Replace(args, update, mt, similar, prompt)
 			return
 		}
 
 		fileNames := targetFileName()
-		jpugdoc.Replace(fileNames, mt, similar, prompt)
+		jpugdoc.Replace(fileNames, update, mt, similar, prompt)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(replaceCmd)
 	replaceCmd.PersistentFlags().IntP("similar", "s", 0, "Degree of similarity")
+	replaceCmd.PersistentFlags().BoolP("update", "u", false, "Update")
 	replaceCmd.PersistentFlags().BoolP("mt", "", false, "Use machine translation")
 	replaceCmd.PersistentFlags().BoolP("prompt", "i", false, "Prompt before each replacement")
 }

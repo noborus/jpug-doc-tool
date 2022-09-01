@@ -12,7 +12,7 @@ func TestExtraction(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want []Pair
+		want []Catalog
 	}{
 		{
 			name: "test1",
@@ -24,7 +24,7 @@ test
 テスト
 </para>`),
 			},
-			want: []Pair{
+			want: []Catalog{
 				{
 					en: "test",
 					ja: "テスト",
@@ -45,7 +45,7 @@ test2
 テスト２
 </para>`),
 			},
-			want: []Pair{
+			want: []Catalog{
 				{
 					en: "test",
 					ja: "テスト",

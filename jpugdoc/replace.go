@@ -8,14 +8,14 @@ import (
 
 	"github.com/Songmu/prompter"
 	"github.com/agnivade/levenshtein"
-	"github.com/elliotchance/orderedmap/v2"
 	"github.com/noborus/go-textra"
 )
 
 // type Catalog *orderedmap.OrderedMap[string, string]
 
 type Rep struct {
-	catalog *orderedmap.OrderedMap[string, string]
+	catalog []Catalog
+	update  bool
 	mt      bool
 	prompt  bool
 	similar int
@@ -24,8 +24,14 @@ type Rep struct {
 }
 
 func (rep Rep) Replace(src []byte) []byte {
-	ret := rep.paraReplace(src)
-	return ret
+	if rep.mt || rep.similar > 0 {
+		src = rep.paraReplace(src)
+	}
+
+	if rep.update {
+		src = rep.updateReplace(src)
+	}
+	return src
 }
 
 func promptReplace(src []byte, replace []byte) []byte {
@@ -35,35 +41,105 @@ func promptReplace(src []byte, replace []byte) []byte {
 	return REPARA.ReplaceAll(src, []byte(replace))
 }
 
-func (rep Rep) paraReplace(src []byte) []byte {
-	if RECOMMENT.Match(src) {
+func stripEN(src string) string {
+	str := strings.TrimRight(src, "\n")
+	str = strings.ReplaceAll(str, "\n", " ")
+	str = MultiSpace.ReplaceAllString(str, " ")
+	str = strings.TrimSpace(str)
+	return str
+}
+
+func (rep Rep) updateReplace(src []byte) []byte {
+	pair, _, err := enjaPair(src)
+	if err != nil {
 		return src
 	}
+	en, _, _ := splitComment(src)
+	enstr := stripEN(string(en))
+	for _, c := range rep.catalog {
+		if stripEN(c.en) == pair.en {
+			if c.ja == pair.ja {
+				return src
+			}
+			fmt.Println("更新", pair.en)
+			para := fmt.Sprintf("$1<!--\n%s\n-->\n%s$3", enstr, strings.TrimRight(c.ja, "\n"))
+			return REPARA.ReplaceAll(src, []byte(para))
+		}
+	}
+
+	return src
+}
+
+func (rep Rep) replaceAll(src []byte, c Catalog) []byte {
+	cen := append([]byte(c.en), '\n')
+	en := REVHIGHHUN.ReplaceAllString(c.en, "&#45;-")
+	p := 0
+	pp := 0
+	ret := make([]byte, 0)
+	for p < len(src) {
+		pp = bytes.Index(src[p:], cen)
+		if pp == -1 {
+			ret = append(ret, src[p:]...)
+			break
+		}
+
+		if string(src[(p+pp)-5:(p+pp)]) == "<!--\n" {
+			ret = append(ret, src[p:p+pp+len(c.en)]...)
+			p = p + pp + len(c.en)
+			continue
+		}
+
+		ret = append(ret, src[p:p+pp]...)
+		ret = append(ret, []byte("<!--\n")...)
+		ret = append(ret, []byte(en)...)
+		ret = append(ret, '\n')
+		ret = append(ret, []byte("-->\n")...)
+		ret = append(ret, []byte(c.ja)...)
+
+		p = p + pp + len(c.en)
+		/*
+			m := bytes.Index(src[p:], []byte(c.en))
+			if m == -1 {
+				ret = append(ret, src[p:]...)
+				//fmt.Println(string(ret))
+				break
+			}
+			p = p + m + 1
+			fmt.Println(p)
+			ret = append(ret, src[:p]...)
+			ret = append(ret, []byte("<!--\n")...)
+			ret = append(ret, []byte(en)...)
+			ret = append(ret, '\n')
+			ret = append(ret, []byte("-->\n")...)
+			ret = append(ret, []byte(c.ja)...)
+		*/
+	}
+	//fmt.Println(string(ret))
+	return ret
+}
+
+func (rep Rep) replaceCatalog(src []byte) []byte {
+	for _, c := range rep.catalog {
+		src = rep.replaceAll(src, c)
+	}
+	return src
+}
+
+func (rep Rep) paraReplace(src []byte) []byte {
 	re := REPARA.FindSubmatch(src)
 	en := strings.TrimRight(string(re[2]), "\n")
-
-	enstr := strings.ReplaceAll(en, "\n", " ")
-	enstr = MultiSpace.ReplaceAllString(enstr, " ")
-	enstr = strings.TrimSpace(enstr)
-
-	if ja, ok := rep.catalog.Get(enstr); ok {
-		para := fmt.Sprintf("$1<!--\n%s\n-->\n%s$3", en, strings.TrimRight(ja, "\n"))
-		if rep.prompt {
-			fmt.Println(string(src))
-			fmt.Println("前回と一致")
-			fmt.Println(ja)
-			return promptReplace(src, []byte(para))
+	enstr := stripEN(string(re[2]))
+	for _, c := range rep.catalog {
+		if stripEN(c.en) == enstr {
+			para := fmt.Sprintf("$1<!--\n%s\n-->\n%s$3", en, strings.TrimRight(c.ja, "\n"))
+			if rep.prompt {
+				fmt.Println(string(src))
+				fmt.Println("前回と一致")
+				fmt.Println(c.ja)
+				return promptReplace(src, []byte(para))
+			}
+			return REPARA.ReplaceAll(src, []byte(para))
 		}
-		return REPARA.ReplaceAll(src, []byte(para))
-	}
-
-	// <literal>.*</literal>又は<literal>.*</literal><returnvalue>.*</returnvalue>又は+programlisting のみのparaだった場合は無視する
-	if RELITERAL.Match(src) || RELIRET.Match(src) || RELIRETPROG.Match(src) || RECOMMENTSTART.Match(src) {
-		return src
-	}
-	// 日本語が含まれていた場合は無視
-	if REJASTRING.Match(src) {
-		return src
 	}
 
 	if rep.mt {
@@ -96,14 +172,13 @@ func (rep Rep) paraReplace(src []byte) []byte {
 	var maxdis float64
 	den := ""
 	dja := ""
-	keys := rep.catalog.Keys()
-	for _, dicen := range keys {
-		dicja, _ := rep.catalog.Get(dicen)
-		distance := levenshtein.ComputeDistance(enstr, dicen)
+	for _, c := range rep.catalog {
+
+		distance := levenshtein.ComputeDistance(enstr, c.en)
 		dis := (1 - (float64(distance) / float64(len(enstr)))) * 100
 		if dis > maxdis {
-			den = dicen
-			dja = dicja
+			den = c.en
+			dja = c.ja
 			maxdis = dis
 		}
 	}
@@ -120,7 +195,7 @@ func (rep Rep) paraReplace(src []byte) []byte {
 	return src
 }
 
-//  file rewrite.
+// file rewrite.
 func rewriteFile(fileName string, body []byte) error {
 	fmt.Printf("replace: %s\n", fileName)
 	out, err := os.Create(fileName)
@@ -132,7 +207,7 @@ func rewriteFile(fileName string, body []byte) error {
 	return nil
 }
 
-func Replace(fileNames []string, mt bool, similar int, prompt bool) {
+func Replace(fileNames []string, update bool, mt bool, similar int, prompt bool) {
 	apiConfig := textra.Config{}
 	apiConfig.ClientID = Config.ClientID
 	apiConfig.ClientSecret = Config.ClientSecret
@@ -149,6 +224,7 @@ func Replace(fileNames []string, mt bool, similar int, prompt bool) {
 		rep := Rep{
 			similar: similar,
 			catalog: catalog,
+			update:  update,
 			mt:      mt,
 			apiType: Config.APIAutoTranslateType,
 		}
@@ -165,11 +241,13 @@ func Replace(fileNames []string, mt bool, similar int, prompt bool) {
 			continue
 		}
 
-		ret := REPARA.ReplaceAllFunc(src, rep.Replace)
-		if bytes.Equal(src, ret) {
-			continue
-		}
-
+		ret := rep.replaceCatalog(src)
+		/*
+			ret := REPARA.ReplaceAllFunc(src, rep.Replace)
+			if bytes.Equal(src, ret) {
+				continue
+			}
+		*/
 		if err := rewriteFile(fileName, ret); err != nil {
 			fmt.Fprint(os.Stderr, err.Error())
 		}
