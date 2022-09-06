@@ -96,6 +96,10 @@ func tagCheck(en string, ja string) []string {
 	tags := XMLTAG.FindAllString(en, -1)
 	unTag := make([]string, 0)
 	for _, t := range tags {
+		if strings.Count(en, t) != strings.Count(ja, t) {
+			unTag = append(unTag, fmt.Sprintf("数が違う(%s)%d:%d", t, strings.Count(en, t), strings.Count(ja, t)))
+		}
+
 		if t == "<programlisting>" || t == "<screen>" || t == "<footnote>" || t == "<synopsis>" || t == "<replaceable>" || t == "</para>" {
 			break
 		}

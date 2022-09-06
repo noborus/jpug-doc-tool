@@ -5,8 +5,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-
-	"github.com/elliotchance/orderedmap/v2"
 )
 
 var Version = "dev"
@@ -89,8 +87,9 @@ func ReadAllFile(fileName string) ([]byte, error) {
 	return src, nil
 }
 
-func loadCatalog(fileName string) *orderedmap.OrderedMap[string, string] {
-	catalog := orderedmap.NewOrderedMap[string, string]()
+func loadCatalog(fileName string) []Catalog {
+	catalog := make([]Catalog, 0)
+
 	src, err := ReadAllFile(fileName)
 	if err != nil {
 		fmt.Fprint(os.Stderr, err.Error())
@@ -100,13 +99,12 @@ func loadCatalog(fileName string) *orderedmap.OrderedMap[string, string] {
 	catas := SPLITCATALOG.FindAll(src, -1)
 	for _, cata := range catas {
 		re := SPLITCATALOG.FindSubmatch(cata)
-		if len(re[1]) == 0 {
-			catalog.Set(string(re[2]), "")
-			continue
+		c := Catalog{
+			pre: string(re[1]),
+			en:  string(re[2]),
+			ja:  string(re[3]),
 		}
-		en := string(re[1])
-		ja := string(re[2])
-		catalog.Set(en, ja)
+		catalog = append(catalog, c)
 	}
 	return catalog
 }

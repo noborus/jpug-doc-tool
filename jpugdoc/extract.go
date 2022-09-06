@@ -1,16 +1,37 @@
 package jpugdoc
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"os/exec"
+	"regexp"
 	"strings"
 )
 
-type Pair struct {
-	en string
-	ja string
+type Catalog struct {
+	pre string
+	en  string
+	ja  string
+}
+
+func versionTag() (string, error) {
+	versionFile := "version.sgml"
+	src, err := ReadAllFile(versionFile)
+	if err != nil {
+		return "", err
+	}
+	ver := regexp.MustCompile(`<!ENTITY version "([0-9\.]+)">`)
+	re := ver.FindSubmatch(src)
+	if len(re) < 1 {
+		return "", fmt.Errorf("no version")
+	}
+	v := strings.ReplaceAll(string(re[1]), ".", "_")
+	tag := fmt.Sprintf("REL_%s", v)
+	return tag, nil
 }
 
 // コメント（英語原文）と続く文書（日本語翻訳）のペア、残り文字列、エラーを返す
@@ -19,17 +40,17 @@ type Pair struct {
 // -->
 // japanese
 // の形式に一致しない場合はエラーを返す
-func enjaPair(para []byte) (Pair, []byte, error) {
+func enjaPair(para []byte) (Catalog, []byte, error) {
 	re := EXCOMMENT.FindSubmatch(para)
 	if len(re) < 3 {
-		return Pair{}, nil, fmt.Errorf("no match")
+		return Catalog{}, nil, fmt.Errorf("no match")
 	}
 	enstr := strings.ReplaceAll(string(re[1]), "\n", " ")
 	enstr = MultiSpace.ReplaceAllString(enstr, " ")
 	enstr = strings.TrimSpace(enstr)
 
 	jastr := strings.TrimSpace(string(re[2]))
-	pair := Pair{
+	pair := Catalog{
 		en: enstr,
 		ja: jastr,
 	}
@@ -54,21 +75,8 @@ func enCandidate(en string) string {
 	return en
 }
 
-// src を原文と日本語訳の対の配列に変換する
-func Extraction(src []byte) []Pair {
-	var pairs []Pair
-
-	// title
-	for _, titles := range RECHECKTITLE.FindAll(src, -1) {
-		ts := RETITLE.FindAll(titles, -1)
-		if len(ts) == 2 {
-			pair := Pair{
-				en: string(ts[0]),
-				ja: string(ts[1]),
-			}
-			pairs = append(pairs, pair)
-		}
-	}
+func PARAExtraction(src []byte) []Catalog {
+	var pairs []Catalog
 
 	paras := REPARA.FindAll([]byte(src), -1)
 	en := ""
@@ -117,7 +125,7 @@ func Extraction(src []byte) []Pair {
 		jastr = ENTRYSTRIP.ReplaceAllString(jastr, "")
 		jastr = strings.TrimSpace(jastr)
 
-		pair := Pair{
+		pair := Catalog{
 			en: enstr,
 			ja: jastr,
 		}
@@ -126,25 +134,171 @@ func Extraction(src []byte) []Pair {
 	return pairs
 }
 
-func Extract(fileNames []string) {
-	for _, fileName := range fileNames {
-		src, err := ReadAllFile(fileName)
-		if err != nil {
-			log.Fatal(err)
+// src を原文と日本語訳の対の配列に変換する
+func Extraction(src []byte) []Catalog {
+	reader := bytes.NewReader(src)
+	scanner := bufio.NewScanner(reader)
+	var en, ja, index, indexj strings.Builder
+	pre := ""
+	prefix := ""
+	var pairs []Catalog
+	var comment, jadd, indexF bool
+	for scanner.Scan() {
+		l := scanner.Text()
+		line := strings.TrimSpace(l)
+
+		if STARTADDCOMMENT.MatchString(line) || STARTADDCOMMENTWITHC.MatchString(line) {
+			pair := Catalog{
+				pre: prefix,
+				en:  strings.Trim(en.String(), "\n"),
+				ja:  strings.Trim(ja.String(), "\n"),
+			}
+			if en.Len() != 0 {
+				pairs = append(pairs, pair)
+			}
+			en.Reset()
+			ja.Reset()
+			prefix = pre
+			en.WriteString("\n")
+			comment = true
+			continue
+		} else if ENDADDCOMMENT.MatchString(line) || ENDADDCOMMENTWITHC.MatchString(line) {
+			comment = false
+			jadd = true
+			continue
 		}
+		if comment {
+			if l[0] == '-' {
+				continue
+			}
+			l = REPHIGHHUN.ReplaceAllString(l, "-")
+			en.WriteString(l[1:])
+			en.WriteString("\n")
+		} else {
+			if jadd && strings.HasPrefix(l, "+") {
+				ja.WriteString(strings.TrimLeft(l, "+"))
+				ja.WriteString("\n")
+			} else {
+				jadd = false
+			}
+		}
+		pre = l
+		if comment {
+			continue
+		}
+
+		// indexterm
+		if !strings.HasPrefix(l, "+") {
+			// original indexterm
+			if STARTINDEXTERM.MatchString(line) {
+				index.Reset()
+				indexF = true
+				if ENDINDEXTERM.MatchString(line) {
+					index.WriteString(l[1:])
+					index.WriteString("\n")
+					indexF = false
+				}
+			} else if ENDINDEXTERM.MatchString(line) {
+				index.WriteString(l[1:])
+				index.WriteString("\n")
+				indexF = false
+			}
+			if indexF {
+				index.WriteString(l[1:])
+				index.WriteString("\n")
+			}
+		} else {
+			// Add ja indexterm
+			if STARTINDEXTERM.MatchString(line) {
+				indexF = true
+				if ENDINDEXTERM.MatchString(line) {
+					indexj.WriteString(strings.TrimLeft(l, "+"))
+					indexj.WriteString("\n")
+					indexF = false
+					pair := Catalog{
+						pre: index.String(),
+						ja:  strings.Trim(indexj.String(), "\n"),
+					}
+					pairs = append(pairs, pair)
+					index.Reset()
+					indexj.Reset()
+				}
+			} else if ENDINDEXTERM.MatchString(line) {
+				indexj.WriteString(strings.TrimLeft(l, "+"))
+				indexj.WriteString("\n")
+				indexF = false
+				pair := Catalog{
+					pre: index.String(),
+					ja:  strings.Trim(indexj.String(), "\n"),
+				}
+				pairs = append(pairs, pair)
+				index.Reset()
+				indexj.Reset()
+
+			}
+			if indexF {
+				indexj.WriteString(strings.TrimLeft(l, "+"))
+				indexj.WriteString("\n")
+			}
+		}
+	}
+	// last
+	if en.Len() != 0 {
+		pair := Catalog{
+			pre: prefix,
+			en:  strings.Trim(en.String(), "\n"),
+			ja:  strings.Trim(ja.String(), "\n"),
+		}
+		pairs = append(pairs, pair)
+	}
+
+	return pairs
+}
+
+/*
+	func extractFromDiff(fileName string, diff []byte) {
+		pairs := Extraction(diff)
+		writeDIC(fileName, pairs)
+	}
+*/
+func Extract(fileNames []string) {
+	vTag, err := versionTag()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, fileName := range fileNames {
+		args := []string{"diff", "--histogram", "-U100", vTag, fileName}
+		cmd := exec.Command("git", args...)
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			log.Fatal("exec", err)
+		}
+
+		var src []byte
+		cmd.Start()
+		src, err = io.ReadAll(stdout)
+		if err != nil {
+			log.Fatal("read", err)
+		}
+		cmd.Wait()
 
 		pairs := Extraction(src)
-
-		dicname := DICDIR + fileName + ".t"
-		f, err := os.Create(dicname)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		for _, pair := range pairs {
-			fmt.Fprintf(f, "␝%s␟", pair.en)
-			fmt.Fprintf(f, "%s␞\n", pair.ja)
-		}
-		f.Close()
+		writeDIC(fileName, pairs)
 	}
+}
+
+func writeDIC(fileName string, pairs []Catalog) {
+	dicname := DICDIR + fileName + ".t"
+	f, err := os.Create(dicname)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, pair := range pairs {
+		fmt.Fprintf(f, "␝%s␟", pair.pre)
+		fmt.Fprintf(f, "%s␟", pair.en)
+		fmt.Fprintf(f, "%s␞\n", pair.ja)
+	}
+	f.Close()
 }

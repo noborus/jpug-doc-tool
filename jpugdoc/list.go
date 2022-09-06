@@ -7,18 +7,22 @@ import (
 	"github.com/jwalton/gchalk"
 )
 
-func List(enonly bool, jaonly bool, fileNames []string) {
+func List(wf bool, pre bool, enonly bool, jaonly bool, fileNames []string) {
 	for _, fileName := range fileNames {
+		if wf {
+			fmt.Println(gchalk.Red(fileName))
+		}
 		dicname := DICDIR + fileName + ".t"
 		catalog := loadCatalog(dicname)
-		keys := catalog.Keys()
-		for _, v := range keys {
-			val, ok := catalog.Get(v)
-			if ok && !jaonly {
-				fmt.Println(gchalk.Green(v))
+		for _, c := range catalog {
+			if pre {
+				fmt.Println(gchalk.Blue(c.pre))
+			}
+			if !jaonly {
+				fmt.Println(gchalk.Green(c.en))
 			}
 			if !enonly {
-				fmt.Println(val)
+				fmt.Println(c.ja)
 			}
 			fmt.Println()
 		}
@@ -29,10 +33,8 @@ func TSVList(fileNames []string) {
 	for _, fileName := range fileNames {
 		dicname := DICDIR + fileName + ".t"
 		catalog := loadCatalog(dicname)
-		keys := catalog.Keys()
-		for _, en := range keys {
-			ja, _ := catalog.Get(en)
-			fmt.Printf("%s\t%s\n", strings.ReplaceAll(en, "\n", " "), strings.ReplaceAll(ja, "\n", " "))
+		for _, c := range catalog {
+			fmt.Printf("%s\t%s\n", strings.ReplaceAll(c.en, "\n", " "), strings.ReplaceAll(c.ja, "\n", " "))
 		}
 	}
 }
