@@ -7,8 +7,11 @@ import (
 	"github.com/jwalton/gchalk"
 )
 
-func List(pre bool, enonly bool, jaonly bool, fileNames []string) {
+func List(wf bool, pre bool, enonly bool, jaonly bool, fileNames []string) {
 	for _, fileName := range fileNames {
+		if wf {
+			fmt.Println(gchalk.Red(fileName))
+		}
 		dicname := DICDIR + fileName + ".t"
 		catalog := loadCatalog(dicname)
 		for _, c := range catalog {
