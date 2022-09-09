@@ -58,6 +58,7 @@ func Replace(fileNames []string, update bool, mt bool, similar int, prompt bool)
 		}
 
 		ret := rep.replaceCatalogs(src)
+
 		ret = REPARA.ReplaceAllFunc(ret, rep.ReplacePara)
 		if bytes.Equal(src, ret) {
 			continue
@@ -79,7 +80,7 @@ func (rep Rep) replaceCatalogs(src []byte) []byte {
 	// indexterm
 	for _, c := range rep.catalog {
 		if c.en == "" {
-			src = rep.indexReplace(src, c)
+			src = rep.additionalReplace(src, c)
 		}
 	}
 	return src
@@ -87,7 +88,7 @@ func (rep Rep) replaceCatalogs(src []byte) []byte {
 
 func (rep Rep) replaceCatalog(src []byte, c Catalog) []byte {
 	cen := append([]byte(c.en), '\n')
-	en := REVHIGHHUN.ReplaceAllString(c.en, "&#45;-")
+	hen := REVHIGHHUN.ReplaceAll(cen, []byte("&#45;-"))
 	p := 0
 	pp := 0
 	ret := make([]byte, 0)
@@ -105,8 +106,7 @@ func (rep Rep) replaceCatalog(src []byte, c Catalog) []byte {
 			} else {
 				ret = append(ret, []byte("<!--\n")...)
 			}
-			ret = append(ret, []byte(en)...)
-			ret = append(ret, '\n')
+			ret = append(ret, hen...)
 			if inCDATA(src[:p+pp]) {
 				ret = append(ret, []byte("--><![CDATA[\n")...)
 			} else {
@@ -136,20 +136,20 @@ func inCDATA(src []byte) bool {
 	return s > e
 }
 
-func (rep Rep) indexReplace(src []byte, c Catalog) []byte {
+func (rep Rep) additionalReplace(src []byte, c Catalog) []byte {
 	p := bytes.Index(src, []byte(c.pre))
 	if p == -1 {
 		return src
 	}
-	j := bytes.Index(src, []byte(c.ja))
+	j := bytes.Index(src, []byte("\n"+c.ja))
 	if j != -1 {
 		// Already converted.
 		return src
 	}
 
-	if inComment(src[:p]) {
+	/*if inComment(src[:p]) {
 		return src
-	}
+	}*/
 
 	ret := make([]byte, 0)
 	ret = append(ret, src[:p+len(c.pre)]...)
@@ -187,20 +187,22 @@ func stripEN(src string) string {
 }
 
 func (rep Rep) updateReplace(src []byte) []byte {
-	pair, _, err := enjaPair(src)
+	pair, left, err := enjaPair(src)
 	if err != nil {
 		return src
 	}
 	en, _, _ := splitComment(src)
-	enstr := stripEN(string(en))
 	for _, c := range rep.catalog {
 		if stripEN(c.en) == pair.en {
 			if c.ja == pair.ja {
 				return src
 			}
 			fmt.Println("更新", pair.en)
-			para := fmt.Sprintf("$1<!--\n%s\n-->\n%s$3", enstr, strings.TrimRight(c.ja, "\n"))
-			return REPARA.ReplaceAll(src, []byte(para))
+			para := fmt.Sprintf("$1<!--%s-->\n%s$3", en, strings.TrimRight(c.ja, "\n"))
+			ret := REPARA.ReplaceAll(src, []byte(para))
+			fmt.Println(string(left))
+			ret = append(ret, left...)
+			return ret
 		}
 	}
 

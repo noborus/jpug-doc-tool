@@ -82,10 +82,10 @@ func endComment(src []byte) bool {
 }
 
 // コメント始まりの追加に一致
-var STARTADDCOMMENT = regexp.MustCompile(`\+\s?<!--\s?$`)
+var STARTADDCOMMENT = regexp.MustCompile(`\+<!--$`)
 
 // コメント終わりの追加に一致
-var ENDADDCOMMENT = regexp.MustCompile(`\+\s?-->\s?$`)
+var ENDADDCOMMENT = regexp.MustCompile(`\+-->$`)
 
 // CDATAが終わりコメントの始まりに一致
 var STARTADDCOMMENTWITHC = regexp.MustCompile(`\+\]\]><!--`)
@@ -133,6 +133,9 @@ func stripPROGRAMLISTING(src []byte) []byte {
 
 // カンマを除外
 var STRIPNUM = regexp.MustCompile(`,`)
+
+// カンマを除外
+var STRIPNUMJ = regexp.MustCompile(`, |,|、`)
 
 // カタカナ
 var KATAKANA = regexp.MustCompile(`[ァ-ヺー・]+`)

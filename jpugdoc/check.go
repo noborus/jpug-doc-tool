@@ -2,6 +2,7 @@ package jpugdoc
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"log"
 	"os"
@@ -96,15 +97,20 @@ func tagCheck(en string, ja string) []string {
 	tags := XMLTAG.FindAllString(en, -1)
 	unTag := make([]string, 0)
 	for _, t := range tags {
-		if strings.Count(en, t) != strings.Count(ja, t) {
-			unTag = append(unTag, fmt.Sprintf("数が違う(%s)%d:%d", t, strings.Count(en, t), strings.Count(ja, t)))
-		}
-
-		if t == "<programlisting>" || t == "<screen>" || t == "<footnote>" || t == "<synopsis>" || t == "<replaceable>" || t == "</para>" {
-			break
-		}
 		if !strings.Contains(ja, t) {
 			unTag = append(unTag, t)
+		}
+	}
+	return unTag
+}
+
+func numOfTagCheck(en string, ja string) []string {
+	tags := XMLTAG.FindAllString(en, -1)
+	unTag := make([]string, 0)
+	for _, t := range tags {
+		if strings.Count(en, t) > strings.Count(ja, t) {
+			unTag = append(unTag, fmt.Sprintf("(%s)%d:%d", t, strings.Count(en, t), strings.Count(ja, t)))
+
 		}
 	}
 	return unTag
@@ -114,7 +120,7 @@ func tagCheck(en string, ja string) []string {
 func numCheck(en string, ja string) []string {
 	en = STRIPPROGRAMLISTING.ReplaceAllString(en, "")
 	en = STRIPNUM.ReplaceAllString(en, "")
-	ja = STRIPNUM.ReplaceAllString(ja, "")
+	ja = STRIPNUMJ.ReplaceAllString(ja, "")
 	nums := ENNUM.FindAllString(en, -1)
 	unNum := make([]string, 0)
 	for _, n := range nums {
@@ -176,9 +182,9 @@ func fileCheck(fileName string, src []byte, cf CheckFlag) []result {
 		}
 
 		if cf.Tag {
-			untag := tagCheck(en, ja)
-			if len(untag) > 0 {
-				r := makeResult(fmt.Sprintf("原文にある[%s]が含まれていません", gchalk.Red(strings.Join(untag, " ｜ "))), en, ja)
+			numTag := numOfTagCheck(en, ja)
+			if len(numTag) > 0 {
+				r := makeResult(fmt.Sprintf("タグ[%s]の数が違います", gchalk.Red(strings.Join(numTag, " ｜ "))), en, ja)
 				results = append(results, r)
 			}
 		}
@@ -214,33 +220,162 @@ func printResult(r result) {
 	fmt.Println("========================================>")
 }
 
-func Check(fileNames []string, cf CheckFlag) {
-	for _, fileName := range fileNames {
-		var results []result
-		var ignores []string
-		src, err := ReadAllFile(fileName)
-		if err != nil {
-			log.Fatal(err)
-		}
+func oldCheck(fileName string, cf CheckFlag) {
+	var results []result
+	var ignores []string
+	src, err := ReadAllFile(fileName)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-		results = fileCheck(fileName, src, cf)
-		if !cf.Word && !cf.Tag && !cf.Num {
-			results = commentCheck(src)
-		}
+	results = fileCheck(fileName, src, cf)
+	if !cf.Word && !cf.Tag && !cf.Num {
+		results = commentCheck(src)
+	}
 
-		if len(results) > 0 {
-			fmt.Println(gchalk.Green(fileName))
-			for _, r := range results {
-				printResult(r)
-				if cf.Ignore {
-					if prompter.YN("ignore?", false) {
-						ignores = append(ignores, r.en)
-					}
+	if len(results) > 0 {
+		fmt.Println(gchalk.Green(fileName))
+		for _, r := range results {
+			printResult(r)
+			if cf.Ignore {
+				if prompter.YN("ignore?", false) {
+					ignores = append(ignores, r.en)
 				}
 			}
 		}
-		if len(ignores) > 0 {
-			registerIgnore(fileName, ignores)
+	}
+	if len(ignores) > 0 {
+		registerIgnore(fileName, ignores)
+	}
+}
+
+// enjaCheck は日本語翻訳中にある英単語が英語に含まれているかをチェックする
+func enjaCheck(fileName string, catalog Catalog, cf CheckFlag) []result {
+	var results []result
+	en := catalog.en
+	en = MultiNL.ReplaceAllString(en, " ")
+	en = MultiSpace.ReplaceAllString(en, " ")
+	ja := catalog.ja
+	ja = MultiNL.ReplaceAllString(ja, " ")
+	ja = MultiSpace.ReplaceAllString(ja, " ")
+	if en == "" {
+		return nil
+	}
+	if cf.Word {
+		unword := wordCheck(en, ja)
+		if len(unword) > 0 {
+			r := makeResult(fmt.Sprintf("[%s]が含まれていません", gchalk.Red(strings.Join(unword, " ｜ "))), en, ja)
+			results = append(results, r)
 		}
+	}
+
+	if cf.Tag {
+		numTag := numOfTagCheck(en, ja)
+		if len(numTag) > 0 {
+			r := makeResult(fmt.Sprintf("タグ[%s]の数が違います", gchalk.Red(strings.Join(numTag, " ｜ "))), en, ja)
+			results = append(results, r)
+		}
+	}
+
+	if cf.Num {
+		unNum := numCheck(en, ja)
+		if len(unNum) > 0 {
+			r := makeResult(fmt.Sprintf("原文にある[%s]が含まれていません", gchalk.Red(strings.Join(unNum, " ｜ "))), en, ja)
+			results = append(results, r)
+		}
+	}
+
+	return results
+}
+
+func listCheck(fileName string, src []byte, cf CheckFlag) {
+	var ignores []string
+	var results []result
+	catalogs := Extraction(src)
+	for _, c := range catalogs {
+		result := enjaCheck(fileName, c, cf)
+		if len(result) > 0 {
+			results = append(results, result...)
+		}
+	}
+	if len(results) > 0 {
+		fmt.Println(gchalk.Green(fileName))
+		for _, r := range results {
+			printResult(r)
+			if cf.Ignore {
+				if prompter.YN("ignore?", false) {
+					ignores = append(ignores, r.en)
+				}
+			}
+		}
+	}
+	if len(ignores) > 0 {
+		registerIgnore(fileName, ignores)
+	}
+}
+
+func gitCheck(fileName string, src []byte, cf CheckFlag) {
+	var results []result
+	var ignores []string
+
+	results = checkDiff(src)
+	if len(results) > 0 {
+		fmt.Println(gchalk.Green(fileName))
+		for _, r := range results {
+			printResult(r)
+			if cf.Ignore {
+				if prompter.YN("ignore?", false) {
+					ignores = append(ignores, r.en)
+				}
+			}
+		}
+	}
+	if len(ignores) > 0 {
+		registerIgnore(fileName, ignores)
+	}
+}
+
+func checkDiff(src []byte) []result {
+	var results []result
+	reader := bytes.NewReader(src)
+	scanner := bufio.NewScanner(reader)
+	var en, ja strings.Builder
+	var comment bool
+	for scanner.Scan() {
+		l := scanner.Text()
+		line := strings.TrimSpace(l)
+		if STARTADDCOMMENT.MatchString(line) || STARTADDCOMMENTWITHC.MatchString(line) {
+			if comment {
+				r := makeResult(gchalk.Red("コメント位置が不正"), en.String(), ja.String())
+				results = append(results, r)
+			}
+			comment = true
+			ja.Reset()
+			en.Reset()
+		} else if ENDADDCOMMENT.MatchString(line) || ENDADDCOMMENTWITHC.MatchString(line) {
+			comment = false
+		}
+		if comment {
+			en.WriteString(l[1:])
+			en.WriteString("\n")
+		} else {
+			ja.WriteString(l[1:])
+			ja.WriteString("\n")
+		}
+	}
+	return results
+}
+
+// Check
+func Check(fileNames []string, cf CheckFlag) {
+	vTag, err := versionTag()
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, fileName := range fileNames {
+
+		src := getDiff(vTag, fileName)
+		gitCheck(fileName, src, cf)
+		listCheck(fileName, src, cf)
 	}
 }
