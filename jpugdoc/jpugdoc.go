@@ -3,7 +3,9 @@ package jpugdoc
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 )
 
@@ -38,6 +40,10 @@ func IgnoreFileNames(fileNames []string) []string {
 		"catalogs2.sgml": {},
 		"catalogs3.sgml": {},
 		"catalogs4.sgml": {},
+		"libpq0.sgml":    {},
+		"libpq1.sgml":    {},
+		"libpq2.sgml":    {},
+		"libpq3.sgml":    {},
 	}
 
 	ret := make([]string, 0, len(fileNames))
@@ -107,4 +113,22 @@ func loadCatalog(fileName string) []Catalog {
 		catalog = append(catalog, c)
 	}
 	return catalog
+}
+
+func getDiff(vTag string, fileName string) []byte {
+	args := []string{"diff", "--histogram", "-U100", vTag, fileName}
+	cmd := exec.Command("git", args...)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal("exec", err)
+	}
+
+	var src []byte
+	cmd.Start()
+	src, err = io.ReadAll(stdout)
+	if err != nil {
+		log.Fatal("read", err)
+	}
+	cmd.Wait()
+	return src
 }

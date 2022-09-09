@@ -4,10 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io"
 	"log"
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 )
@@ -139,10 +137,16 @@ func Extraction(src []byte) []Catalog {
 	reader := bytes.NewReader(src)
 	scanner := bufio.NewScanner(reader)
 	var en, ja, index, indexj strings.Builder
-	pre := ""
+	pre := make([]string, 4)
 	prefix := ""
 	var pairs []Catalog
 	var comment, jadd, indexF bool
+	for i := 0; i < 3; i++ {
+		if !scanner.Scan() {
+			//fmt.Println("scaner error")
+			return pairs
+		}
+	}
 	for scanner.Scan() {
 		l := scanner.Text()
 		line := strings.TrimSpace(l)
@@ -158,7 +162,7 @@ func Extraction(src []byte) []Catalog {
 			}
 			en.Reset()
 			ja.Reset()
-			prefix = pre
+			prefix = pre[0]
 			en.WriteString("\n")
 			comment = true
 			continue
@@ -176,13 +180,13 @@ func Extraction(src []byte) []Catalog {
 			en.WriteString("\n")
 		} else {
 			if jadd && strings.HasPrefix(l, "+") {
-				ja.WriteString(strings.TrimLeft(l, "+"))
+				ja.WriteString(l[1:])
 				ja.WriteString("\n")
 			} else {
 				jadd = false
 			}
 		}
-		pre = l
+		pre = append(pre[1:], l[1:])
 		if comment {
 			continue
 		}
@@ -212,7 +216,7 @@ func Extraction(src []byte) []Catalog {
 			if STARTINDEXTERM.MatchString(line) {
 				indexF = true
 				if ENDINDEXTERM.MatchString(line) {
-					indexj.WriteString(strings.TrimLeft(l, "+"))
+					indexj.WriteString(l[1:])
 					indexj.WriteString("\n")
 					indexF = false
 					pair := Catalog{
@@ -224,7 +228,7 @@ func Extraction(src []byte) []Catalog {
 					indexj.Reset()
 				}
 			} else if ENDINDEXTERM.MatchString(line) {
-				indexj.WriteString(strings.TrimLeft(l, "+"))
+				indexj.WriteString(l[1:])
 				indexj.WriteString("\n")
 				indexF = false
 				pair := Catalog{
@@ -237,8 +241,22 @@ func Extraction(src []byte) []Catalog {
 
 			}
 			if indexF {
-				indexj.WriteString(strings.TrimLeft(l, "+"))
+				indexj.WriteString(l[1:])
 				indexj.WriteString("\n")
+			}
+			if !indexF && !jadd {
+				if !strings.Contains(l, "</indexterm>") {
+					if pre[0] != "" && pre[1] != "" && pre[2] != "" && pre[3] != "" {
+						if l != "+" {
+							pair := Catalog{
+								pre: strings.Join(pre[:len(pre)-1], "\n") + "\n",
+								ja:  l[1:],
+							}
+							pairs = append(pairs, pair)
+						}
+					}
+				}
+
 			}
 		}
 	}
@@ -268,21 +286,7 @@ func Extract(fileNames []string) {
 	}
 
 	for _, fileName := range fileNames {
-		args := []string{"diff", "--histogram", "-U100", vTag, fileName}
-		cmd := exec.Command("git", args...)
-		stdout, err := cmd.StdoutPipe()
-		if err != nil {
-			log.Fatal("exec", err)
-		}
-
-		var src []byte
-		cmd.Start()
-		src, err = io.ReadAll(stdout)
-		if err != nil {
-			log.Fatal("read", err)
-		}
-		cmd.Wait()
-
+		src := getDiff(vTag, fileName)
 		pairs := Extraction(src)
 		writeDIC(fileName, pairs)
 	}
