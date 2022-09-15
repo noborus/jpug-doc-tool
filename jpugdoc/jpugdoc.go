@@ -98,7 +98,7 @@ func loadCatalog(fileName string) []Catalog {
 
 	src, err := ReadAllFile(fileName)
 	if err != nil {
-		fmt.Fprint(os.Stderr, err.Error())
+		fmt.Fprintln(os.Stderr, err.Error())
 		return catalog
 	}
 
@@ -106,9 +106,10 @@ func loadCatalog(fileName string) []Catalog {
 	for _, cata := range catas {
 		re := SPLITCATALOG.FindSubmatch(cata)
 		c := Catalog{
-			pre: string(re[1]),
-			en:  string(re[2]),
-			ja:  string(re[3]),
+			pre:      string(re[1]),
+			en:       string(re[2]),
+			ja:       string(re[3]),
+			cdatapre: string(re[4]),
 		}
 		catalog = append(catalog, c)
 	}
@@ -116,7 +117,7 @@ func loadCatalog(fileName string) []Catalog {
 }
 
 func getDiff(vTag string, fileName string) []byte {
-	args := []string{"diff", "--histogram", "-U100", vTag, fileName}
+	args := []string{"diff", "--histogram", "-U10000", vTag, fileName}
 	cmd := exec.Command("git", args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

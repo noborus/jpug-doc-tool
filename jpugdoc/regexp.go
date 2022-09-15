@@ -88,7 +88,7 @@ var STARTADDCOMMENT = regexp.MustCompile(`\+<!--$`)
 var ENDADDCOMMENT = regexp.MustCompile(`\+-->$`)
 
 // CDATAが終わりコメントの始まりに一致
-var STARTADDCOMMENTWITHC = regexp.MustCompile(`\+\]\]><!--`)
+var STARTADDCOMMENTWITHC = regexp.MustCompile(`\+(.*)?\]\]><!--`)
 
 // コメントが終わりCDATAの始まりに一致
 var ENDADDCOMMENTWITHC = regexp.MustCompile(`\+--><\!\[CDATA\[`)
@@ -113,13 +113,16 @@ var MultiSpace = regexp.MustCompile(`\s+`)
 var MultiNL = regexp.MustCompile(`\n+`)
 
 // カタログから英語と日本語を取得
-var SPLITCATALOG = regexp.MustCompile(`(?s)␝(.*?)␟(.*?)␟(.*?)␞`)
+var SPLITCATALOG = regexp.MustCompile(`(?s)␝(.*?)␟(.*?)␟(.*?)␞(.*?)␞`)
 
 // 英単語 + /
 var ENWORD = regexp.MustCompile(`[/a-zA-Z_]+`)
 
+// 日本語
+var NIHONGO = regexp.MustCompile(`[\p{Han}\p{Katakana}\p{Hiragana}]`)
+
 // XMLタグ
-var XMLTAG = regexp.MustCompile(`<[^>]*?>|<[^<>]+/>`)
+var XMLTAG = regexp.MustCompile(`<[^>\!]*?>|<[^<>]+/>`)
 
 // 数値
 var ENNUM = regexp.MustCompile(`[0-9,]+`)

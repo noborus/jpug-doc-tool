@@ -23,6 +23,7 @@ type result struct {
 // CheckFlag represents the item to check.
 type CheckFlag struct {
 	Ignore bool
+	Para   bool
 	Word   bool
 	Tag    bool
 	Num    bool
@@ -60,8 +61,36 @@ func registerIgnore(fileName string, ignores []string) {
 	}
 }
 
-// commentCheck は<para>内にコメント（<!-- -->)が含まれているかチェックする
-func commentCheck(src []byte) []result {
+// paraCheck は<para>内にコメント（<!-- -->)が含まれているかチェックする
+func paraCheck(src []byte) []result {
+	var results []result
+	p := 0
+	pp := 0
+	for p < len(src) {
+		pp = bytes.Index(src[p:], []byte("<para>"))
+		if pp == -1 {
+			break
+		}
+		if inComment(src[:p+pp]) {
+			p = p + pp + 7
+			continue
+		}
+		e := bytes.Index(src[p+pp:], []byte("</para>"))
+		if e == -1 {
+			break
+		}
+		if !bytes.Contains(src[p:p+pp+e], []byte("<!--")) {
+			if !NIHONGO.Match(src[p+pp : p+pp+e+8]) {
+				r := makeResult(gchalk.Red("コメントがありません"), string(src[p+pp:p+pp+e+8]), "")
+				results = append(results, r)
+			}
+		}
+		p = p + pp + e + 8
+	}
+	return results
+}
+
+func oldParaCheck(src []byte) []result {
 	var results []result
 	preComment := false
 	for _, para := range CHECKPARA.FindAll(src, -1) {
@@ -229,8 +258,8 @@ func oldCheck(fileName string, cf CheckFlag) {
 	}
 
 	results = fileCheck(fileName, src, cf)
-	if !cf.Word && !cf.Tag && !cf.Num {
-		results = commentCheck(src)
+	if cf.Para {
+		results = paraCheck(src)
 	}
 
 	if len(results) > 0 {
@@ -318,7 +347,7 @@ func gitCheck(fileName string, src []byte, cf CheckFlag) {
 	var results []result
 	var ignores []string
 
-	results = checkDiff(src)
+	results = checkDiff(src, cf)
 	if len(results) > 0 {
 		fmt.Println(gchalk.Green(fileName))
 		for _, r := range results {
@@ -335,8 +364,12 @@ func gitCheck(fileName string, src []byte, cf CheckFlag) {
 	}
 }
 
-func checkDiff(src []byte) []result {
+func checkDiff(src []byte, cf CheckFlag) []result {
 	var results []result
+	if cf.Para {
+		results = paraCheck(src)
+	}
+
 	reader := bytes.NewReader(src)
 	scanner := bufio.NewScanner(reader)
 	var en, ja strings.Builder
@@ -358,7 +391,7 @@ func checkDiff(src []byte) []result {
 		if comment {
 			en.WriteString(l[1:])
 			en.WriteString("\n")
-		} else {
+		} else if l[0] == '+' {
 			ja.WriteString(l[1:])
 			ja.WriteString("\n")
 		}
@@ -373,7 +406,6 @@ func Check(fileNames []string, cf CheckFlag) {
 		log.Fatal(err)
 	}
 	for _, fileName := range fileNames {
-
 		src := getDiff(vTag, fileName)
 		gitCheck(fileName, src, cf)
 		listCheck(fileName, src, cf)

@@ -3,6 +3,7 @@ package jpugdoc
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -32,6 +33,10 @@ func Replace(fileNames []string, update bool, mt bool, similar int, prompt bool)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "textra: %s", err)
 	}
+	vTag, err := versionTag()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	for _, fileName := range fileNames {
 		dicname := DICDIR + fileName + ".t"
@@ -57,7 +62,12 @@ func Replace(fileNames []string, update bool, mt bool, similar int, prompt bool)
 			continue
 		}
 
-		ret := rep.replaceCatalogs(src)
+		var ret []byte
+		if rep.update {
+			ret = rep.updateFromCatalog(fileName, vTag, src)
+		} else {
+			ret = rep.replaceCatalogs(src)
+		}
 
 		ret = REPARA.ReplaceAllFunc(ret, rep.ReplacePara)
 		if bytes.Equal(src, ret) {
@@ -102,7 +112,7 @@ func (rep Rep) replaceCatalog(src []byte, c Catalog) []byte {
 		if !inComment(src[:p+pp]) {
 			ret = append(ret, src[p:p+pp]...)
 			if inCDATA(src[:p+pp]) {
-				ret = append(ret, []byte("]]><!--\n")...)
+				ret = append(ret, []byte(c.cdatapre+"]]><!--\n")...)
 			} else {
 				ret = append(ret, []byte("<!--\n")...)
 			}
@@ -165,9 +175,9 @@ func (rep Rep) ReplacePara(src []byte) []byte {
 		src = rep.paraReplace(src)
 	}
 
-	if rep.update {
-		src = rep.updateReplace(src)
-	}
+	//if rep.update {
+	//	src = rep.updateReplace(src)
+	//}
 	return src
 }
 
@@ -205,7 +215,25 @@ func (rep Rep) updateReplace(src []byte) []byte {
 			return ret
 		}
 	}
+	return src
+}
 
+// srcを新しいcatalogの日本語訳に置き換えて更新する
+func (rep Rep) updateFromCatalog(fileName string, vTag string, src []byte) []byte {
+	srcDiff := getDiff(vTag, fileName)
+	org := Extraction(srcDiff)
+	// TODO:...
+	for _, c := range org {
+		for _, u := range rep.catalog {
+			if c.en != "" && c.ja != "" && c.en == u.en {
+				if c.ja != u.ja {
+					fmt.Printf("%v o[%v]\n", vTag, c.ja)
+					fmt.Printf("u[%v]\n", u.ja)
+					src = bytes.Replace(src, []byte(c.ja), []byte(u.ja), 1)
+				}
+			}
+		}
+	}
 	return src
 }
 
@@ -226,6 +254,15 @@ func (rep Rep) paraReplace(src []byte) []byte {
 		}
 	}
 
+	if strings.HasPrefix(enstr, "<!--") {
+		return src
+	}
+	if strings.Contains(enstr, "<para>") && strings.Contains(enstr, "<!--") {
+		return src
+	}
+	if NIHONGO.MatchString(enstr) {
+		return src
+	}
 	if rep.mt {
 		fmt.Printf("API...[%.30s] ", enstr)
 		ja, err := rep.api.Translate(rep.apiType, enstr)

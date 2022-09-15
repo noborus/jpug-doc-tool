@@ -11,9 +11,10 @@ import (
 )
 
 type Catalog struct {
-	pre string
-	en  string
-	ja  string
+	pre      string
+	en       string
+	ja       string
+	cdatapre string
 }
 
 func versionTag() (string, error) {
@@ -132,13 +133,15 @@ func PARAExtraction(src []byte) []Catalog {
 	return pairs
 }
 
-// src を原文と日本語訳の対の配列に変換する
-func Extraction(src []byte) []Catalog {
-	reader := bytes.NewReader(src)
+// diff を原文と日本語訳の対の配列に変換する
+func Extraction(diffSrc []byte) []Catalog {
+	reader := bytes.NewReader(diffSrc)
 	scanner := bufio.NewScanner(reader)
 	var en, ja, index, indexj strings.Builder
 	pre := make([]string, 4)
 	prefix := ""
+	cdatapre := ""
+	var similer bool
 	var pairs []Catalog
 	var comment, jadd, indexF bool
 	for i := 0; i < 3; i++ {
@@ -147,11 +150,45 @@ func Extraction(src []byte) []Catalog {
 			return pairs
 		}
 	}
+
 	for scanner.Scan() {
 		l := scanner.Text()
 		line := strings.TrimSpace(l)
+		pre = append(pre[1:], l[1:])
+		// マッチ度コメントをスキップ
+		if similer || strings.Contains(line, "マッチ度[") {
+			if strings.Contains(line, "-->") {
+				similer = false
+				continue
+			}
+			similer = true
+			continue
+		}
 
-		if STARTADDCOMMENT.MatchString(line) || STARTADDCOMMENTWITHC.MatchString(line) {
+		if m := STARTADDCOMMENTWITHC.FindAllStringSubmatch(line, 1); len(m) > 0 {
+			pair := Catalog{
+				pre:      prefix,
+				en:       strings.Trim(en.String(), "\n"),
+				ja:       strings.Trim(ja.String(), "\n"),
+				cdatapre: cdatapre,
+			}
+			if en.Len() != 0 {
+				pairs = append(pairs, pair)
+			}
+			en.Reset()
+			ja.Reset()
+			prefix = pre[0]
+			if len(m[0]) == 1 {
+				en.WriteString("\n")
+				comment = true
+				continue
+			}
+			cdatapre = strings.Join(m[0][1:], "")
+			en.WriteString(cdatapre)
+			en.WriteString("\n")
+			comment = true
+			continue
+		} else if STARTADDCOMMENT.MatchString(line) {
 			pair := Catalog{
 				pre: prefix,
 				en:  strings.Trim(en.String(), "\n"),
@@ -171,6 +208,7 @@ func Extraction(src []byte) []Catalog {
 			jadd = true
 			continue
 		}
+
 		if comment {
 			if l[0] == '-' {
 				continue
@@ -186,14 +224,14 @@ func Extraction(src []byte) []Catalog {
 				jadd = false
 			}
 		}
-		pre = append(pre[1:], l[1:])
+
 		if comment {
 			continue
 		}
 
 		// indexterm
 		if !strings.HasPrefix(l, "+") {
-			// original indexterm
+			// original
 			if STARTINDEXTERM.MatchString(line) {
 				index.Reset()
 				indexF = true
@@ -238,7 +276,6 @@ func Extraction(src []byte) []Catalog {
 				pairs = append(pairs, pair)
 				index.Reset()
 				indexj.Reset()
-
 			}
 			if indexF {
 				indexj.WriteString(l[1:])
@@ -302,7 +339,8 @@ func writeDIC(fileName string, pairs []Catalog) {
 	for _, pair := range pairs {
 		fmt.Fprintf(f, "␝%s␟", pair.pre)
 		fmt.Fprintf(f, "%s␟", pair.en)
-		fmt.Fprintf(f, "%s␞\n", pair.ja)
+		fmt.Fprintf(f, "%s␞", pair.ja)
+		fmt.Fprintf(f, "%s␞\n", pair.cdatapre)
 	}
 	f.Close()
 }

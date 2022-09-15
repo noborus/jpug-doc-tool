@@ -15,12 +15,17 @@ var checkCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		cf := jpugdoc.CheckFlag{
 			Ignore: false,
+			Para:   false,
 			Word:   false,
 			Tag:    false,
 			Num:    false,
 		}
 		var err error
 
+		if cf.Para, err = cmd.PersistentFlags().GetBool("para"); err != nil {
+			log.Println(err)
+			return
+		}
 		if cf.Word, err = cmd.PersistentFlags().GetBool("word"); err != nil {
 			log.Println(err)
 			return
@@ -48,6 +53,7 @@ var checkCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(checkCmd)
+	checkCmd.PersistentFlags().BoolP("para", "p", false, "para check")
 	checkCmd.PersistentFlags().BoolP("word", "w", false, "Word check")
 	checkCmd.PersistentFlags().BoolP("tag", "t", false, "Tag check")
 	checkCmd.PersistentFlags().BoolP("num", "n", false, "Num check")
