@@ -5,7 +5,6 @@ go 1.18
 require (
 	github.com/Songmu/prompter v0.5.1
 	github.com/agnivade/levenshtein v1.1.1
-	github.com/elliotchance/orderedmap/v2 v2.2.0
 	github.com/jwalton/gchalk v1.3.0
 	github.com/noborus/go-textra v0.0.0-20211213062037-cd7ba585e45f
 	github.com/spf13/cobra v1.5.0
@@ -31,7 +30,7 @@ require (
 	github.com/subosito/gotenv v1.4.1 // indirect
 	golang.org/x/net v0.0.0-20220909164309-bea034e7d591 // indirect
 	golang.org/x/oauth2 v0.0.0-20220909003341-f21342109be1 // indirect
-	golang.org/x/sys v0.0.0-20220909162455-aba9fc2a8ff2 // indirect
+	golang.org/x/sys v0.0.0-20220915200043-7b5979e65e41 // indirect
 	golang.org/x/term v0.0.0-20220722155259-a9ba230a4035 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect

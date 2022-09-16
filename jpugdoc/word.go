@@ -10,11 +10,12 @@ import (
 
 // CheckWord は英単語に対して日本語の単語が対になっているかをチェックします。
 func CheckWord(en string, ja string, fileNames []string) {
+	vTag, err := versionTag()
+	if err != nil {
+		log.Fatal(err)
+	}
 	for _, fileName := range fileNames {
-		src, err := ReadAllFile(fileName)
-		if err != nil {
-			log.Fatal(err)
-		}
+		src := getDiff(vTag, fileName)
 		pairs := Extraction(src)
 		for _, pair := range pairs {
 			if strings.Contains(pair.en, en) {

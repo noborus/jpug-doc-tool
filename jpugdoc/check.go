@@ -90,37 +90,6 @@ func paraCheck(src []byte) []result {
 	return results
 }
 
-func oldParaCheck(src []byte) []result {
-	var results []result
-	preComment := false
-	for _, para := range CHECKPARA.FindAll(src, -1) {
-		para = BLANKLINE.ReplaceAll(para, []byte(""))
-		if !containComment(para) {
-			if containCommentEnd(para) {
-				r := makeResult(gchalk.Red("コメントが始まっていません"), string(para), "")
-				results = append(results, r)
-				continue
-			}
-			// <literal>.*</literal>又は<literal>.*</literal><returnvalue>.*</returnvalue>又は+programlisting のみのparaだった場合は無視する
-			if RELITERAL.Match(para) || RELIRET.Match(para) || RELIRETPROG.Match(para) {
-				continue
-			}
-			if !preComment {
-				r := makeResult(gchalk.Red("コメントがありません"), string(para), "")
-				results = append(results, r)
-			}
-			preComment = false
-			continue
-		}
-		if endComment(para) {
-			preComment = true
-		} else {
-			preComment = false
-		}
-	}
-	return results
-}
-
 // 原文内のタグが日本語内にあるかチェックする
 func tagCheck(en string, ja string) []string {
 	tags := XMLTAG.FindAllString(en, -1)
@@ -287,6 +256,8 @@ func enjaCheck(fileName string, catalog Catalog, cf CheckFlag) []result {
 	ja := catalog.ja
 	ja = MultiNL.ReplaceAllString(ja, " ")
 	ja = MultiSpace.ReplaceAllString(ja, " ")
+	ja = YAKUCHU.ReplaceAllString(ja, "")
+
 	if en == "" {
 		return nil
 	}
