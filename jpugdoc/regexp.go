@@ -99,6 +99,8 @@ var STARTINDEXTERM = regexp.MustCompile(`<indexterm`)
 // indexterm終わりに一致
 var ENDINDEXTERM = regexp.MustCompile(`</indexterm`)
 
+var SPLITCOMMENT = regexp.MustCompile(`split-.*-[start|end]`)
+
 // コメント（英語原文）と続く文書（日本語翻訳）を取得
 // 100%一致する訳ではない
 var EXCOMMENT = regexp.MustCompile(`(?s)<!--(.*?)-->(.*?)(</row>|<!--|<note>|<informaltable>|<footnote>|<screen>|<synopsis>|<variablelist>|<programlisting>|<itemizedlist>|<simplelist>|<itemizedlist|<orderedlist|</para>)`)
@@ -156,4 +158,4 @@ var REPHIGHHUN = regexp.MustCompile(`&#0?45;`)
 
 var REVHIGHHUN = regexp.MustCompile(`--`)
 
-var YAKUCHU = regexp.MustCompile(`[\(|\[|（]訳注.*[\]|\)|）]`)
+var YAKUCHU = regexp.MustCompile(`[\(|\[|（]訳注[^\[|\)|）]]*[\]|\)|）]`)

@@ -9,11 +9,15 @@ import (
 )
 
 // CheckWord は英単語に対して日本語の単語が対になっているかをチェックします。
-func CheckWord(en string, ja string, fileNames []string) {
-	vTag, err := versionTag()
-	if err != nil {
-		log.Fatal(err)
+func CheckWord(en string, ja string, vTag string, fileNames []string) {
+	if vTag == "" {
+		v, err := versionTag()
+		if err != nil {
+			log.Fatal(err)
+		}
+		vTag = v
 	}
+
 	for _, fileName := range fileNames {
 		src := getDiff(vTag, fileName)
 		pairs := Extraction(src)

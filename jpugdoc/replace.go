@@ -24,7 +24,7 @@ type Rep struct {
 	apiType string
 }
 
-func Replace(fileNames []string, update bool, mt bool, similar int, prompt bool) {
+func Replace(fileNames []string, vTag string, update bool, mt bool, similar int, prompt bool) {
 	apiConfig := textra.Config{}
 	apiConfig.ClientID = Config.ClientID
 	apiConfig.ClientSecret = Config.ClientSecret
@@ -33,9 +33,12 @@ func Replace(fileNames []string, update bool, mt bool, similar int, prompt bool)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "textra: %s", err)
 	}
-	vTag, err := versionTag()
-	if err != nil {
-		log.Fatal(err)
+	if update && vTag == "" {
+		v, err := versionTag()
+		if err != nil {
+			log.Fatal(err)
+		}
+		vTag = v
 	}
 
 	for _, fileName := range fileNames {
@@ -146,6 +149,7 @@ func inCDATA(src []byte) bool {
 	return s > e
 }
 
+// コメント後の翻訳文の形式以外の追加文。
 func (rep Rep) additionalReplace(src []byte, c Catalog) []byte {
 	p := bytes.Index(src, []byte(c.pre))
 	if p == -1 {
@@ -156,10 +160,6 @@ func (rep Rep) additionalReplace(src []byte, c Catalog) []byte {
 		// Already converted.
 		return src
 	}
-
-	/*if inComment(src[:p]) {
-		return src
-	}*/
 
 	ret := make([]byte, 0)
 	ret = append(ret, src[:p+len(c.pre)]...)
@@ -227,8 +227,6 @@ func (rep Rep) updateFromCatalog(fileName string, vTag string, src []byte) []byt
 		for _, u := range rep.catalog {
 			if c.en != "" && c.ja != "" && c.en == u.en {
 				if c.ja != u.ja {
-					fmt.Printf("%v o[%v]\n", vTag, c.ja)
-					fmt.Printf("u[%v]\n", u.ja)
 					src = bytes.Replace(src, []byte(c.ja), []byte(u.ja), 1)
 				}
 			}

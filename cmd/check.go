@@ -21,7 +21,11 @@ var checkCmd = &cobra.Command{
 			Num:    false,
 		}
 		var err error
-
+		var vTag string
+		if vTag, err = cmd.PersistentFlags().GetString("vtag"); err != nil {
+			log.Println(err)
+			return
+		}
 		if cf.Para, err = cmd.PersistentFlags().GetBool("para"); err != nil {
 			log.Println(err)
 			return
@@ -47,12 +51,13 @@ var checkCmd = &cobra.Command{
 			fileNames = args
 		}
 
-		jpugdoc.Check(fileNames, cf)
+		jpugdoc.Check(fileNames, vTag, cf)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(checkCmd)
+	checkCmd.PersistentFlags().StringP("vtag", "v", "", "original version tag")
 	checkCmd.PersistentFlags().BoolP("para", "p", false, "para check")
 	checkCmd.PersistentFlags().BoolP("word", "w", false, "Word check")
 	checkCmd.PersistentFlags().BoolP("tag", "t", false, "Tag check")

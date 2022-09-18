@@ -23,13 +23,13 @@ func versionTag() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	ver := regexp.MustCompile(`<!ENTITY version "([0-9\.]+)">`)
+	ver := regexp.MustCompile(`<!ENTITY version "([0-9][0-9]+)([^\"]*)">`)
 	re := ver.FindSubmatch(src)
 	if len(re) < 1 {
 		return "", fmt.Errorf("no version")
 	}
-	v := strings.ReplaceAll(string(re[1]), ".", "_")
-	tag := fmt.Sprintf("REL_%s", v)
+	v := strings.ReplaceAll(strings.ToUpper(string(re[2])), ".", "_")
+	tag := fmt.Sprintf("REL_%s_%s", string(re[1]), strings.TrimLeft(v, "_"))
 	return tag, nil
 }
 
@@ -137,13 +137,14 @@ func PARAExtraction(src []byte) []Catalog {
 func Extraction(diffSrc []byte) []Catalog {
 	reader := bytes.NewReader(diffSrc)
 	scanner := bufio.NewScanner(reader)
-	var en, ja, index, indexj strings.Builder
-	pre := make([]string, 4)
+	var en, ja, addja, index, indexj strings.Builder
+	pre := make([]string, 10)
 	prefix := ""
 	cdatapre := ""
 	var similer bool
 	var pairs []Catalog
-	var comment, jadd, indexF bool
+	var comment, jadd, extadd, indexF bool
+	var addPre string
 	for i := 0; i < 3; i++ {
 		if !scanner.Scan() {
 			//fmt.Println("scaner error")
@@ -154,6 +155,7 @@ func Extraction(diffSrc []byte) []Catalog {
 	for scanner.Scan() {
 		l := scanner.Text()
 		line := strings.TrimSpace(l)
+		extadd = false
 		pre = append(pre[1:], l[1:])
 		// マッチ度コメントをスキップ
 		if similer || strings.Contains(line, "マッチ度[") {
@@ -276,6 +278,15 @@ func Extraction(diffSrc []byte) []Catalog {
 				pairs = append(pairs, pair)
 				index.Reset()
 				indexj.Reset()
+			} else {
+				if SPLITCOMMENT.MatchString(line) {
+					pair := Catalog{
+						pre: strings.Join(pre[:len(pre)-1], "\n") + "\n",
+						ja:  l[1:],
+					}
+					pairs = append(pairs, pair)
+					continue
+				}
 			}
 			if indexF {
 				indexj.WriteString(l[1:])
@@ -283,18 +294,25 @@ func Extraction(diffSrc []byte) []Catalog {
 			}
 			if !indexF && !jadd {
 				if !strings.Contains(l, "</indexterm>") {
-					if pre[0] != "" && pre[1] != "" && pre[2] != "" && pre[3] != "" {
-						if l != "+" {
-							pair := Catalog{
-								pre: strings.Join(pre[:len(pre)-1], "\n") + "\n",
-								ja:  l[1:],
-							}
-							pairs = append(pairs, pair)
+					if strings.Join(pre[:len(pre)-1], "") != "" {
+						if addja.Len() == 0 {
+							addPre = strings.Join(pre[:len(pre)-1], "\n") + "\n"
 						}
+						extadd = true
+						addja.WriteString(l[1:])
+						addja.WriteString("\n")
 					}
 				}
-
+				if !extadd && addja.Len() != 0 {
+					pair := Catalog{
+						pre: addPre,
+						ja:  strings.Trim(addja.String(), "\n"),
+					}
+					pairs = append(pairs, pair)
+					addja.Reset()
+				}
 			}
+
 		}
 	}
 	// last

@@ -371,11 +371,15 @@ func checkDiff(src []byte, cf CheckFlag) []result {
 }
 
 // Check
-func Check(fileNames []string, cf CheckFlag) {
-	vTag, err := versionTag()
-	if err != nil {
-		log.Fatal(err)
+func Check(fileNames []string, vTag string, cf CheckFlag) {
+	if vTag == "" {
+		v, err := versionTag()
+		if err != nil {
+			log.Fatal(err)
+		}
+		vTag = v
 	}
+
 	for _, fileName := range fileNames {
 		src := getDiff(vTag, fileName)
 		gitCheck(fileName, src, cf)
