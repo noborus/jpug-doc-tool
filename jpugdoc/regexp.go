@@ -158,4 +158,6 @@ var REPHIGHHUN = regexp.MustCompile(`&#0?45;`)
 
 var REVHIGHHUN = regexp.MustCompile(`--`)
 
+var REVHIGHHUN2 = regexp.MustCompile(`---`)
+
 var YAKUCHU = regexp.MustCompile(`[\(|\[|（]訳注[^\[|\)|）]]*[\]|\)|）]`)

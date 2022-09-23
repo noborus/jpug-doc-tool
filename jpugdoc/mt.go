@@ -27,13 +27,12 @@ func MT(args ...string) {
 		fmt.Fprintf(os.Stderr, "textra: %s", err)
 		os.Exit(1)
 	}
-	ja = strings.ReplaceAll(ja, "。", "。\n")
 	fmt.Printf("%s: %s\n", c.APIAutoTranslateType, ja)
+
 	jagen, err := cli.Translate(textra.GENERAL_EN_JA, en)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "textra: %s", err)
 		os.Exit(1)
 	}
-	jagen = strings.ReplaceAll(jagen, "。", "。\n")
 	fmt.Printf("%s: %s\n", textra.GENERAL_EN_JA, jagen)
 }

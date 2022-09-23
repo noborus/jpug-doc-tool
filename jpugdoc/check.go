@@ -27,6 +27,7 @@ type CheckFlag struct {
 	Word   bool
 	Tag    bool
 	Num    bool
+	Strict bool
 }
 
 type IgnoreList map[string]bool
@@ -102,14 +103,20 @@ func tagCheck(en string, ja string) []string {
 	return unTag
 }
 
-func numOfTagCheck(en string, ja string) []string {
+func numOfTagCheck(strict bool, en string, ja string) []string {
 	tags := XMLTAG.FindAllString(en, -1)
 	unTag := make([]string, 0)
 	for _, t := range tags {
-		if strings.Count(en, t) > strings.Count(ja, t) {
-			unTag = append(unTag, fmt.Sprintf("(%s)%d:%d", t, strings.Count(en, t), strings.Count(ja, t)))
-
+		if strict {
+			if strings.Count(en, t) != strings.Count(ja, t) {
+				unTag = append(unTag, fmt.Sprintf("(%s)%d:%d", t, strings.Count(en, t), strings.Count(ja, t)))
+			}
+		} else {
+			if strings.Count(en, t) > strings.Count(ja, t) {
+				unTag = append(unTag, fmt.Sprintf("(%s)%d:%d", t, strings.Count(en, t), strings.Count(ja, t)))
+			}
 		}
+
 	}
 	return unTag
 }
@@ -180,7 +187,7 @@ func fileCheck(fileName string, src []byte, cf CheckFlag) []result {
 		}
 
 		if cf.Tag {
-			numTag := numOfTagCheck(en, ja)
+			numTag := numOfTagCheck(cf.Strict, en, ja)
 			if len(numTag) > 0 {
 				r := makeResult(fmt.Sprintf("タグ[%s]の数が違います", gchalk.Red(strings.Join(numTag, " ｜ "))), en, ja)
 				results = append(results, r)
@@ -270,7 +277,7 @@ func enjaCheck(fileName string, catalog Catalog, cf CheckFlag) []result {
 	}
 
 	if cf.Tag {
-		numTag := numOfTagCheck(en, ja)
+		numTag := numOfTagCheck(cf.Strict, en, ja)
 		if len(numTag) > 0 {
 			r := makeResult(fmt.Sprintf("タグ[%s]の数が違います", gchalk.Red(strings.Join(numTag, " ｜ "))), en, ja)
 			results = append(results, r)

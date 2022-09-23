@@ -42,6 +42,10 @@ var checkCmd = &cobra.Command{
 			log.Println(err)
 			return
 		}
+		if cf.Strict, err = cmd.PersistentFlags().GetBool("strict"); err != nil {
+			log.Println(err)
+			return
+		}
 		if cf.Ignore, err = cmd.PersistentFlags().GetBool("ignore"); err != nil {
 			log.Println(err)
 			return
@@ -62,5 +66,6 @@ func init() {
 	checkCmd.PersistentFlags().BoolP("word", "w", false, "Word check")
 	checkCmd.PersistentFlags().BoolP("tag", "t", false, "Tag check")
 	checkCmd.PersistentFlags().BoolP("num", "n", false, "Num check")
+	checkCmd.PersistentFlags().BoolP("strict", "s", false, "strict check")
 	checkCmd.PersistentFlags().BoolP("ignore", "i", false, "Prompt before ignore registration")
 }

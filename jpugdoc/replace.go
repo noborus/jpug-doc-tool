@@ -101,7 +101,8 @@ func (rep Rep) replaceCatalogs(src []byte) []byte {
 
 func (rep Rep) replaceCatalog(src []byte, c Catalog) []byte {
 	cen := append([]byte(c.en), '\n')
-	hen := REVHIGHHUN.ReplaceAll(cen, []byte("&#45;-"))
+	hen := REVHIGHHUN2.ReplaceAll(cen, []byte("&#45;&#45;-"))
+	hen = REVHIGHHUN.ReplaceAll(hen, []byte("&#45;-"))
 	p := 0
 	pp := 0
 	ret := make([]byte, 0)
@@ -126,8 +127,13 @@ func (rep Rep) replaceCatalog(src []byte, c Catalog) []byte {
 				ret = append(ret, []byte("-->\n")...)
 			}
 
-			ret = append(ret, []byte(c.ja)...)
-			ret = append(ret, src[p+pp+len(c.en):]...)
+			if c.ja != "" {
+				ret = append(ret, []byte(c.ja)...)
+				ret = append(ret, src[p+pp+len(c.en):]...)
+			} else {
+				ret = append(ret, src[p+pp+len(c.en)+1:]...)
+			}
+
 			break
 		}
 		// Already in Japanese.
@@ -151,22 +157,33 @@ func inCDATA(src []byte) bool {
 
 // コメント後の翻訳文の形式以外の追加文。
 func (rep Rep) additionalReplace(src []byte, c Catalog) []byte {
-	p := bytes.Index(src, []byte(c.pre))
+	p := foundReplace(src, c)
 	if p == -1 {
 		return src
 	}
-	j := bytes.Index(src, []byte("\n"+c.ja))
-	if j != -1 {
-		// Already converted.
-		return src
-	}
-
 	ret := make([]byte, 0)
 	ret = append(ret, src[:p+len(c.pre)]...)
 	ret = append(ret, c.ja...)
 	ret = append(ret, '\n')
 	ret = append(ret, src[p+len(c.pre):]...)
 	return ret
+}
+
+func foundReplace(src []byte, c Catalog) int {
+	for p := 0; p < len(src); {
+		i := bytes.Index(src[p:], []byte(c.pre))
+		if i == -1 {
+			return -1
+		}
+		j := bytes.Index(src[p+i:], []byte("\n"+c.ja))
+		if j == -1 {
+			// before conversion.
+			return p + i
+		}
+		// Already converted.
+		p = p + i + j + len(c.pre) + 1
+	}
+	return -1
 }
 
 // replacement in para.
@@ -241,6 +258,8 @@ func (rep Rep) paraReplace(src []byte) []byte {
 	enstr := stripEN(string(re[2]))
 	for _, c := range rep.catalog {
 		if stripEN(c.en) == enstr {
+			en = REVHIGHHUN2.ReplaceAllString(en, "&#45;&#45;-")
+			en = REVHIGHHUN.ReplaceAllString(en, "&#45;-")
 			para := fmt.Sprintf("$1<!--\n%s\n-->\n%s$3", en, strings.TrimRight(c.ja, "\n"))
 			if rep.prompt {
 				fmt.Println(string(src))
@@ -272,6 +291,8 @@ func (rep Rep) paraReplace(src []byte) []byte {
 			return src
 		}
 		ja = KUTEN.ReplaceAllString(ja, "。\n")
+		en = REVHIGHHUN2.ReplaceAllString(en, "&#45;&#45;-")
+		en = REVHIGHHUN.ReplaceAllString(en, "&#45;-")
 		para := fmt.Sprintf("$1<!--\n%s\n-->\n<!-- 《機械翻訳》 -->\n%s$3", en, strings.TrimRight(ja, "\n"))
 		fmt.Print("Done\n")
 

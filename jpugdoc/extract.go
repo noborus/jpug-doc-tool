@@ -167,6 +167,7 @@ func Extraction(diffSrc []byte) []Catalog {
 			continue
 		}
 
+		// CDATA
 		if m := STARTADDCOMMENTWITHC.FindAllStringSubmatch(line, 1); len(m) > 0 {
 			pair := Catalog{
 				pre:      prefix,
@@ -186,11 +187,16 @@ func Extraction(diffSrc []byte) []Catalog {
 				continue
 			}
 			cdatapre = strings.Join(m[0][1:], "")
-			en.WriteString(cdatapre)
-			en.WriteString("\n")
+			//en.WriteString(cdatapre)
+			//en.WriteString("\n")
 			comment = true
 			continue
 		} else if STARTADDCOMMENT.MatchString(line) {
+			if strings.HasSuffix(en.String(), "\n);\n") {
+				if !strings.HasSuffix(ja.String(), ");\n") {
+					ja.WriteString(");\n")
+				}
+			}
 			pair := Catalog{
 				pre: prefix,
 				en:  strings.Trim(en.String(), "\n"),
@@ -231,7 +237,7 @@ func Extraction(diffSrc []byte) []Catalog {
 			continue
 		}
 
-		// indexterm
+		// indexterm,etc.
 		if !strings.HasPrefix(l, "+") {
 			// original
 			if STARTINDEXTERM.MatchString(line) {
@@ -259,11 +265,13 @@ func Extraction(diffSrc []byte) []Catalog {
 					indexj.WriteString(l[1:])
 					indexj.WriteString("\n")
 					indexF = false
-					pair := Catalog{
-						pre: index.String(),
-						ja:  strings.Trim(indexj.String(), "\n"),
+					if index.Len() > 0 {
+						pair := Catalog{
+							pre: index.String(),
+							ja:  strings.Trim(indexj.String(), "\n"),
+						}
+						pairs = append(pairs, pair)
 					}
-					pairs = append(pairs, pair)
 					index.Reset()
 					indexj.Reset()
 				}
@@ -271,11 +279,13 @@ func Extraction(diffSrc []byte) []Catalog {
 				indexj.WriteString(l[1:])
 				indexj.WriteString("\n")
 				indexF = false
-				pair := Catalog{
-					pre: index.String(),
-					ja:  strings.Trim(indexj.String(), "\n"),
+				if index.Len() > 0 {
+					pair := Catalog{
+						pre: index.String(),
+						ja:  strings.Trim(indexj.String(), "\n"),
+					}
+					pairs = append(pairs, pair)
 				}
-				pairs = append(pairs, pair)
 				index.Reset()
 				indexj.Reset()
 			} else {
@@ -303,16 +313,15 @@ func Extraction(diffSrc []byte) []Catalog {
 						addja.WriteString("\n")
 					}
 				}
-				if !extadd && addja.Len() != 0 {
-					pair := Catalog{
-						pre: addPre,
-						ja:  strings.Trim(addja.String(), "\n"),
-					}
-					pairs = append(pairs, pair)
-					addja.Reset()
-				}
 			}
-
+		}
+		if !extadd && addja.Len() != 0 {
+			pair := Catalog{
+				pre: addPre,
+				ja:  strings.Trim(addja.String(), "\n"),
+			}
+			pairs = append(pairs, pair)
+			addja.Reset()
 		}
 	}
 	// last
