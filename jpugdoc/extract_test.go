@@ -17,12 +17,16 @@ func TestExtraction(t *testing.T) {
 		{
 			name: "test1",
 			args: args{
-				[]byte(`<para>
-<!--
-test
--->
-テスト
-</para>`),
+				[]byte(` 
+ 
+ 
+ 
+ <para>
++<!--
+ test
++-->
++テスト
+ </para>`),
 			},
 			want: []Catalog{
 				{
@@ -34,25 +38,33 @@ test
 		{
 			name: "test2",
 			args: args{
-				[]byte(`<para>
-<!--
-test
--->
-テスト
-<!--
-test2
--->
-テスト２
-</para>`),
+				[]byte(` 
+ 
+ 
+ 
+ <para>
++<!--
+  test
++-->
++テスト
++<!--
+  test2
++-->
++テスト２
+ </para>`),
 			},
 			want: []Catalog{
 				{
-					en: "test",
-					ja: "テスト",
+					pre:      "",
+					en:       " test",
+					ja:       "テスト",
+					cdatapre: "",
 				},
 				{
-					en: "test2",
-					ja: "テスト２",
+					pre:      "",
+					en:       " test2",
+					ja:       "テスト２",
+					cdatapre: "",
 				},
 			},
 		},
@@ -60,7 +72,7 @@ test2
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := Extraction(tt.args.src); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Extraction() = %v, want %v", got, tt.want)
+				t.Errorf("Extraction() = %#v, want %#v", got, tt.want)
 			}
 		})
 	}
