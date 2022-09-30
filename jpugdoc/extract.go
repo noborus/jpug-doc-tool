@@ -141,7 +141,7 @@ func Extraction(diffSrc []byte) []Catalog {
 	pre := make([]string, 10)
 	prefix := ""
 	cdatapre := ""
-	var similer bool
+	//var similer bool
 	var pairs []Catalog
 	var comment, jadd, extadd, indexF bool
 	var addPre string
@@ -157,16 +157,6 @@ func Extraction(diffSrc []byte) []Catalog {
 		line := strings.TrimSpace(l)
 		extadd = false
 		pre = append(pre[1:], l[1:])
-		// マッチ度コメントをスキップ
-		if similer || strings.Contains(line, "マッチ度[") {
-			if strings.Contains(line, "-->") {
-				similer = false
-				continue
-			}
-			similer = true
-			continue
-		}
-
 		// CDATA
 		if m := STARTADDCOMMENTWITHC.FindAllStringSubmatch(line, 1); len(m) > 0 {
 			pair := Catalog{

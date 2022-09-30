@@ -80,6 +80,10 @@ func paraCheck(src []byte) []result {
 		if e == -1 {
 			break
 		}
+		if bytes.Contains(src, []byte("<returnvalue>")) {
+			p = p + pp + 7
+			continue
+		}
 		if !bytes.Contains(src[p:p+pp+e], []byte("<!--")) {
 			if !NIHONGO.Match(src[p+pp : p+pp+e+8]) {
 				r := makeResult(gchalk.Red("コメントがありません"), string(src[p+pp:p+pp+e+8]), "")
@@ -265,7 +269,7 @@ func enjaCheck(fileName string, catalog Catalog, cf CheckFlag) []result {
 	ja = MultiSpace.ReplaceAllString(ja, " ")
 	ja = YAKUCHU.ReplaceAllString(ja, "")
 
-	if en == "" {
+	if en == "" || ja == "" {
 		return nil
 	}
 	if cf.Word {
@@ -352,6 +356,11 @@ func checkDiff(src []byte, cf CheckFlag) []result {
 	scanner := bufio.NewScanner(reader)
 	var en, ja strings.Builder
 	var comment bool
+	for i := 0; i < 3; i++ {
+		if !scanner.Scan() {
+			return results
+		}
+	}
 	for scanner.Scan() {
 		l := scanner.Text()
 		line := strings.TrimSpace(l)

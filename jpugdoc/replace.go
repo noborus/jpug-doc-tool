@@ -72,6 +72,7 @@ func Replace(fileNames []string, vTag string, update bool, mt bool, similar int,
 			ret = rep.replaceCatalogs(src)
 		}
 
+		// <para>のみ更に置き換える
 		ret = REPARA.ReplaceAllFunc(ret, rep.ReplacePara)
 		if bytes.Equal(src, ret) {
 			continue
@@ -99,6 +100,7 @@ func (rep Rep) replaceCatalogs(src []byte) []byte {
 	return src
 }
 
+// .jpug-doc-tool/filename.sgml.t のカタログを使用して置き換える
 func (rep Rep) replaceCatalog(src []byte, c Catalog) []byte {
 	cen := append([]byte(c.en), '\n')
 	hen := REVHIGHHUN2.ReplaceAll(cen, []byte("&#45;&#45;-"))
@@ -191,10 +193,6 @@ func (rep Rep) ReplacePara(src []byte) []byte {
 	if rep.mt || rep.similar > 0 {
 		src = rep.paraReplace(src)
 	}
-
-	//if rep.update {
-	//	src = rep.updateReplace(src)
-	//}
 	return src
 }
 
@@ -254,12 +252,13 @@ func (rep Rep) updateFromCatalog(fileName string, vTag string, src []byte) []byt
 
 func (rep Rep) paraReplace(src []byte) []byte {
 	re := REPARA.FindSubmatch(src)
+	para := string(re[1])
 	en := strings.TrimRight(string(re[2]), "\n")
+	en = REVHIGHHUN2.ReplaceAllString(en, "&#45;&#45;-")
+	en = REVHIGHHUN.ReplaceAllString(en, "&#45;-")
 	enstr := stripEN(string(re[2]))
 	for _, c := range rep.catalog {
 		if stripEN(c.en) == enstr {
-			en = REVHIGHHUN2.ReplaceAllString(en, "&#45;&#45;-")
-			en = REVHIGHHUN.ReplaceAllString(en, "&#45;-")
 			para := fmt.Sprintf("$1<!--\n%s\n-->\n%s$3", en, strings.TrimRight(c.ja, "\n"))
 			if rep.prompt {
 				fmt.Println(string(src))
@@ -280,50 +279,60 @@ func (rep Rep) paraReplace(src []byte) []byte {
 	if NIHONGO.MatchString(enstr) {
 		return src
 	}
-	if rep.mt {
-		fmt.Printf("API...[%.30s] ", enstr)
-		ja, err := rep.api.Translate(rep.apiType, enstr)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "replace: %s", err)
-			return src
-		}
-		if ja == "" {
-			return src
-		}
-		ja = KUTEN.ReplaceAllString(ja, "。\n")
-		en = REVHIGHHUN2.ReplaceAllString(en, "&#45;&#45;-")
-		en = REVHIGHHUN.ReplaceAllString(en, "&#45;-")
-		para := fmt.Sprintf("$1<!--\n%s\n-->\n<!-- 《機械翻訳》 -->\n%s$3", en, strings.TrimRight(ja, "\n"))
-		fmt.Print("Done\n")
-
-		if rep.prompt {
-			fmt.Println(string(src))
-			fmt.Println("機械翻訳")
-			fmt.Println(string(ja))
-			return promptReplace(src, []byte(para))
-		}
-		return REPARA.ReplaceAll(src, []byte(para))
-	}
-
-	if rep.similar == 0 {
+	// <para>\nで改行されていない場合はスキップ
+	if !strings.Contains(para, "\n") {
 		return src
 	}
+	if bytes.Contains(src, []byte("<returnvalue>")) {
+		return src
+	}
+	if rep.similar != 0 {
+		return rep.simReplace(src, en, enstr)
+	}
+	if rep.mt {
+		return rep.mtReplace(src, en, enstr)
+	}
+	return src
+}
 
+func (rep Rep) mtReplace(src []byte, en string, enstr string) []byte {
+	fmt.Printf("API...[%.30s] ", enstr)
+	ja, err := rep.api.Translate(rep.apiType, enstr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "replace: %s", err)
+		return src
+	}
+	if ja == "" {
+		return src
+	}
+	ja = KUTEN.ReplaceAllString(ja, "。\n")
+	para := fmt.Sprintf("$1<!--\n%s\n-->\n《機械翻訳》%s$3", en, strings.TrimRight(ja, "\n"))
+	fmt.Print("Done\n")
+
+	if rep.prompt {
+		fmt.Println(string(src))
+		fmt.Println("機械翻訳")
+		fmt.Println(string(ja))
+		return promptReplace(src, []byte(para))
+	}
+	return REPARA.ReplaceAll(src, []byte(para))
+}
+
+func (rep Rep) simReplace(src []byte, en string, enstr string) []byte {
 	var maxdis float64
-	den := ""
+	//den := ""
 	dja := ""
 	for _, c := range rep.catalog {
-
 		distance := levenshtein.ComputeDistance(enstr, c.en)
 		dis := (1 - (float64(distance) / float64(len(enstr)))) * 100
 		if dis > maxdis {
-			den = c.en
+			//den = c.en
 			dja = c.ja
 			maxdis = dis
 		}
 	}
 	if maxdis > float64(rep.similar) {
-		para := fmt.Sprintf("$1<!--\n%s\n-->\n<!-- マッチ度[%f]\n%s\n-->\n%s$3", en, maxdis, strings.TrimRight(den, "\n"), strings.TrimRight(dja, "\n"))
+		para := fmt.Sprintf("$1<!--\n%s\n-->\n《マッチ度[%f]》%s$3", en, maxdis, strings.TrimRight(dja, "\n"))
 		if rep.prompt {
 			fmt.Println(string(src))
 			fmt.Println("類似置き換え")
