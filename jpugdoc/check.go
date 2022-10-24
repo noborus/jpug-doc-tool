@@ -30,35 +30,24 @@ type CheckFlag struct {
 	Strict bool
 }
 
-type IgnoreList map[string]bool
-
-func loadIgnore(fileName string) IgnoreList {
-	f, err := os.Open(fileName)
-	if err != nil {
-		return nil
-	}
-	defer f.Close()
-
-	ignores := make(map[string]bool)
-
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		ignores[scanner.Text()] = true
-	}
-	return ignores
-}
-
-func registerIgnore(fileName string, ignores []string) {
-	ignoreName := DICDIR + fileName + ".ignore"
-
-	f, err := os.OpenFile(ignoreName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o666)
-	if err != nil {
-		log.Fatal(err)
+// defualt check
+func Check(fileNames []string, vTag string, cf CheckFlag) {
+	if vTag == "" {
+		v, err := versionTag()
+		if err != nil {
+			log.Fatal(err)
+		}
+		vTag = v
 	}
 
-	defer f.Close()
-	for _, ig := range ignores {
-		fmt.Fprintf(f, "%s\n", ig)
+	for _, fileName := range fileNames {
+		if cf.Para {
+			//fileCheck(fileName, cf)
+		}
+
+		diffSrc := getDiff(vTag, fileName)
+		gitCheck(fileName, diffSrc, cf)
+		listCheck(fileName, diffSrc, cf)
 	}
 }
 
@@ -95,18 +84,7 @@ func paraCheck(src []byte) []result {
 	return results
 }
 
-// 原文内のタグが日本語内にあるかチェックする
-func tagCheck(en string, ja string) []string {
-	tags := XMLTAG.FindAllString(en, -1)
-	unTag := make([]string, 0)
-	for _, t := range tags {
-		if !strings.Contains(ja, t) {
-			unTag = append(unTag, t)
-		}
-	}
-	return unTag
-}
-
+// 英語と日本語のタグの数をチェックする
 func numOfTagCheck(strict bool, en string, ja string) []string {
 	tags := XMLTAG.FindAllString(en, -1)
 	unTag := make([]string, 0)
@@ -165,50 +143,6 @@ func wordCheck(en string, ja string) []string {
 	return unword
 }
 
-// fileCheck は日本語翻訳中にある英単語が英語に含まれているかをチェックする
-func fileCheck(fileName string, src []byte, cf CheckFlag) []result {
-	var results []result
-	ignoreName := DICDIR + fileName + ".ignore"
-	ignores := loadIgnore(ignoreName)
-	for _, pair := range Extraction(src) {
-		en := pair.en
-		ja := pair.ja
-		if len(en) == 0 || len(ja) == 0 {
-			continue
-		}
-		if ignores[en] {
-			continue
-		}
-		ja = MultiNL.ReplaceAllString(ja, " ")
-		ja = MultiSpace.ReplaceAllString(ja, " ")
-
-		if cf.Word {
-			unword := wordCheck(en, ja)
-			if len(unword) > 0 {
-				r := makeResult(fmt.Sprintf("[%s]が含まれていません", gchalk.Red(strings.Join(unword, " ｜ "))), en, ja)
-				results = append(results, r)
-			}
-		}
-
-		if cf.Tag {
-			numTag := numOfTagCheck(cf.Strict, en, ja)
-			if len(numTag) > 0 {
-				r := makeResult(fmt.Sprintf("タグ[%s]の数が違います", gchalk.Red(strings.Join(numTag, " ｜ "))), en, ja)
-				results = append(results, r)
-			}
-		}
-
-		if cf.Num {
-			unNum := numCheck(en, ja)
-			if len(unNum) > 0 {
-				r := makeResult(fmt.Sprintf("原文にある[%s]が含まれていません", gchalk.Red(strings.Join(unNum, " ｜ "))), en, ja)
-				results = append(results, r)
-			}
-		}
-	}
-	return results
-}
-
 // メッセージ、原文、日本語の形式で出力する
 func makeResult(str string, en string, ja string) result {
 	var r result
@@ -227,35 +161,6 @@ func printResult(r result) {
 		fmt.Println(r.ja)
 	}
 	fmt.Println("========================================>")
-}
-
-func oldCheck(fileName string, cf CheckFlag) {
-	var results []result
-	var ignores []string
-	src, err := ReadAllFile(fileName)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	results = fileCheck(fileName, src, cf)
-	if cf.Para {
-		results = paraCheck(src)
-	}
-
-	if len(results) > 0 {
-		fmt.Println(gchalk.Green(fileName))
-		for _, r := range results {
-			printResult(r)
-			if cf.Ignore {
-				if prompter.YN("ignore?", false) {
-					ignores = append(ignores, r.en)
-				}
-			}
-		}
-	}
-	if len(ignores) > 0 {
-		registerIgnore(fileName, ignores)
-	}
 }
 
 // enjaCheck は日本語翻訳中にある英単語が英語に含まれているかをチェックする
@@ -299,9 +204,11 @@ func enjaCheck(fileName string, catalog Catalog, cf CheckFlag) []result {
 	return results
 }
 
+// diffの内容から英日のブロックを抽出して整合をチェックする
 func listCheck(fileName string, src []byte, cf CheckFlag) {
 	var ignores []string
 	var results []result
+
 	catalogs := Extraction(src)
 	for _, c := range catalogs {
 		result := enjaCheck(fileName, c, cf)
@@ -309,9 +216,16 @@ func listCheck(fileName string, src []byte, cf CheckFlag) {
 			results = append(results, result...)
 		}
 	}
+
+	ignoreName := DICDIR + fileName + ".ignore"
+	ignoreList := loadIgnore(ignoreName)
+
 	if len(results) > 0 {
 		fmt.Println(gchalk.Green(fileName))
 		for _, r := range results {
+			if ignoreList[strings.TrimRight(r.en, "\n")] {
+				continue
+			}
 			printResult(r)
 			if cf.Ignore {
 				if prompter.YN("ignore?", false) {
@@ -325,18 +239,26 @@ func listCheck(fileName string, src []byte, cf CheckFlag) {
 	}
 }
 
-func gitCheck(fileName string, src []byte, cf CheckFlag) {
+// git diff を取り内容をチェックする。
+func gitCheck(fileName string, diffSrc []byte, cf CheckFlag) {
 	var results []result
 	var ignores []string
 
-	results = checkDiff(src, cf)
+	ignoreName := DICDIR + fileName + ".ignore"
+	ignoreList := loadIgnore(ignoreName)
+
+	results = checkDiff(diffSrc, cf)
 	if len(results) > 0 {
 		fmt.Println(gchalk.Green(fileName))
 		for _, r := range results {
+			en := stripEN(r.en)
+			if ignoreList[en] {
+				continue
+			}
 			printResult(r)
 			if cf.Ignore {
 				if prompter.YN("ignore?", false) {
-					ignores = append(ignores, r.en)
+					ignores = append(ignores, en)
 				}
 			}
 		}
@@ -346,13 +268,14 @@ func gitCheck(fileName string, src []byte, cf CheckFlag) {
 	}
 }
 
-func checkDiff(src []byte, cf CheckFlag) []result {
+// diffの内容から追加されたコメントの開始と終了をチェックする。
+func checkDiff(diffSrc []byte, cf CheckFlag) []result {
 	var results []result
 	if cf.Para {
-		results = paraCheck(src)
+		results = paraCheck(diffSrc)
 	}
 
-	reader := bytes.NewReader(src)
+	reader := bytes.NewReader(diffSrc)
 	scanner := bufio.NewScanner(reader)
 	var en, ja strings.Builder
 	var comment bool
@@ -386,19 +309,62 @@ func checkDiff(src []byte, cf CheckFlag) []result {
 	return results
 }
 
-// Check
-func Check(fileNames []string, vTag string, cf CheckFlag) {
-	if vTag == "" {
-		v, err := versionTag()
-		if err != nil {
-			log.Fatal(err)
+// ファイル自体チェックする
+func fileCheck(fileName string, cf CheckFlag) error {
+	var results []result
+	var ignores []string
+
+	f, err := os.Open(fileName)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	//ignoreName := DICDIR + fileName + ".ignore"
+	//ignoreList := loadIgnore(ignoreName)
+
+	var paraFlag, commentFlag, ok bool
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		l := scanner.Text()
+		if !commentFlag && strings.Contains(l, "<para>") {
+			paraFlag = true
+			continue
 		}
-		vTag = v
+		if paraFlag && strings.Contains(l, "<!--") {
+			commentFlag = true
+			ok = true
+			continue
+		}
+
+		if strings.Contains(l, "-->") {
+			commentFlag = false
+			continue
+		}
+
+		if !commentFlag && strings.Contains(l, "</para>") {
+			paraFlag = false
+			ok = false
+			continue
+		}
+		if paraFlag && !ok {
+			fmt.Println(l)
+		}
 	}
 
-	for _, fileName := range fileNames {
-		src := getDiff(vTag, fileName)
-		gitCheck(fileName, src, cf)
-		listCheck(fileName, src, cf)
+	if len(results) > 0 {
+		fmt.Println(gchalk.Green(fileName))
+		for _, r := range results {
+			printResult(r)
+			if cf.Ignore {
+				if prompter.YN("ignore?", false) {
+					ignores = append(ignores, r.en)
+				}
+			}
+		}
 	}
+	if len(ignores) > 0 {
+		registerIgnore(fileName, ignores)
+	}
+	return nil
 }

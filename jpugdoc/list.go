@@ -17,6 +17,10 @@ func List(wf bool, pre bool, enonly bool, jaonly bool, fileNames []string) {
 		for _, c := range catalog {
 			if pre {
 				fmt.Println(gchalk.Blue(c.pre))
+			} else {
+				if c.en == "" {
+					continue
+				}
 			}
 			if !jaonly {
 				fmt.Println(gchalk.Green(c.en))

@@ -70,10 +70,10 @@ func Replace(fileNames []string, vTag string, update bool, mt bool, similar int,
 			ret = rep.updateFromCatalog(fileName, vTag, src)
 		} else {
 			ret = rep.replaceCatalogs(src)
+			// <para>のみ更に置き換える
+			ret = REPARA.ReplaceAllFunc(ret, rep.paraReplace)
 		}
 
-		// <para>のみ更に置き換える
-		ret = REPARA.ReplaceAllFunc(ret, rep.ReplacePara)
 		if bytes.Equal(src, ret) {
 			continue
 		}
@@ -188,14 +188,6 @@ func foundReplace(src []byte, c Catalog) int {
 	return -1
 }
 
-// replacement in para.
-func (rep Rep) ReplacePara(src []byte) []byte {
-	if rep.mt || rep.similar > 0 {
-		src = rep.paraReplace(src)
-	}
-	return src
-}
-
 func promptReplace(src []byte, replace []byte) []byte {
 	if !prompter.YN("replace?", false) {
 		return src
@@ -233,19 +225,28 @@ func (rep Rep) updateReplace(src []byte) []byte {
 	return src
 }
 
+func replaceCatalog(src []byte, catalogs []Catalog, o Catalog) []byte {
+	var ja string
+	for _, c := range catalogs {
+		if o.en != "" && c.en != "" && o.ja != "" && c.en == o.en {
+			if c.ja == o.ja {
+				return src
+			}
+			ja = c.ja
+		}
+	}
+	if ja != "" {
+		return bytes.ReplaceAll(src, []byte(o.ja), []byte(ja))
+	}
+	return src
+}
+
 // srcを新しいcatalogの日本語訳に置き換えて更新する
 func (rep Rep) updateFromCatalog(fileName string, vTag string, src []byte) []byte {
 	srcDiff := getDiff(vTag, fileName)
 	org := Extraction(srcDiff)
-	// TODO:...
-	for _, c := range org {
-		for _, u := range rep.catalog {
-			if c.en != "" && c.ja != "" && c.en == u.en {
-				if c.ja != u.ja {
-					src = bytes.Replace(src, []byte(c.ja), []byte(u.ja), 1)
-				}
-			}
-		}
+	for _, o := range org {
+		src = replaceCatalog(src, rep.catalog, o)
 	}
 	return src
 }
@@ -258,6 +259,9 @@ func (rep Rep) paraReplace(src []byte) []byte {
 	en = REVHIGHHUN.ReplaceAllString(en, "&#45;-")
 	enstr := stripEN(string(re[2]))
 	for _, c := range rep.catalog {
+		if c.en == "" {
+			continue
+		}
 		if stripEN(c.en) == enstr {
 			para := fmt.Sprintf("$1<!--\n%s\n-->\n%s$3", en, strings.TrimRight(c.ja, "\n"))
 			if rep.prompt {
@@ -299,7 +303,7 @@ func (rep Rep) mtReplace(src []byte, en string, enstr string) []byte {
 	fmt.Printf("API...[%.30s] ", enstr)
 	ja, err := rep.api.Translate(rep.apiType, enstr)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "replace: %s", err)
+		fmt.Fprintf(os.Stderr, "replace: %s\n", err)
 		return src
 	}
 	if ja == "" {
