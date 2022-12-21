@@ -77,7 +77,8 @@ APIAutoTranslateType: "c-1640_en_ja" # （翻訳エンジン） 汎用NT は "ge
 ```console
 $ jpug-doc-tool mt "This is a pen."
 Using config file: /home/noborus/.jpug-doc-tool.yaml
-これはペンです。
+c-1640_en_ja: これはペンです。
+generalNT_en_ja: これはペンです。
 ```
 
 この翻訳設定は置き換えでも使用します。
