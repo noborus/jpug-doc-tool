@@ -142,7 +142,7 @@ jpug-doc-tool replace [ファイル名.sgml]
 `replace`に `--mt`オプションをつけると、機械翻訳によって置き換えます。時間もかかるのでファイルを指定しての実行をオススメします。
 
 ```console
-jpug-doc-tool --mt [ファイル名.sgml]
+jpug-doc-tool replace --mt [ファイル名.sgml]
 ```
 
 実行すると時間がかかるためAPI問い合わせした場合は以下のように`API...`、`Done`と表示されます。
