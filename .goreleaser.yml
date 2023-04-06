@@ -34,3 +34,19 @@ changelog:
     exclude:
       - '^doc:'
       - '^test:'
+brews:
+  -
+    name: jpug-doc-tool
+    tap:
+      owner: noborus
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    commit_author:
+      name: noborus
+      email: noborusai@gmail.com
+    homepage: https://github.com/noborus/jpug-doc-tool
+    description: "jpug-doc tool"
+    test:
+      system "#{bin}/jpug-doc-tool --version"
+    install:
+      bin.install "jpug-doc-tool"

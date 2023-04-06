@@ -89,6 +89,7 @@ func numOfTagCheck(strict bool, en string, ja string) []string {
 	tags := XMLTAG.FindAllString(en, -1)
 	unTag := make([]string, 0)
 	for _, t := range tags {
+		t = STRIPXREFLABEL.ReplaceAllString(t, "")
 		if strict {
 			if strings.Count(en, t) != strings.Count(ja, t) {
 				unTag = append(unTag, fmt.Sprintf("(%s)%d:%d", t, strings.Count(en, t), strings.Count(ja, t)))

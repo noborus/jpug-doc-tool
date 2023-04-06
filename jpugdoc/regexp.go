@@ -126,6 +126,9 @@ var NIHONGO = regexp.MustCompile(`[\p{Han}\p{Katakana}\p{Hiragana}]`)
 // XMLタグ
 var XMLTAG = regexp.MustCompile(`<[^>\!]*?>|<[^<>]+/>`)
 
+// xreflabelは除外
+var STRIPXREFLABEL = regexp.MustCompile(`xreflabel=\".*\"`)
+
 // 数値
 var ENNUM = regexp.MustCompile(`[0-9,]+`)
 
