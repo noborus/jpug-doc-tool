@@ -42,7 +42,7 @@ func Replace(fileNames []string, vTag string, update bool, mt bool, similar int,
 	}
 
 	for _, fileName := range fileNames {
-		dicname := DICDIR + fileName + ".t"
+		dicname := DicDir + fileName + ".t"
 		catalog := loadCatalog(dicname)
 
 		rep := Rep{
@@ -258,22 +258,23 @@ func (rep Rep) paraReplace(src []byte) []byte {
 	en = REVHIGHHUN2.ReplaceAllString(en, "&#45;&#45;-")
 	en = REVHIGHHUN.ReplaceAllString(en, "&#45;-")
 	enstr := stripEN(string(re[2]))
-	for _, c := range rep.catalog {
-		if c.en == "" {
-			continue
-		}
-		if stripEN(c.en) == enstr {
-			para := fmt.Sprintf("$1<!--\n%s\n-->\n%s$3", en, strings.TrimRight(c.ja, "\n"))
-			if rep.prompt {
-				fmt.Println(string(src))
-				fmt.Println("前回と一致")
-				fmt.Println(c.ja)
-				return promptReplace(src, []byte(para))
+	/*
+		for _, c := range rep.catalog {
+			if c.en == "" {
+				continue
 			}
-			return REPARA.ReplaceAll(src, []byte(para))
+			if stripEN(c.en) == enstr {
+				para := fmt.Sprintf("$1<!--\n%s\n-->\n%s$3", en, strings.TrimRight(c.ja, "\n"))
+				if rep.prompt {
+					fmt.Println(string(src))
+					fmt.Println("前回と一致")
+					fmt.Println(c.ja)
+					return promptReplace(src, []byte(para))
+				}
+				return REPARA.ReplaceAll(src, []byte(para))
+			}
 		}
-	}
-
+	*/
 	if strings.HasPrefix(enstr, "<!--") {
 		return src
 	}
@@ -290,6 +291,11 @@ func (rep Rep) paraReplace(src []byte) []byte {
 	if bytes.Contains(src, []byte("<returnvalue>")) {
 		return src
 	}
+	log.Println("replace?", enstr)
+	if rep.similar > 0 && rep.mt {
+		log.Println("simMtReplace", en)
+		return rep.simMtReplace(src, en, enstr)
+	}
 	if rep.similar != 0 {
 		return rep.simReplace(src, en, enstr)
 	}
@@ -299,17 +305,25 @@ func (rep Rep) paraReplace(src []byte) []byte {
 	return src
 }
 
-func (rep Rep) mtReplace(src []byte, en string, enstr string) []byte {
+func (rep Rep) MTtrans(enstr string) string {
 	fmt.Printf("API...[%.30s] ", enstr)
 	ja, err := rep.api.Translate(rep.apiType, enstr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "replace: %s\n", err)
-		return src
+		return ""
 	}
+	if ja == "" {
+		return ""
+	}
+	ja = KUTEN.ReplaceAllString(ja, "。\n")
+	return ja
+}
+
+func (rep Rep) mtReplace(src []byte, en string, enstr string) []byte {
+	ja := rep.MTtrans(enstr)
 	if ja == "" {
 		return src
 	}
-	ja = KUTEN.ReplaceAllString(ja, "。\n")
 	para := fmt.Sprintf("$1<!--\n%s\n-->\n《機械翻訳》%s$3", en, strings.TrimRight(ja, "\n"))
 	fmt.Print("Done\n")
 
@@ -345,6 +359,45 @@ func (rep Rep) simReplace(src []byte, en string, enstr string) []byte {
 		}
 		return REPARA.ReplaceAll(src, []byte(para))
 	}
+	return src
+}
+
+func (rep Rep) simMtReplace(src []byte, en string, enstr string) []byte {
+	var maxdis float64
+	//den := ""
+	dja := ""
+	for _, c := range rep.catalog {
+		distance := levenshtein.ComputeDistance(enstr, c.en)
+		dis := (1 - (float64(distance) / float64(len(enstr)))) * 100
+		if dis > maxdis {
+			//den = c.en
+			dja = c.ja
+			maxdis = dis
+		}
+	}
+	if maxdis > float64(rep.similar) {
+		simja := strings.TrimRight(dja, "\n")
+		mtja := ""
+		para := ""
+		if maxdis < 90 {
+			mtja = rep.MTtrans(enstr)
+		}
+		if mtja != "" {
+			mtja = strings.TrimRight(mtja, "\n")
+			para = fmt.Sprintf("$1<!--\n%s\n-->\n《マッチ度[%f]》%s\n《機械翻訳》%s$3", en, maxdis, simja, mtja)
+		} else {
+			para = fmt.Sprintf("$1<!--\n%s\n-->\n《マッチ度[%f]》%s$3", en, maxdis, simja)
+		}
+		return REPARA.ReplaceAll(src, []byte(para))
+	}
+
+	mtja := rep.MTtrans(enstr)
+	if mtja != "" {
+		mtja = strings.TrimRight(mtja, "\n")
+		para := fmt.Sprintf("$1<!--\n%s\n-->\n《機械翻訳》%s$3", en, mtja)
+		return REPARA.ReplaceAll(src, []byte(para))
+	}
+
 	return src
 }
 

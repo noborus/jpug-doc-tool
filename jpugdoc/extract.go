@@ -74,6 +74,7 @@ func enCandidate(en string) string {
 	return en
 }
 
+// 一つのファイルから原文と日本語訳の対の配列を抽出する
 func PARAExtraction(src []byte) []Catalog {
 	var pairs []Catalog
 
@@ -134,20 +135,28 @@ func PARAExtraction(src []byte) []Catalog {
 }
 
 // diff を原文と日本語訳の対の配列に変換する
+// <para>
+// + <!--
+// english
+// + -->
+// + japanese
+// </para>
 func Extraction(diffSrc []byte) []Catalog {
-	reader := bytes.NewReader(diffSrc)
-	scanner := bufio.NewScanner(reader)
 	var en, ja, addja, index, indexj strings.Builder
+
 	pre := make([]string, 10)
 	prefix := ""
 	cdatapre := ""
-	//var similer bool
 	var pairs []Catalog
 	var comment, jadd, extadd, indexF bool
 	var addPre string
+
+	reader := bytes.NewReader(diffSrc)
+	scanner := bufio.NewScanner(reader)
+	// skip diff header
 	for i := 0; i < 3; i++ {
 		if !scanner.Scan() {
-			//fmt.Println("scaner error")
+			//fmt.Println("scanner error")
 			return pairs
 		}
 	}
@@ -347,7 +356,7 @@ func Extract(fileNames []string) {
 }
 
 func writeDIC(fileName string, pairs []Catalog) {
-	dicname := DICDIR + fileName + ".t"
+	dicname := DicDir + fileName + ".t"
 	f, err := os.Create(dicname)
 	if err != nil {
 		log.Fatal(err)

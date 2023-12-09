@@ -12,7 +12,7 @@ func List(wf bool, pre bool, enonly bool, jaonly bool, fileNames []string) {
 		if wf {
 			fmt.Println(gchalk.Red(fileName))
 		}
-		dicname := DICDIR + fileName + ".t"
+		dicname := DicDir + fileName + ".t"
 		catalog := loadCatalog(dicname)
 		for _, c := range catalog {
 			if pre {
@@ -35,7 +35,7 @@ func List(wf bool, pre bool, enonly bool, jaonly bool, fileNames []string) {
 
 func TSVList(fileNames []string) {
 	for _, fileName := range fileNames {
-		dicname := DICDIR + fileName + ".t"
+		dicname := DicDir + fileName + ".t"
 		catalog := loadCatalog(dicname)
 		for _, c := range catalog {
 			fmt.Printf("%s\t%s\n", strings.ReplaceAll(c.en, "\n", " "), strings.ReplaceAll(c.ja, "\n", " "))

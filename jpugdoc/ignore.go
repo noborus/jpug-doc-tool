@@ -26,7 +26,7 @@ func loadIgnore(fileName string) IgnoreList {
 }
 
 func registerIgnore(fileName string, ignores []string) {
-	ignoreName := DICDIR + fileName + ".ignore"
+	ignoreName := DicDir + fileName + ".ignore"
 
 	f, err := os.OpenFile(ignoreName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o666)
 	if err != nil {

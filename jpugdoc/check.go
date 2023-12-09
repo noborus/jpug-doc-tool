@@ -218,7 +218,7 @@ func listCheck(fileName string, src []byte, cf CheckFlag) {
 		}
 	}
 
-	ignoreName := DICDIR + fileName + ".ignore"
+	ignoreName := DicDir + fileName + ".ignore"
 	ignoreList := loadIgnore(ignoreName)
 
 	if len(results) > 0 {
@@ -245,7 +245,7 @@ func gitCheck(fileName string, diffSrc []byte, cf CheckFlag) {
 	var results []result
 	var ignores []string
 
-	ignoreName := DICDIR + fileName + ".ignore"
+	ignoreName := DicDir + fileName + ".ignore"
 	ignoreList := loadIgnore(ignoreName)
 
 	results = checkDiff(diffSrc, cf)
