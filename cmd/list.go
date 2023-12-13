@@ -13,7 +13,7 @@ var listCmd = &cobra.Command{
 	Short: "辞書から英語と日本語訳のリストを出力する",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		var filename, pre, enonly, jaonly, tsv bool
+		var filename, pre, enOnly, jaOnly, tsv bool
 		var err error
 		if filename, err = cmd.PersistentFlags().GetBool("filename"); err != nil {
 			log.Println(err)
@@ -23,11 +23,11 @@ var listCmd = &cobra.Command{
 			log.Println(err)
 			return
 		}
-		if enonly, err = cmd.PersistentFlags().GetBool("en"); err != nil {
+		if enOnly, err = cmd.PersistentFlags().GetBool("en"); err != nil {
 			log.Println(err)
 			return
 		}
-		if jaonly, err = cmd.PersistentFlags().GetBool("ja"); err != nil {
+		if jaOnly, err = cmd.PersistentFlags().GetBool("ja"); err != nil {
 			log.Println(err)
 			return
 		}
@@ -41,7 +41,7 @@ var listCmd = &cobra.Command{
 				jpugdoc.TSVList(args)
 				return
 			}
-			jpugdoc.List(filename, pre, enonly, jaonly, args)
+			jpugdoc.List(filename, pre, enOnly, jaOnly, args)
 			return
 		}
 
@@ -50,7 +50,7 @@ var listCmd = &cobra.Command{
 			jpugdoc.TSVList(fileNames)
 			return
 		}
-		jpugdoc.List(filename, pre, enonly, jaonly, fileNames)
+		jpugdoc.List(filename, pre, enOnly, jaOnly, fileNames)
 	},
 }
 

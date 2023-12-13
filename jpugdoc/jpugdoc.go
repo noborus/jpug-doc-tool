@@ -11,7 +11,7 @@ import (
 
 var Version = "dev"
 
-var DICDIR = "./.jpug-doc-tool/"
+var DicDir = "./.jpug-doc-tool/"
 
 type apiConfig struct {
 	ClientID             string
@@ -23,29 +23,29 @@ type apiConfig struct {
 
 var Config apiConfig
 
-func IgnoreFileNames(fileNames []string) []string {
-	var ignoreFile map[string]struct{} = map[string]struct{}{
-		"jpug-doc.sgml":  {},
-		"config0.sgml":   {},
-		"config1.sgml":   {},
-		"config2.sgml":   {},
-		"config3.sgml":   {},
-		"func0.sgml":     {},
-		"func1.sgml":     {},
-		"func2.sgml":     {},
-		"func3.sgml":     {},
-		"func4.sgml":     {},
-		"catalogs0.sgml": {},
-		"catalogs1.sgml": {},
-		"catalogs2.sgml": {},
-		"catalogs3.sgml": {},
-		"catalogs4.sgml": {},
-		"libpq0.sgml":    {},
-		"libpq1.sgml":    {},
-		"libpq2.sgml":    {},
-		"libpq3.sgml":    {},
-	}
+var ignoreFile map[string]struct{} = map[string]struct{}{
+	"jpug-doc.sgml":  {},
+	"config0.sgml":   {},
+	"config1.sgml":   {},
+	"config2.sgml":   {},
+	"config3.sgml":   {},
+	"func0.sgml":     {},
+	"func1.sgml":     {},
+	"func2.sgml":     {},
+	"func3.sgml":     {},
+	"func4.sgml":     {},
+	"catalogs0.sgml": {},
+	"catalogs1.sgml": {},
+	"catalogs2.sgml": {},
+	"catalogs3.sgml": {},
+	"catalogs4.sgml": {},
+	"libpq0.sgml":    {},
+	"libpq1.sgml":    {},
+	"libpq2.sgml":    {},
+	"libpq3.sgml":    {},
+}
 
+func IgnoreFileNames(fileNames []string) []string {
 	ret := make([]string, 0, len(fileNames))
 	for _, fileName := range fileNames {
 		if _, ok := ignoreFile[fileName]; ok {
@@ -63,14 +63,16 @@ func InitJpug() {
 		fmt.Fprintln(os.Stderr, "cd github.com/pgsql-jp/jpug-doc/doc/src/sgml")
 		return
 	}
-	if _, err := os.Stat(DICDIR); os.IsNotExist(err) {
-		err := os.Mkdir(DICDIR, 0o755)
+
+	if _, err := os.Stat(DicDir); os.IsNotExist(err) {
+		err := os.Mkdir(DicDir, 0o755)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 		}
 		return
 	}
-	refdir := DICDIR + "/ref"
+
+	refdir := DicDir + "/ref"
 	if _, err := os.Stat(refdir); os.IsNotExist(err) {
 		err := os.Mkdir(refdir, 0o755)
 		if err != nil {
