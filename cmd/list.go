@@ -11,7 +11,7 @@ import (
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "辞書から英語と日本語訳のリストを出力する",
-	Long:  ``,
+	Long:  `抽出した辞書の英語と日本語訳のリストを出力する`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var filename, pre, enOnly, jaOnly, tsv bool
 		var err error

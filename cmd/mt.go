@@ -9,7 +9,7 @@ import (
 var mtCmd = &cobra.Command{
 	Use:   "mt",
 	Short: "APIを使用して文字列を翻訳する",
-	Long:  ``,
+	Long:  `機械翻訳APIを使用して文字列を翻訳する`,
 	Run: func(cmd *cobra.Command, args []string) {
 		jpugdoc.MT(args...)
 	},

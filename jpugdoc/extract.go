@@ -17,6 +17,8 @@ type Catalog struct {
 	cdatapre string
 }
 
+// version.sgmlからバージョンタグを取得する
+// 15.4 → REL_15_4
 func versionTag() (string, error) {
 	versionFile := "version.sgml"
 	src, err := ReadAllFile(versionFile)

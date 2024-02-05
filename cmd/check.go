@@ -11,42 +11,10 @@ import (
 var checkCmd = &cobra.Command{
 	Use:   "check",
 	Short: "文書をチェックする",
-	Long:  ``,
+	Long:  `英語と日本語の文書から翻訳をチェックする`,
 	Run: func(cmd *cobra.Command, args []string) {
-		cf := jpugdoc.CheckFlag{
-			Ignore: false,
-			Para:   false,
-			Word:   false,
-			Tag:    false,
-			Num:    false,
-		}
-		var err error
-		var vTag string
-		if vTag, err = cmd.PersistentFlags().GetString("vtag"); err != nil {
-			log.Println(err)
-			return
-		}
-		if cf.Para, err = cmd.PersistentFlags().GetBool("para"); err != nil {
-			log.Println(err)
-			return
-		}
-		if cf.Word, err = cmd.PersistentFlags().GetBool("word"); err != nil {
-			log.Println(err)
-			return
-		}
-		if cf.Tag, err = cmd.PersistentFlags().GetBool("tag"); err != nil {
-			log.Println(err)
-			return
-		}
-		if cf.Num, err = cmd.PersistentFlags().GetBool("num"); err != nil {
-			log.Println(err)
-			return
-		}
-		if cf.Strict, err = cmd.PersistentFlags().GetBool("strict"); err != nil {
-			log.Println(err)
-			return
-		}
-		if cf.Ignore, err = cmd.PersistentFlags().GetBool("ignore"); err != nil {
+		cf, err := setCheckFlag(cmd)
+		if err != nil {
 			log.Println(err)
 			return
 		}
@@ -54,9 +22,46 @@ var checkCmd = &cobra.Command{
 		if len(args) > 0 {
 			fileNames = args
 		}
-
-		jpugdoc.Check(fileNames, vTag, cf)
+		jpugdoc.Check(fileNames, *cf)
 	},
+}
+
+func setCheckFlag(cmd *cobra.Command) (*jpugdoc.CheckFlag, error) {
+	cf := &jpugdoc.CheckFlag{
+		VTag:   "",
+		Ignore: false,
+		WIP:    false,
+		Para:   false,
+		Word:   false,
+		Tag:    false,
+		Num:    false,
+	}
+	var err error
+	if cf.VTag, err = cmd.PersistentFlags().GetString("vtag"); err != nil {
+		return nil, err
+	}
+	if cf.Para, err = cmd.PersistentFlags().GetBool("para"); err != nil {
+		return nil, err
+	}
+	if cf.Word, err = cmd.PersistentFlags().GetBool("word"); err != nil {
+		return nil, err
+	}
+	if cf.Tag, err = cmd.PersistentFlags().GetBool("tag"); err != nil {
+		return nil, err
+	}
+	if cf.Num, err = cmd.PersistentFlags().GetBool("num"); err != nil {
+		return nil, err
+	}
+	if cf.Strict, err = cmd.PersistentFlags().GetBool("strict"); err != nil {
+		return nil, err
+	}
+	if cf.Ignore, err = cmd.PersistentFlags().GetBool("ignore"); err != nil {
+		return nil, err
+	}
+	if cf.WIP, err = cmd.PersistentFlags().GetBool("wip"); err != nil {
+		return nil, err
+	}
+	return cf, nil
 }
 
 func init() {
@@ -68,4 +73,5 @@ func init() {
 	checkCmd.PersistentFlags().BoolP("num", "n", false, "Num check")
 	checkCmd.PersistentFlags().BoolP("strict", "s", false, "strict check")
 	checkCmd.PersistentFlags().BoolP("ignore", "i", false, "Prompt before ignore registration")
+	checkCmd.PersistentFlags().BoolP("wip", "a", false, "Work in progress check")
 }

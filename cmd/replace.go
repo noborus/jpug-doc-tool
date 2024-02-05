@@ -10,8 +10,9 @@ import (
 // replaceCmd represents the replace command
 var replaceCmd = &cobra.Command{
 	Use:   "replace",
-	Short: "英語のパラグラフを「<!--英語-->日本語翻訳」に置き換える",
-	Long:  ``,
+	Short: "文書を「<!--英語-->日本語翻訳」に置き換える",
+	Long: `抽出した辞書に基づいて文書を「<!--英語-->日本語翻訳」に置き換える。
+文書により完全一致、類似文、機械翻訳で置き換える。`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var vtag string
 		var update bool

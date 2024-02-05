@@ -22,7 +22,9 @@ type result struct {
 
 // CheckFlag represents the item to check.
 type CheckFlag struct {
+	VTag   string
 	Ignore bool
+	WIP    bool
 	Para   bool
 	Word   bool
 	Tag    bool
@@ -30,57 +32,93 @@ type CheckFlag struct {
 	Strict bool
 }
 
-// defualt check
-func Check(fileNames []string, vTag string, cf CheckFlag) {
-	if vTag == "" {
+// default check
+func Check(fileNames []string, cf CheckFlag) {
+	if cf.VTag == "" {
 		v, err := versionTag()
 		if err != nil {
 			log.Fatal(err)
 		}
-		vTag = v
+		cf.VTag = v
 	}
 
 	for _, fileName := range fileNames {
 		if cf.Para {
-			//fileCheck(fileName, cf)
+			fileCheck(fileName, cf)
 		}
 
-		diffSrc := getDiff(vTag, fileName)
+		diffSrc := getDiff(cf.VTag, fileName)
 		gitCheck(fileName, diffSrc, cf)
 		listCheck(fileName, diffSrc, cf)
 	}
 }
 
-// paraCheck は<para>内にコメント（<!-- -->)が含まれているかチェックする
-func paraCheck(src []byte) []result {
-	var results []result
-	p := 0
-	pp := 0
-	for p < len(src) {
-		pp = bytes.Index(src[p:], []byte("<para>"))
-		if pp == -1 {
-			break
-		}
-		if inComment(src[:p+pp]) {
-			p = p + pp + 7
-			continue
-		}
-		e := bytes.Index(src[p+pp:], []byte("</para>"))
-		if e == -1 {
-			break
-		}
-		if bytes.Contains(src, []byte("<returnvalue>")) {
-			p = p + pp + 7
-			continue
-		}
-		if !bytes.Contains(src[p:p+pp+e], []byte("<!--")) {
-			if !NIHONGO.Match(src[p+pp : p+pp+e+8]) {
-				r := makeResult(gchalk.Red("コメントがありません"), string(src[p+pp:p+pp+e+8]), "")
-				results = append(results, r)
-			}
-		}
-		p = p + pp + e + 8
+// メッセージ、原文、日本語の形式で出力する
+func makeResult(str string, en string, ja string) result {
+	var r result
+	r.comment = str
+	r.en = en
+	r.ja = ja
+	return r
+}
+
+func printResult(r result) {
+	fmt.Println("<========================================")
+	fmt.Println(r.comment)
+	fmt.Println(gchalk.Green(r.en))
+	if r.ja != "" {
+		fmt.Println("-----------------------------------------")
+		fmt.Println(r.ja)
 	}
+	fmt.Println("========================================>")
+}
+
+// enjaCheck は日本語翻訳中にある英単語が英語に含まれているかをチェックする
+// wordCheck,numOfTagCheck, numCheckのチェックをおこなう
+func enjaCheck(fileName string, catalog Catalog, cf CheckFlag) []result {
+	var results []result
+	en := catalog.en
+	en = MultiNL.ReplaceAllString(en, " ")
+	en = MultiSpace.ReplaceAllString(en, " ")
+	ja := catalog.ja
+	ja = MultiNL.ReplaceAllString(ja, " ")
+	ja = MultiSpace.ReplaceAllString(ja, " ")
+	ja = YAKUCHU.ReplaceAllString(ja, "")
+
+	if en == "" || ja == "" {
+		return nil
+	}
+	// 作業中(cf.WIPがfalse)の箇所は"《"が含まれている場合はチェックしない
+	if !cf.WIP {
+		if strings.Contains(ja, "《") {
+			return nil
+		}
+	}
+
+	if cf.Word {
+		unWord := wordCheck(en, ja)
+		if len(unWord) > 0 {
+			r := makeResult(fmt.Sprintf("[%s]が含まれていません", gchalk.Red(strings.Join(unWord, " ｜ "))), en, ja)
+			results = append(results, r)
+		}
+	}
+
+	if cf.Tag {
+		numTag := numOfTagCheck(cf.Strict, en, ja)
+		if len(numTag) > 0 {
+			r := makeResult(fmt.Sprintf("タグ[%s]の数が違います", gchalk.Red(strings.Join(numTag, " ｜ "))), en, ja)
+			results = append(results, r)
+		}
+	}
+
+	if cf.Num {
+		unNum := numCheck(en, ja)
+		if len(unNum) > 0 {
+			r := makeResult(fmt.Sprintf("原文にある[%s]が含まれていません", gchalk.Red(strings.Join(unNum, " ｜ "))), en, ja)
+			results = append(results, r)
+		}
+	}
+
 	return results
 }
 
@@ -135,74 +173,13 @@ func wordCheck(en string, ja string) []string {
 		}
 		words = append(words, n)
 	}
-	unword := make([]string, 0)
+	unWord := make([]string, 0)
 	for _, w := range words {
 		if !strings.Contains(strings.ToLower(en), strings.ToLower(w)) {
-			unword = append(unword, w)
+			unWord = append(unWord, w)
 		}
 	}
-	return unword
-}
-
-// メッセージ、原文、日本語の形式で出力する
-func makeResult(str string, en string, ja string) result {
-	var r result
-	r.comment = str
-	r.en = en
-	r.ja = ja
-	return r
-}
-
-func printResult(r result) {
-	fmt.Println("<========================================")
-	fmt.Println(r.comment)
-	fmt.Println(gchalk.Green(r.en))
-	if r.ja != "" {
-		fmt.Println("-----------------------------------------")
-		fmt.Println(r.ja)
-	}
-	fmt.Println("========================================>")
-}
-
-// enjaCheck は日本語翻訳中にある英単語が英語に含まれているかをチェックする
-func enjaCheck(fileName string, catalog Catalog, cf CheckFlag) []result {
-	var results []result
-	en := catalog.en
-	en = MultiNL.ReplaceAllString(en, " ")
-	en = MultiSpace.ReplaceAllString(en, " ")
-	ja := catalog.ja
-	ja = MultiNL.ReplaceAllString(ja, " ")
-	ja = MultiSpace.ReplaceAllString(ja, " ")
-	ja = YAKUCHU.ReplaceAllString(ja, "")
-
-	if en == "" || ja == "" {
-		return nil
-	}
-	if cf.Word {
-		unword := wordCheck(en, ja)
-		if len(unword) > 0 {
-			r := makeResult(fmt.Sprintf("[%s]が含まれていません", gchalk.Red(strings.Join(unword, " ｜ "))), en, ja)
-			results = append(results, r)
-		}
-	}
-
-	if cf.Tag {
-		numTag := numOfTagCheck(cf.Strict, en, ja)
-		if len(numTag) > 0 {
-			r := makeResult(fmt.Sprintf("タグ[%s]の数が違います", gchalk.Red(strings.Join(numTag, " ｜ "))), en, ja)
-			results = append(results, r)
-		}
-	}
-
-	if cf.Num {
-		unNum := numCheck(en, ja)
-		if len(unNum) > 0 {
-			r := makeResult(fmt.Sprintf("原文にある[%s]が含まれていません", gchalk.Red(strings.Join(unNum, " ｜ "))), en, ja)
-			results = append(results, r)
-		}
-	}
-
-	return results
+	return unWord
 }
 
 // diffの内容から英日のブロックを抽出して整合をチェックする
@@ -272,9 +249,6 @@ func gitCheck(fileName string, diffSrc []byte, cf CheckFlag) {
 // diffの内容から追加されたコメントの開始と終了をチェックする。
 func checkDiff(diffSrc []byte, cf CheckFlag) []result {
 	var results []result
-	if cf.Para {
-		results = paraCheck(diffSrc)
-	}
 
 	reader := bytes.NewReader(diffSrc)
 	scanner := bufio.NewScanner(reader)
@@ -323,11 +297,13 @@ func fileCheck(fileName string, cf CheckFlag) error {
 
 	//ignoreName := DICDIR + fileName + ".ignore"
 	//ignoreList := loadIgnore(ignoreName)
-
+	var buf strings.Builder
 	var paraFlag, commentFlag, ok bool
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		l := scanner.Text()
+		buf.WriteString(l)
+		buf.WriteRune('\n')
 		if !commentFlag && strings.Contains(l, "<para>") {
 			paraFlag = true
 			continue
@@ -335,7 +311,6 @@ func fileCheck(fileName string, cf CheckFlag) error {
 		if paraFlag && strings.Contains(l, "<!--") {
 			commentFlag = true
 			ok = true
-			continue
 		}
 
 		if strings.Contains(l, "-->") {
@@ -346,10 +321,13 @@ func fileCheck(fileName string, cf CheckFlag) error {
 		if !commentFlag && strings.Contains(l, "</para>") {
 			paraFlag = false
 			ok = false
+			buf.Reset()
 			continue
 		}
 		if paraFlag && !ok {
-			fmt.Println(l)
+			r := makeResult(gchalk.Red("コメントがありません"), buf.String(), "")
+			results = append(results, r)
+			buf.Reset()
 		}
 	}
 
@@ -368,4 +346,37 @@ func fileCheck(fileName string, cf CheckFlag) error {
 		registerIgnore(fileName, ignores)
 	}
 	return nil
+}
+
+// paraCheck は<para>内にコメント（<!-- -->)が含まれているかチェックする
+func paraCheck(src []byte) []result {
+	var results []result
+	p := 0
+	pp := 0
+	for p < len(src) {
+		pp = bytes.Index(src[p:], []byte("<para>"))
+		if pp == -1 {
+			break
+		}
+		if inComment(src[:p+pp]) {
+			p = p + pp + 7
+			continue
+		}
+		e := bytes.Index(src[p+pp:], []byte("</para>"))
+		if e == -1 {
+			break
+		}
+		if bytes.Contains(src, []byte("<returnvalue>")) {
+			p = p + pp + 7
+			continue
+		}
+		if !bytes.Contains(src[p:p+pp+e], []byte("<!--")) {
+			if !NIHONGO.Match(src[p+pp : p+pp+e+8]) {
+				r := makeResult(gchalk.Red("コメントがありません"), string(src[p+pp:p+pp+e+8]), "")
+				results = append(results, r)
+			}
+		}
+		p = p + pp + e + 8
+	}
+	return results
 }

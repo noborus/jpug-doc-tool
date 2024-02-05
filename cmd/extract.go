@@ -9,7 +9,7 @@ import (
 var extractCmd = &cobra.Command{
 	Use:   "extract",
 	Short: "英語と日本語翻訳を抽出する",
-	Long:  ``,
+	Long:  `jpug-docの文書から英語と日本語翻訳を抽出する`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) > 0 {
 			jpugdoc.Extract(args)

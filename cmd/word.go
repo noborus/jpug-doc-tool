@@ -11,7 +11,7 @@ import (
 var wordCmd = &cobra.Command{
 	Use:   "word",
 	Short: "対応する単語が含まれているかチェックする",
-	Long:  ``,
+	Long:  `英単語と日本語単語の対応が含まれているかチェックする`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
 		var vTag string
