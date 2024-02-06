@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/Songmu/prompter"
@@ -48,8 +47,8 @@ func Check(fileNames []string, cf CheckFlag) {
 		}
 
 		diffSrc := getDiff(cf.VTag, fileName)
-		gitCheck(fileName, diffSrc, cf)
-		listCheck(fileName, diffSrc, cf)
+		formatCheck(fileName, diffSrc, cf)
+		translationCheck(fileName, diffSrc, cf)
 	}
 }
 
@@ -73,8 +72,7 @@ func printResult(r result) {
 	fmt.Println("========================================>")
 }
 
-// enjaCheck は日本語翻訳中にある英単語が英語に含まれているかをチェックする
-// wordCheck,numOfTagCheck, numCheckのチェックをおこなう
+// enjaCheck は英語と日本語翻訳から wordCheck,numOfTagCheck, numCheckをチェックする
 func enjaCheck(fileName string, catalog Catalog, cf CheckFlag) []result {
 	var results []result
 	en := catalog.en
@@ -150,7 +148,7 @@ func numCheck(en string, ja string) []string {
 	nums := ENNUM.FindAllString(en, -1)
 	unNum := make([]string, 0)
 	for _, n := range nums {
-		// &#045;
+		// -- → &#045; は除外、zero -> 0も除外
 		if n == "045" || n == "45" || n == "0" {
 			continue
 		}
@@ -161,18 +159,10 @@ func numCheck(en string, ja string) []string {
 	return unNum
 }
 
-// 日本語訳内の英単語が原文に含まれているかチェックする
+// 日本語訳内の英単語、数字が原文に含まれているかチェックする
 func wordCheck(en string, ja string) []string {
 	ja = STRIPNONJA.ReplaceAllString(ja, "")
 	words := ENWORD.FindAllString(ja, -1)
-	num := ENNUM.FindAllString(ja, -1)
-	for _, n := range num {
-		i, err := strconv.Atoi(n)
-		if err == nil || i < 5 {
-			continue
-		}
-		words = append(words, n)
-	}
 	unWord := make([]string, 0)
 	for _, w := range words {
 		if !strings.Contains(strings.ToLower(en), strings.ToLower(w)) {
@@ -183,7 +173,7 @@ func wordCheck(en string, ja string) []string {
 }
 
 // diffの内容から英日のブロックを抽出して整合をチェックする
-func listCheck(fileName string, src []byte, cf CheckFlag) {
+func translationCheck(fileName string, src []byte, cf CheckFlag) {
 	var ignores []string
 	var results []result
 
@@ -218,14 +208,14 @@ func listCheck(fileName string, src []byte, cf CheckFlag) {
 }
 
 // git diff を取り内容をチェックする。
-func gitCheck(fileName string, diffSrc []byte, cf CheckFlag) {
+func formatCheck(fileName string, diffSrc []byte, cf CheckFlag) {
 	var results []result
 	var ignores []string
 
 	ignoreName := DicDir + fileName + ".ignore"
 	ignoreList := loadIgnore(ignoreName)
 
-	results = checkDiff(diffSrc, cf)
+	results = commentCheck(diffSrc, cf)
 	if len(results) > 0 {
 		fmt.Println(gchalk.Green(fileName))
 		for _, r := range results {
@@ -247,22 +237,21 @@ func gitCheck(fileName string, diffSrc []byte, cf CheckFlag) {
 }
 
 // diffの内容から追加されたコメントの開始と終了をチェックする。
-func checkDiff(diffSrc []byte, cf CheckFlag) []result {
+func commentCheck(diffSrc []byte, cf CheckFlag) []result {
 	var results []result
 
 	reader := bytes.NewReader(diffSrc)
 	scanner := bufio.NewScanner(reader)
 	var en, ja strings.Builder
 	var comment bool
-	for i := 0; i < 3; i++ {
-		if !scanner.Scan() {
-			return results
-		}
-	}
+
+	// skip diff header
+	skipHeader(scanner)
+
 	for scanner.Scan() {
 		l := scanner.Text()
 		line := strings.TrimSpace(l)
-		if STARTADDCOMMENT.MatchString(line) || STARTADDCOMMENTWITHC.MatchString(line) {
+		if STARTADDCOMMENT.MatchString(line) || STARTADDCOMMENTWITHC.MatchString(line) { // <!--
 			if comment {
 				r := makeResult(gchalk.Red("コメント位置が不正"), en.String(), ja.String())
 				results = append(results, r)
@@ -270,7 +259,7 @@ func checkDiff(diffSrc []byte, cf CheckFlag) []result {
 			comment = true
 			ja.Reset()
 			en.Reset()
-		} else if ENDADDCOMMENT.MatchString(line) || ENDADDCOMMENTWITHC.MatchString(line) {
+		} else if ENDADDCOMMENT.MatchString(line) || ENDADDCOMMENTWITHC.MatchString(line) { // -->
 			comment = false
 		}
 		if comment {

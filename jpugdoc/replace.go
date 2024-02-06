@@ -42,8 +42,7 @@ func Replace(fileNames []string, vTag string, update bool, mt bool, similar int,
 	}
 
 	for _, fileName := range fileNames {
-		dicname := DicDir + fileName + ".t"
-		catalog := loadCatalog(dicname)
+		catalog := loadCatalog(fileName)
 
 		rep := Rep{
 			similar: similar,

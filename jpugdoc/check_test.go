@@ -143,3 +143,118 @@ func Test_wordCheck(t *testing.T) {
 		})
 	}
 }
+
+func Test_enjaCheck(t *testing.T) {
+	type args struct {
+		fileName string
+		catalog  Catalog
+		cf       CheckFlag
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []result
+		wantErr bool
+	}{
+		{
+			name: "testWordCheck",
+			args: args{
+				fileName: "test",
+				catalog: Catalog{
+					pre: "",
+					en:  "test",
+					ja:  "tetテスト",
+				},
+				cf: CheckFlag{
+					VTag:   "REL_16_0",
+					Ignore: false,
+					WIP:    false,
+					Para:   true,
+					Word:   true,
+					Tag:    true,
+					Num:    true,
+					Strict: false,
+				},
+			},
+			want: []result{
+				{
+					comment: "[tet]が含まれていません",
+					en:      "test",
+					ja:      "tetテスト",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "testTagCheck",
+			args: args{
+				fileName: "test",
+				catalog: Catalog{
+					pre: "",
+					en:  "<literal>test</literal>",
+					ja:  "<quote>テスト</quote>",
+				},
+				cf: CheckFlag{
+					VTag:   "REL_16_0",
+					Ignore: false,
+					WIP:    false,
+					Para:   true,
+					Word:   true,
+					Tag:    true,
+					Num:    true,
+					Strict: false,
+				},
+			},
+			want: []result{
+				{
+					comment: "[quote]が含まれていません",
+					en:      "<literal>test</literal>",
+					ja:      "<quote>テスト</quote>",
+				},
+				{
+					comment: "タグ[(<literal>)1:0 ｜ (</literal>)1:0]の数が違います",
+					en:      "<literal>test</literal>",
+					ja:      "<quote>テスト</quote>",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "testNumCheck",
+			args: args{
+				fileName: "test",
+				catalog: Catalog{
+					pre: "",
+					en:  "PostgreSQL 9.6",
+					ja:  "PostgreSQL 10.1",
+				},
+				cf: CheckFlag{
+					VTag:   "REL_16_0",
+					Ignore: false,
+					WIP:    false,
+					Para:   true,
+					Word:   true,
+					Tag:    true,
+					Num:    true,
+					Strict: false,
+				},
+			},
+			want: []result{
+				{
+					comment: "原文にある[9 ｜ 6]が含まれていません",
+					en:      "PostgreSQL 9.6",
+					ja:      "PostgreSQL 10.1",
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := enjaCheck(tt.args.fileName, tt.args.catalog, tt.args.cf)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("enjaCheck() = \n%v\n, want\n%v\n", got, tt.want)
+			}
+		})
+	}
+}

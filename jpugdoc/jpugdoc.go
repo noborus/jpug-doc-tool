@@ -5,13 +5,16 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strings"
 )
 
 var Version = "dev"
 
 var DicDir = "./.jpug-doc-tool/"
+
+var versionFile = "version.sgml"
 
 type apiConfig struct {
 	ClientID             string
@@ -95,10 +98,28 @@ func ReadAllFile(fileName string) ([]byte, error) {
 	return src, nil
 }
 
+// saveCatalog saves the specified catalog to a file.
+func saveCatalog(fileName string, pairs []Catalog) {
+	dicname := DicDir + fileName + ".t"
+	f, err := os.Create(dicname)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, pair := range pairs {
+		fmt.Fprintf(f, "␝%s␟", pair.pre)
+		fmt.Fprintf(f, "%s␟", pair.en)
+		fmt.Fprintf(f, "%s␞", pair.ja)
+		fmt.Fprintf(f, "%s␞\n", pair.cdatapre)
+	}
+	f.Close()
+}
+
+// loadCatalog loads a catalog from the specified file.
 func loadCatalog(fileName string) []Catalog {
 	catalog := make([]Catalog, 0)
-
-	src, err := ReadAllFile(fileName)
+	dicName := DicDir + fileName + ".t"
+	src, err := ReadAllFile(dicName)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		return catalog
@@ -118,20 +139,26 @@ func loadCatalog(fileName string) []Catalog {
 	return catalog
 }
 
-func getDiff(vTag string, fileName string) []byte {
-	args := []string{"diff", "--histogram", "-U10000", vTag, fileName}
-	cmd := exec.Command("git", args...)
-	stdout, err := cmd.StdoutPipe()
+// version.sgmlからバージョンタグを取得する
+// 15.4 → REL_15_4
+func versionTag() (string, error) {
+	src, err := ReadAllFile(versionFile)
 	if err != nil {
-		log.Fatal("exec", err)
+		log.Fatal(err)
 	}
+	return version(src)
+}
 
-	var src []byte
-	cmd.Start()
-	src, err = io.ReadAll(stdout)
-	if err != nil {
-		log.Fatal("read", err)
+func version(src []byte) (string, error) {
+	ver := regexp.MustCompile(`<!ENTITY version "([0-9][0-9]+)([^\"]*)">`)
+	re := ver.FindSubmatch(src)
+	if len(re) < 1 {
+		return "master", nil
 	}
-	cmd.Wait()
-	return src
+	v := strings.ReplaceAll(strings.ToUpper(string(re[2])), ".", "_")
+	if strings.Contains(v, "DEVEL") {
+		return "master", nil
+	}
+	tag := fmt.Sprintf("REL_%s_%s", string(re[1]), strings.TrimLeft(v, "_"))
+	return tag, nil
 }

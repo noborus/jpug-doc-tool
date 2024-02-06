@@ -7,13 +7,13 @@ import (
 	"github.com/jwalton/gchalk"
 )
 
+// 英日辞書の内容を表示する
 func List(wf bool, pre bool, enonly bool, jaonly bool, fileNames []string) {
 	for _, fileName := range fileNames {
 		if wf {
 			fmt.Println(gchalk.Red(fileName))
 		}
-		dicname := DicDir + fileName + ".t"
-		catalog := loadCatalog(dicname)
+		catalog := loadCatalog(fileName)
 		for _, c := range catalog {
 			if pre {
 				fmt.Println(gchalk.Blue(c.pre))
@@ -33,10 +33,10 @@ func List(wf bool, pre bool, enonly bool, jaonly bool, fileNames []string) {
 	}
 }
 
+// 英日辞書の内容をTSV形式で表示する
 func TSVList(fileNames []string) {
 	for _, fileName := range fileNames {
-		dicname := DicDir + fileName + ".t"
-		catalog := loadCatalog(dicname)
+		catalog := loadCatalog(fileName)
 		for _, c := range catalog {
 			fmt.Printf("%s\t%s\n", strings.ReplaceAll(c.en, "\n", " "), strings.ReplaceAll(c.ja, "\n", " "))
 		}

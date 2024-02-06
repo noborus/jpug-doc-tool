@@ -163,4 +163,5 @@ var REVHIGHHUN = regexp.MustCompile(`--`)
 
 var REVHIGHHUN2 = regexp.MustCompile(`---`)
 
+// 訳注を除外
 var YAKUCHU = regexp.MustCompile(`[\(|\[|（]訳注[^\[|\)|）]]*[\]|\)|）]`)
