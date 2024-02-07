@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// Catalog は原文と日本語訳の対を保持する構造体
 type Catalog struct {
 	pre      string
 	en       string

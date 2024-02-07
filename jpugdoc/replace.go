@@ -12,8 +12,6 @@ import (
 	"github.com/noborus/go-textra"
 )
 
-// type Catalog *orderedmap.OrderedMap[string, string]
-
 type Rep struct {
 	catalog []Catalog
 	update  bool
@@ -24,6 +22,7 @@ type Rep struct {
 	apiType string
 }
 
+// Replace は指定されたファイル名のファイルを置き換える
 func Replace(fileNames []string, vTag string, update bool, mt bool, similar int, prompt bool) {
 	apiConfig := textra.Config{}
 	apiConfig.ClientID = Config.ClientID
@@ -250,13 +249,14 @@ func (rep Rep) updateFromCatalog(fileName string, vTag string, src []byte) []byt
 	return src
 }
 
+// <para>の置き換え
 func (rep Rep) paraReplace(src []byte) []byte {
 	re := REPARA.FindSubmatch(src)
 	para := string(re[1])
 	en := strings.TrimRight(string(re[2]), "\n")
 	en = REVHIGHHUN2.ReplaceAllString(en, "&#45;&#45;-")
 	en = REVHIGHHUN.ReplaceAllString(en, "&#45;-")
-	enstr := stripEN(string(re[2]))
+	enStr := stripEN(string(re[2]))
 	/*
 		for _, c := range rep.catalog {
 			if c.en == "" {
@@ -274,13 +274,13 @@ func (rep Rep) paraReplace(src []byte) []byte {
 			}
 		}
 	*/
-	if strings.HasPrefix(enstr, "<!--") {
+	if strings.HasPrefix(enStr, "<!--") {
 		return src
 	}
-	if strings.Contains(enstr, "<para>") && strings.Contains(enstr, "<!--") {
+	if strings.Contains(enStr, "<para>") && strings.Contains(enStr, "<!--") {
 		return src
 	}
-	if NIHONGO.MatchString(enstr) {
+	if NIHONGO.MatchString(enStr) {
 		return src
 	}
 	// <para>\nで改行されていない場合はスキップ
@@ -290,23 +290,43 @@ func (rep Rep) paraReplace(src []byte) []byte {
 	if bytes.Contains(src, []byte("<returnvalue>")) {
 		return src
 	}
-	log.Println("replace?", enstr)
+	log.Println("replace?", enStr)
 	if rep.similar > 0 && rep.mt {
 		log.Println("simMtReplace", en)
-		return rep.simMtReplace(src, en, enstr)
+		return rep.simMtReplace(src, en, enStr)
 	}
 	if rep.similar != 0 {
-		return rep.simReplace(src, en, enstr)
+		return rep.simReplace(src, en, enStr)
 	}
 	if rep.mt {
-		return rep.mtReplace(src, en, enstr)
+		return rep.mtReplace(src, en, enStr)
 	}
 	return src
 }
 
-func (rep Rep) MTtrans(enstr string) string {
-	fmt.Printf("API...[%.30s] ", enstr)
-	ja, err := rep.api.Translate(rep.apiType, enstr)
+// 機械翻訳による置き換え
+func (rep Rep) mtReplace(src []byte, en string, enStr string) []byte {
+	ja := rep.MTtrans(enStr)
+	if ja == "" {
+		return src
+	}
+	para := fmt.Sprintf("$1<!--\n%s\n-->\n《機械翻訳》%s$3", en, strings.TrimRight(ja, "\n"))
+	fmt.Print("Done\n")
+
+	if !rep.prompt {
+		return REPARA.ReplaceAll(src, []byte(para))
+	}
+
+	fmt.Println(string(src))
+	fmt.Println("機械翻訳")
+	fmt.Println(string(ja))
+	return promptReplace(src, []byte(para))
+}
+
+// 機械翻訳
+func (rep Rep) MTtrans(enStr string) string {
+	fmt.Printf("API...[%.30s] ", enStr)
+	ja, err := rep.api.Translate(rep.apiType, enStr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "replace: %s\n", err)
 		return ""
@@ -318,23 +338,7 @@ func (rep Rep) MTtrans(enstr string) string {
 	return ja
 }
 
-func (rep Rep) mtReplace(src []byte, en string, enstr string) []byte {
-	ja := rep.MTtrans(enstr)
-	if ja == "" {
-		return src
-	}
-	para := fmt.Sprintf("$1<!--\n%s\n-->\n《機械翻訳》%s$3", en, strings.TrimRight(ja, "\n"))
-	fmt.Print("Done\n")
-
-	if rep.prompt {
-		fmt.Println(string(src))
-		fmt.Println("機械翻訳")
-		fmt.Println(string(ja))
-		return promptReplace(src, []byte(para))
-	}
-	return REPARA.ReplaceAll(src, []byte(para))
-}
-
+// 類似文置き換え
 func (rep Rep) simReplace(src []byte, en string, enstr string) []byte {
 	var maxdis float64
 	//den := ""
@@ -361,6 +365,7 @@ func (rep Rep) simReplace(src []byte, en string, enstr string) []byte {
 	return src
 }
 
+// 類似文置き換え
 func (rep Rep) simMtReplace(src []byte, en string, enstr string) []byte {
 	var maxdis float64
 	//den := ""
