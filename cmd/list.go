@@ -36,16 +36,7 @@ var listCmd = &cobra.Command{
 			return
 		}
 
-		if len(args) > 0 {
-			if tsv {
-				jpugdoc.TSVList(args)
-				return
-			}
-			jpugdoc.List(filename, pre, enOnly, jaOnly, args)
-			return
-		}
-
-		fileNames := targetFileName()
+		fileNames := expandFileNames(args)
 		if tsv {
 			jpugdoc.TSVList(fileNames)
 			return

@@ -11,7 +11,7 @@ type Catalog struct {
 	pre      string
 	en       string
 	ja       string
-	cdatapre string
+	preCDATA string
 }
 
 // 一つのファイルから原文と日本語訳の対の配列を抽出する
@@ -21,31 +21,31 @@ func PARAExtraction(src []byte) []Catalog {
 	paras := REPARA.FindAll([]byte(src), -1)
 	en := ""
 	for _, para := range paras {
-		pair, left, err := enjaPair(para)
+		catalog, left, err := newCatalog(para)
 		if err != nil {
 			if STARTCOMMENT.Match(para) && en == "" {
 				en = enCandidate(string(para))
 			} else {
-				pair.en = en
-				pair.ja = string(para)
+				catalog.en = en
+				catalog.ja = string(para)
 				en = ""
 			}
 		}
-		pairs = append(pairs, pair)
+		pairs = append(pairs, catalog)
 		for len(left) > 0 {
 			tmpLeft := left
-			pair, left, err = enjaPair(left)
+			catalog, left, err = newCatalog(left)
 			if err != nil {
 				if en == "" {
 					en = enCandidate(string(tmpLeft))
 				} else {
-					pair.en = en
-					pair.ja = string(para)
+					catalog.en = en
+					catalog.ja = string(para)
 					en = ""
 				}
 				continue
 			}
-			pairs = append(pairs, pair)
+			pairs = append(pairs, catalog)
 		}
 	}
 
@@ -80,7 +80,7 @@ func PARAExtraction(src []byte) []Catalog {
 // -->
 // japanese
 // の形式に一致しない場合はエラーを返す
-func enjaPair(para []byte) (Catalog, []byte, error) {
+func newCatalog(para []byte) (Catalog, []byte, error) {
 	re := EXCOMMENT.FindSubmatch(para)
 	if len(re) < 3 {
 		return Catalog{}, nil, fmt.Errorf("no match")

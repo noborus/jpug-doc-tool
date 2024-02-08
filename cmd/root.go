@@ -32,6 +32,35 @@ func targetFileName() []string {
 	return fileNames
 }
 
+func expandFileNames(args []string) []string {
+	if len(args) == 0 {
+		return targetFileName()
+	}
+
+	expandedArgs := []string{}
+	for _, arg := range args {
+		fileInfo, err := os.Stat(arg)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if fileInfo.IsDir() {
+			err := filepath.Walk(arg, func(path string, info os.FileInfo, err error) error {
+				if !info.IsDir() {
+					expandedArgs = append(expandedArgs, path)
+				}
+				return nil
+			})
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			expandedArgs = append(expandedArgs, arg)
+		}
+	}
+	expandedArgs = jpugdoc.IgnoreFileNames(expandedArgs)
+	return expandedArgs
+}
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:     "jpug-doc-tool",

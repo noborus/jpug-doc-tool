@@ -65,7 +65,7 @@ func Extraction(diffSrc []byte) []Catalog {
 
 	pre := make([]string, 10)
 	prefix := ""
-	cdatapre := ""
+	preCDATA := ""
 	var catalogs []Catalog
 	var comment, jadd, extadd, indexF bool
 	var addPre string
@@ -85,7 +85,7 @@ func Extraction(diffSrc []byte) []Catalog {
 				pre:      prefix,
 				en:       strings.Trim(en.String(), "\n"),
 				ja:       strings.Trim(ja.String(), "\n"),
-				cdatapre: cdatapre,
+				preCDATA: preCDATA,
 			}
 			if en.Len() != 0 {
 				catalogs = append(catalogs, catalog)
@@ -98,7 +98,7 @@ func Extraction(diffSrc []byte) []Catalog {
 				comment = true
 				continue
 			}
-			cdatapre = strings.Join(m[0][1:], "")
+			preCDATA = strings.Join(m[0][1:], "")
 			//en.WriteString(cdatapre)
 			//en.WriteString("\n")
 			comment = true

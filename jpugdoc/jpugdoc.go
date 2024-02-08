@@ -99,32 +99,36 @@ func ReadAllFile(fileName string) ([]byte, error) {
 }
 
 // saveCatalog saves the specified catalog to a file.
-func saveCatalog(fileName string, pairs []Catalog) {
-	dicname := DicDir + fileName + ".t"
-	f, err := os.Create(dicname)
+func saveCatalog(fileName string, catalogs []Catalog) {
+	catalogName := filepath.Join(DicDir, fileName+".t")
+	f, err := os.Create(catalogName)
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer f.Close()
 
-	for _, pair := range pairs {
-		fmt.Fprintf(f, "␝%s␟", pair.pre)
-		fmt.Fprintf(f, "%s␟", pair.en)
-		fmt.Fprintf(f, "%s␞", pair.ja)
-		fmt.Fprintf(f, "%s␞\n", pair.cdatapre)
+	for _, catalog := range catalogs {
+		fmt.Fprintf(f, "␝%s␟", catalog.pre)
+		fmt.Fprintf(f, "%s␟", catalog.en)
+		fmt.Fprintf(f, "%s␞", catalog.ja)
+		fmt.Fprintf(f, "%s␞\n", catalog.preCDATA)
 	}
-	f.Close()
 }
 
 // loadCatalog loads a catalog from the specified file.
 func loadCatalog(fileName string) []Catalog {
-	catalog := make([]Catalog, 0)
-	dicName := DicDir + fileName + ".t"
-	src, err := ReadAllFile(dicName)
+	catalogName := filepath.Join(DicDir, fileName+".t")
+	src, err := ReadAllFile(catalogName)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
-		return catalog
+		return nil
 	}
 
+	return getCatalogs(src)
+}
+
+func getCatalogs(src []byte) []Catalog {
+	catalogs := make([]Catalog, 0)
 	catas := SPLITCATALOG.FindAll(src, -1)
 	for _, cata := range catas {
 		re := SPLITCATALOG.FindSubmatch(cata)
@@ -132,11 +136,11 @@ func loadCatalog(fileName string) []Catalog {
 			pre:      string(re[1]),
 			en:       string(re[2]),
 			ja:       string(re[3]),
-			cdatapre: string(re[4]),
+			preCDATA: string(re[4]),
 		}
-		catalog = append(catalog, c)
+		catalogs = append(catalogs, c)
 	}
-	return catalog
+	return catalogs
 }
 
 // version.sgmlからバージョンタグを取得する

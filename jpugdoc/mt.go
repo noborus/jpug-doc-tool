@@ -2,37 +2,35 @@ package jpugdoc
 
 import (
 	"fmt"
-	"os"
-	"strings"
+	"io"
 
+	"github.com/jwalton/gchalk"
 	"github.com/noborus/go-textra"
 )
 
-func MT(args ...string) {
-	c := Config
-	config := textra.Config{}
-	config.ClientID = c.ClientID
-	config.ClientSecret = c.ClientSecret
-	config.Name = c.Name
-	cli, err := textra.New(config)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "textra: %s", err)
-		os.Exit(1)
+// MT はoriginを機械翻訳し出力します。
+func MT(w io.Writer, origin string) error {
+	// 翻訳タイプ
+	var translates = []string{
+		Config.APIAutoTranslateType, // PostgreSQLマニュアル翻訳
+		textra.GENERAL_EN_JA,        // 一般翻訳
 	}
 
-	en := strings.Join(args, " ")
-	en = strings.ReplaceAll(en, "\n", " ")
-	ja, err := cli.Translate(c.APIAutoTranslateType, en)
+	cli, err := newTextra(Config)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "textra: %s", err)
-		os.Exit(1)
+		return fmt.Errorf("textra: %s", err)
 	}
-	fmt.Printf("%s: %s\n", c.APIAutoTranslateType, ja)
 
-	jagen, err := cli.Translate(textra.GENERAL_EN_JA, en)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "textra: %s", err)
-		os.Exit(1)
+	for _, apiType := range translates {
+		ja, err := cli.Translate(apiType, origin)
+		if err != nil {
+			return fmt.Errorf("textra: %s", err)
+		}
+		if _, err := fmt.Fprintf(w, "%s: %s\n", gchalk.Green(apiType), ja); err != nil {
+			if err != nil {
+				return err
+			}
+		}
 	}
-	fmt.Printf("%s: %s\n", textra.GENERAL_EN_JA, jagen)
+	return nil
 }

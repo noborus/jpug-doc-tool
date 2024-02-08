@@ -12,97 +12,114 @@ import (
 	"github.com/noborus/go-textra"
 )
 
+// Rep は置き換えを行う構造体
 type Rep struct {
-	catalog []Catalog
-	update  bool
-	mt      bool
-	prompt  bool
-	similar int
-	api     *textra.TexTra
-	apiType string
+	catalogs []Catalog
+	vTag     string
+	update   bool
+	mt       bool
+	prompt   bool
+	similar  int
+	api      *textra.TexTra
+	apiType  string
 }
 
 // Replace は指定されたファイル名のファイルを置き換える
 func Replace(fileNames []string, vTag string, update bool, mt bool, similar int, prompt bool) {
-	apiConfig := textra.Config{}
-	apiConfig.ClientID = Config.ClientID
-	apiConfig.ClientSecret = Config.ClientSecret
-	apiConfig.Name = Config.Name
-	cli, err := textra.New(apiConfig)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "textra: %s", err)
+	rep := Rep{
+		similar: similar,
+		update:  update,
+		mt:      mt,
+		apiType: Config.APIAutoTranslateType,
 	}
+
 	if update && vTag == "" {
 		v, err := versionTag()
 		if err != nil {
 			log.Fatal(err)
 		}
-		vTag = v
+		rep.vTag = v
 	}
 
+	mtCli, _ := newTextra(Config)
+	if mt && mtCli != nil {
+		rep.mt = true
+		rep.api = mtCli
+	} else {
+		rep.mt = false
+	}
+
+	rep.prompt = prompt
+
 	for _, fileName := range fileNames {
-		catalog := loadCatalog(fileName)
-
-		rep := Rep{
-			similar: similar,
-			catalog: catalog,
-			update:  update,
-			mt:      mt,
-			apiType: Config.APIAutoTranslateType,
-		}
-		if mt && cli != nil {
-			rep.api = cli
-		} else {
-			rep.mt = false
-		}
-		rep.prompt = prompt
-
-		src, err := ReadAllFile(fileName)
+		rep.catalogs = loadCatalog(fileName)
+		ret, err := replace(rep, fileName)
 		if err != nil {
 			fmt.Fprint(os.Stderr, err.Error())
 			continue
 		}
-
-		var ret []byte
-		if rep.update {
-			ret = rep.updateFromCatalog(fileName, vTag, src)
-		} else {
-			ret = rep.replaceCatalogs(src)
-			// <para>のみ更に置き換える
-			ret = REPARA.ReplaceAllFunc(ret, rep.paraReplace)
-		}
-
-		if bytes.Equal(src, ret) {
+		if ret == nil {
 			continue
 		}
 
 		if err := rewriteFile(fileName, ret); err != nil {
 			fmt.Fprint(os.Stderr, err.Error())
 		}
+		fmt.Printf("replace: %s\n", fileName)
 	}
+}
+
+// replace はファイルを置き換えた結果を返す
+func replace(rep Rep, fileName string) ([]byte, error) {
+	src, err := ReadAllFile(fileName)
+	if err != nil {
+		return nil, fmt.Errorf("read:%s: %w", fileName, err)
+	}
+
+	ret := rep.replaceCatalogs(src)
+	// <para>のみ更に置き換える
+	ret = REPARA.ReplaceAllFunc(ret, rep.paraReplace)
+	// 更新の場合はすでに翻訳がある箇所を更新する
+	if rep.update {
+		ret = rep.updateFromCatalog(fileName, rep.vTag, ret)
+	}
+
+	// 置き換えがない場合はnilを返す
+	if bytes.Equal(src, ret) {
+		return nil, nil
+	}
+	return ret, nil
+}
+
+func newTextra(apiConfig apiConfig) (*textra.TexTra, error) {
+	if apiConfig.ClientID == "" || apiConfig.ClientSecret == "" {
+		return nil, fmt.Errorf("textra: ClientID and ClientSecret are required")
+	}
+	config := textra.Config{}
+	config.ClientID = apiConfig.ClientID
+	config.ClientSecret = apiConfig.ClientSecret
+	config.Name = apiConfig.Name
+	return textra.New(config)
 }
 
 // Replace all from catalog
 func (rep Rep) replaceCatalogs(src []byte) []byte {
-	for _, c := range rep.catalog {
-		if c.en != "" {
-			src = rep.replaceCatalog(src, c)
-		}
-	}
-	// indexterm
-	for _, c := range rep.catalog {
-		if c.en == "" {
-			src = rep.additionalReplace(src, c)
+	for _, catalog := range rep.catalogs {
+		if catalog.en != "" {
+			src = rep.replaceCatalog(src, catalog)
+		} else { // indexterm
+			src = rep.additionalReplace(src, catalog)
 		}
 	}
 	return src
 }
 
-// .jpug-doc-tool/filename.sgml.t のカタログを使用して置き換える
-func (rep Rep) replaceCatalog(src []byte, c Catalog) []byte {
-	cen := append([]byte(c.en), '\n')
+// カタログを一つづつ置き換える
+func (rep Rep) replaceCatalog(src []byte, catalog Catalog) []byte {
+	cen := append([]byte(catalog.en), '\n')
 	hen := REVHIGHHUN2.ReplaceAll(cen, []byte("&#45;&#45;-"))
 	hen = REVHIGHHUN.ReplaceAll(hen, []byte("&#45;-"))
+
 	p := 0
 	pp := 0
 	ret := make([]byte, 0)
@@ -116,7 +133,7 @@ func (rep Rep) replaceCatalog(src []byte, c Catalog) []byte {
 		if !inComment(src[:p+pp]) {
 			ret = append(ret, src[p:p+pp]...)
 			if inCDATA(src[:p+pp]) {
-				ret = append(ret, []byte(c.cdatapre+"]]><!--\n")...)
+				ret = append(ret, []byte(catalog.preCDATA+"]]><!--\n")...)
 			} else {
 				ret = append(ret, []byte("<!--\n")...)
 			}
@@ -127,18 +144,18 @@ func (rep Rep) replaceCatalog(src []byte, c Catalog) []byte {
 				ret = append(ret, []byte("-->\n")...)
 			}
 
-			if c.ja != "" {
-				ret = append(ret, []byte(c.ja)...)
-				ret = append(ret, src[p+pp+len(c.en):]...)
+			if catalog.ja != "" {
+				ret = append(ret, []byte(catalog.ja)...)
+				ret = append(ret, src[p+pp+len(catalog.en):]...)
 			} else {
-				ret = append(ret, src[p+pp+len(c.en)+1:]...)
+				ret = append(ret, src[p+pp+len(catalog.en)+1:]...)
 			}
-
 			break
 		}
+
 		// Already in Japanese.
-		ret = append(ret, src[p:p+pp+len(c.en)]...)
-		p = p + pp + len(c.en)
+		ret = append(ret, src[p:p+pp+len(catalog.en)]...)
+		p = p + pp + len(catalog.en)
 	}
 	return ret
 }
@@ -193,7 +210,8 @@ func promptReplace(src []byte, replace []byte) []byte {
 	return REPARA.ReplaceAll(src, []byte(replace))
 }
 
-func stripEN(src string) string {
+// stripNL は改行を削除して空白を一つにする
+func stripNL(src string) string {
 	str := strings.TrimRight(src, "\n")
 	str = strings.ReplaceAll(str, "\n", " ")
 	str = MultiSpace.ReplaceAllString(str, " ")
@@ -202,13 +220,13 @@ func stripEN(src string) string {
 }
 
 func (rep Rep) updateReplace(src []byte) []byte {
-	pair, left, err := enjaPair(src)
+	pair, left, err := newCatalog(src)
 	if err != nil {
 		return src
 	}
 	en, _, _ := splitComment(src)
-	for _, c := range rep.catalog {
-		if stripEN(c.en) == pair.en {
+	for _, c := range rep.catalogs {
+		if stripNL(c.en) == pair.en {
 			if c.ja == pair.ja {
 				return src
 			}
@@ -244,7 +262,7 @@ func (rep Rep) updateFromCatalog(fileName string, vTag string, src []byte) []byt
 	srcDiff := getDiff(vTag, fileName)
 	org := Extraction(srcDiff)
 	for _, o := range org {
-		src = replaceCatalog(src, rep.catalog, o)
+		src = replaceCatalog(src, rep.catalogs, o)
 	}
 	return src
 }
@@ -256,27 +274,13 @@ func (rep Rep) paraReplace(src []byte) []byte {
 	en := strings.TrimRight(string(re[2]), "\n")
 	en = REVHIGHHUN2.ReplaceAllString(en, "&#45;&#45;-")
 	en = REVHIGHHUN.ReplaceAllString(en, "&#45;-")
-	enStr := stripEN(string(re[2]))
-	/*
-		for _, c := range rep.catalog {
-			if c.en == "" {
-				continue
-			}
-			if stripEN(c.en) == enstr {
-				para := fmt.Sprintf("$1<!--\n%s\n-->\n%s$3", en, strings.TrimRight(c.ja, "\n"))
-				if rep.prompt {
-					fmt.Println(string(src))
-					fmt.Println("前回と一致")
-					fmt.Println(c.ja)
-					return promptReplace(src, []byte(para))
-				}
-				return REPARA.ReplaceAll(src, []byte(para))
-			}
-		}
-	*/
+	enStr := stripNL(string(re[2]))
+
+	// 既に翻訳済みの場合はスキップ
 	if strings.HasPrefix(enStr, "<!--") {
 		return src
 	}
+
 	if strings.Contains(enStr, "<para>") && strings.Contains(enStr, "<!--") {
 		return src
 	}
@@ -290,7 +294,7 @@ func (rep Rep) paraReplace(src []byte) []byte {
 	if bytes.Contains(src, []byte("<returnvalue>")) {
 		return src
 	}
-	log.Println("replace?", enStr)
+	// 類似文置き換え
 	if rep.similar > 0 && rep.mt {
 		log.Println("simMtReplace", en)
 		return rep.simMtReplace(src, en, enStr)
@@ -343,7 +347,7 @@ func (rep Rep) simReplace(src []byte, en string, enstr string) []byte {
 	var maxdis float64
 	//den := ""
 	dja := ""
-	for _, c := range rep.catalog {
+	for _, c := range rep.catalogs {
 		distance := levenshtein.ComputeDistance(enstr, c.en)
 		dis := (1 - (float64(distance) / float64(len(enstr)))) * 100
 		if dis > maxdis {
@@ -370,7 +374,7 @@ func (rep Rep) simMtReplace(src []byte, en string, enstr string) []byte {
 	var maxdis float64
 	//den := ""
 	dja := ""
-	for _, c := range rep.catalog {
+	for _, c := range rep.catalogs {
 		distance := levenshtein.ComputeDistance(enstr, c.en)
 		dis := (1 - (float64(distance) / float64(len(enstr)))) * 100
 		if dis > maxdis {
@@ -407,12 +411,12 @@ func (rep Rep) simMtReplace(src []byte, en string, enstr string) []byte {
 
 // file rewrite.
 func rewriteFile(fileName string, body []byte) error {
-	fmt.Printf("replace: %s\n", fileName)
 	out, err := os.Create(fileName)
 	if err != nil {
 		return err
 	}
-	fmt.Fprint(out, string(body))
-	out.Close()
-	return nil
+	defer out.Close()
+
+	_, err = fmt.Fprint(out, string(body))
+	return err
 }

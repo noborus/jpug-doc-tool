@@ -203,7 +203,7 @@ func translationCheck(fileName string, src []byte, cf CheckFlag) {
 		}
 	}
 	if len(ignores) > 0 {
-		registerIgnore(fileName, ignores)
+		registerIgnore(ignoreName, ignores)
 	}
 }
 
@@ -219,7 +219,7 @@ func formatCheck(fileName string, diffSrc []byte, cf CheckFlag) {
 	if len(results) > 0 {
 		fmt.Println(gchalk.Green(fileName))
 		for _, r := range results {
-			en := stripEN(r.en)
+			en := stripNL(r.en)
 			if ignoreList[en] {
 				continue
 			}
@@ -232,7 +232,7 @@ func formatCheck(fileName string, diffSrc []byte, cf CheckFlag) {
 		}
 	}
 	if len(ignores) > 0 {
-		registerIgnore(fileName, ignores)
+		registerIgnore(ignoreName, ignores)
 	}
 }
 
@@ -284,7 +284,7 @@ func fileCheck(fileName string, cf CheckFlag) error {
 	}
 	defer f.Close()
 
-	//ignoreName := DICDIR + fileName + ".ignore"
+	ignoreName := DicDir + fileName + ".ignore"
 	//ignoreList := loadIgnore(ignoreName)
 	var buf strings.Builder
 	var paraFlag, commentFlag, ok bool
@@ -332,7 +332,7 @@ func fileCheck(fileName string, cf CheckFlag) error {
 		}
 	}
 	if len(ignores) > 0 {
-		registerIgnore(fileName, ignores)
+		registerIgnore(ignoreName, ignores)
 	}
 	return nil
 }
