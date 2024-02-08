@@ -99,7 +99,7 @@ func Extraction(diffSrc []byte) []Catalog {
 				continue
 			}
 			preCDATA = strings.Join(m[0][1:], "")
-			//en.WriteString(cdatapre)
+			//en.WriteString(preCDATA)
 			//en.WriteString("\n")
 			comment = true
 			continue
@@ -145,10 +145,9 @@ func Extraction(diffSrc []byte) []Catalog {
 			}
 		}
 
-		if comment {
+		if comment || jadd {
 			continue
 		}
-
 		// indexterm,etc.
 		if !strings.HasPrefix(l, "+") {
 			// original
