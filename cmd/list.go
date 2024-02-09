@@ -13,13 +13,13 @@ var listCmd = &cobra.Command{
 	Short: "辞書から英語と日本語訳のリストを出力する",
 	Long:  `抽出した辞書の英語と日本語訳のリストを出力する`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var filename, pre, enOnly, jaOnly, tsv bool
+		var filename, affix, enOnly, jaOnly, tsv bool
 		var err error
 		if filename, err = cmd.PersistentFlags().GetBool("filename"); err != nil {
 			log.Println(err)
 			return
 		}
-		if pre, err = cmd.PersistentFlags().GetBool("pre"); err != nil {
+		if affix, err = cmd.PersistentFlags().GetBool("pre"); err != nil {
 			log.Println(err)
 			return
 		}
@@ -41,15 +41,15 @@ var listCmd = &cobra.Command{
 			jpugdoc.TSVList(fileNames)
 			return
 		}
-		jpugdoc.List(filename, pre, enOnly, jaOnly, fileNames)
+		jpugdoc.List(filename, affix, enOnly, jaOnly, fileNames)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(listCmd)
 	listCmd.PersistentFlags().BoolP("filename", "f", false, "filename")
-	listCmd.PersistentFlags().BoolP("pre", "p", false, "prefix")
-	listCmd.PersistentFlags().BoolP("en", "e", false, "English")
-	listCmd.PersistentFlags().BoolP("ja", "j", false, "Japanese")
-	listCmd.PersistentFlags().BoolP("tsv", "t", false, "tsv")
+	listCmd.PersistentFlags().BoolP("pre", "p", false, "prefix/postfixも出力する")
+	listCmd.PersistentFlags().BoolP("en", "e", false, "Englishのみ出力する")
+	listCmd.PersistentFlags().BoolP("ja", "j", false, "Japaneseのみ出力する")
+	listCmd.PersistentFlags().BoolP("tsv", "t", false, "tsv形式で出力する")
 }

@@ -81,10 +81,10 @@ func endComment(src []byte) bool {
 	return ENDCOMMENT.Match(src)
 }
 
-// コメント始まりの追加に一致
+// <!-- コメント始まりの追加に一致
 var STARTADDCOMMENT = regexp.MustCompile(`\+<!--$`)
 
-// コメント終わりの追加に一致
+// --> コメント終わりの追加に一致
 var ENDADDCOMMENT = regexp.MustCompile(`\+-->$`)
 
 // CDATAが終わりコメントの始まりに一致
@@ -116,7 +116,7 @@ var MultiSpace = regexp.MustCompile(`\s+`)
 var MultiNL = regexp.MustCompile(`\n+`)
 
 // カタログから英語と日本語を取得
-var SPLITCATALOG = regexp.MustCompile(`(?s)␝(.*?)␟(.*?)␟(.*?)␞(.*?)␞`)
+var SPLITCATALOG = regexp.MustCompile(`(?s)␝(.*?)␟(.*?)␟(.*?)␞(.*?)␞(.*?)␞`)
 
 // 英単語 + /
 var ENWORD = regexp.MustCompile(`[/a-zA-Z_]+`)

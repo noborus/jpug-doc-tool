@@ -11,28 +11,27 @@ import (
 
 // 英日辞書の内容を表示する
 // wf: ファイル名を表示する
-// pre: preタグを表示する
+// affix: pre/postを表示する
 // enOnly: 英文のみ表示する
 // jaOnly: 日本語のみ表示する
 // fileNames: ファイル名のリスト
-func List(wf bool, pre bool, enOnly bool, jaOnly bool, fileNames []string) {
-	w := io.Writer(os.Stdout)
-	list(w, wf, pre, enOnly, jaOnly, fileNames)
+func List(wf bool, affix bool, enOnly bool, jaOnly bool, fileNames []string) {
+	list(os.Stdout, wf, affix, enOnly, jaOnly, fileNames)
 }
 
-func list(w io.Writer, wf bool, pre bool, enOnly bool, jaOnly bool, fileNames []string) {
+func list(w io.Writer, wf bool, affix bool, enOnly bool, jaOnly bool, fileNames []string) {
 	for _, fileName := range fileNames {
 		if wf {
 			fmt.Fprintln(w, gchalk.Red(fileName))
 		}
 		catalogs := loadCatalog(fileName)
-		writeCatalog(w, catalogs, pre, enOnly, jaOnly)
+		writeCatalog(w, catalogs, affix, enOnly, jaOnly)
 	}
 }
 
-func writeCatalog(w io.Writer, catalogs []Catalog, pre bool, enOnly bool, jaOnly bool) {
+func writeCatalog(w io.Writer, catalogs []Catalog, affix bool, enOnly bool, jaOnly bool) {
 	for _, catalog := range catalogs {
-		if pre {
+		if affix {
 			fmt.Fprintln(w, gchalk.Blue(catalog.pre))
 		} else {
 			if catalog.en == "" {
@@ -45,14 +44,16 @@ func writeCatalog(w io.Writer, catalogs []Catalog, pre bool, enOnly bool, jaOnly
 		if !enOnly {
 			fmt.Fprintln(w, catalog.ja)
 		}
+		if affix {
+			fmt.Fprintln(w, gchalk.Blue(catalog.post))
+		}
 		fmt.Fprintln(w)
 	}
 }
 
 // 英日辞書の内容をTSV形式で表示する
 func TSVList(fileNames []string) {
-	w := io.Writer(os.Stdout)
-	tsvList(w, fileNames)
+	tsvList(os.Stdout, fileNames)
 }
 
 func tsvList(w io.Writer, fileNames []string) {

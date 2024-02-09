@@ -19,7 +19,7 @@ var mtCmd = &cobra.Command{
 		en = strings.ReplaceAll(en, "\n", " ")
 		w := os.Stdout
 		if err := jpugdoc.MT(w, en); err != nil {
-			log.Fatal(err)
+			log.Fatalf("Failed to translate string: %v", err)
 		}
 	},
 }

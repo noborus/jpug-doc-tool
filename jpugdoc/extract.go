@@ -12,6 +12,7 @@ type Catalog struct {
 	en       string
 	ja       string
 	preCDATA string
+	post     string
 }
 
 func (c Catalog) String() string {

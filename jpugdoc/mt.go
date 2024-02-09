@@ -27,9 +27,7 @@ func MT(w io.Writer, origin string) error {
 			return fmt.Errorf("textra: %s", err)
 		}
 		if _, err := fmt.Fprintf(w, "%s: %s\n", gchalk.Green(apiType), ja); err != nil {
-			if err != nil {
-				return err
-			}
+			return err
 		}
 	}
 	return nil

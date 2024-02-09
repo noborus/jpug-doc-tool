@@ -130,36 +130,42 @@ func (rep Rep) replaceCatalog(src []byte, catalog Catalog) []byte {
 			break
 		}
 
-		if !inComment(src[:p+pp]) {
-			ret = append(ret, src[p:p+pp]...)
-			if inCDATA(src[:p+pp]) {
-				ret = append(ret, []byte(catalog.preCDATA+"]]><!--\n")...)
-			} else {
-				ret = append(ret, []byte("<!--\n")...)
-			}
-			ret = append(ret, hen...)
-			if inCDATA(src[:p+pp]) {
-				ret = append(ret, []byte("--><![CDATA[\n")...)
-			} else {
-				ret = append(ret, []byte("-->\n")...)
-			}
-
-			if catalog.ja != "" {
-				ret = append(ret, []byte(catalog.ja)...)
-				ret = append(ret, src[p+pp+len(catalog.en):]...)
-			} else {
-				ret = append(ret, src[p+pp+len(catalog.en)+1:]...)
-			}
-			break
+		// すでに翻訳済みの（コメント化されている）場合はスキップ
+		if inComment(src[:p+pp]) {
+			ret = append(ret, src[p:p+pp+len(catalog.en)]...)
+			p = p + pp + len(catalog.en)
+			continue
 		}
 
-		// Already in Japanese.
-		ret = append(ret, src[p:p+pp+len(catalog.en)]...)
-		p = p + pp + len(catalog.en)
+		ret = append(ret, src[p:p+pp]...)
+		// コメント`<!--`を追加
+		if !inCDATA(src[:p+pp]) {
+			ret = append(ret, []byte("<!--\n")...)
+		} else {
+			ret = append(ret, []byte(catalog.preCDATA+"]]><!--\n")...)
+		}
+		// 原文(--は&#45;に変換)を追加
+		ret = append(ret, hen...)
+		// コメント`-->`を追加
+		if !inCDATA(src[:p+pp]) {
+			ret = append(ret, []byte("-->\n")...)
+		} else {
+			ret = append(ret, []byte("--><![CDATA[\n")...)
+		}
+
+		// 翻訳文を追加
+		if catalog.ja != "" {
+			ret = append(ret, []byte(catalog.ja)...)
+			ret = append(ret, src[p+pp+len(catalog.en):]...)
+		} else {
+			ret = append(ret, src[p+pp+len(catalog.en)+1:]...)
+		}
+		break
 	}
 	return ret
 }
 
+// inComment はコメント内かどうかを判定する
 func inComment(src []byte) bool {
 	s := bytes.LastIndex(src, []byte("<!--"))
 	e := bytes.LastIndex(src, []byte("-->"))

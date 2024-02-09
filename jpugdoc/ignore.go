@@ -26,7 +26,7 @@ func writeIgnore(f io.Writer, ignores []string) error {
 	for _, ig := range ignores {
 		_, err := fmt.Fprintf(f, "%s\n", ig)
 		if err != nil {
-			log.Fatal(err)
+			return fmt.Errorf("failed to write ignore: %w", err)
 		}
 	}
 	return nil

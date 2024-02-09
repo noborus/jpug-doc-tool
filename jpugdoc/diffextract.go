@@ -66,6 +66,7 @@ func Extraction(diffSrc []byte) []Catalog {
 	pre := make([]string, 10)
 	prefix := ""
 	preCDATA := ""
+	post := ""
 	var catalogs []Catalog
 	var comment, jadd, extadd, indexF bool
 	var addPre string
@@ -79,6 +80,7 @@ func Extraction(diffSrc []byte) []Catalog {
 		line := strings.TrimSpace(l)
 		extadd = false
 		pre = append(pre[1:], l[1:])
+
 		// CDATA
 		if m := STARTADDCOMMENTWITHC.FindAllStringSubmatch(line, 1); len(m) > 0 {
 			catalog := Catalog{
@@ -86,6 +88,7 @@ func Extraction(diffSrc []byte) []Catalog {
 				en:       strings.Trim(en.String(), "\n"),
 				ja:       strings.Trim(ja.String(), "\n"),
 				preCDATA: preCDATA,
+				post:     post,
 			}
 			if en.Len() != 0 {
 				catalogs = append(catalogs, catalog)
@@ -103,16 +106,17 @@ func Extraction(diffSrc []byte) []Catalog {
 			//en.WriteString("\n")
 			comment = true
 			continue
-		} else if STARTADDCOMMENT.MatchString(line) {
+		} else if STARTADDCOMMENT.MatchString(line) { // "^<!--" で始まる行
 			if strings.HasSuffix(en.String(), "\n);\n") {
 				if !strings.HasSuffix(ja.String(), ");\n") {
 					ja.WriteString(");\n")
 				}
 			}
 			catalog := Catalog{
-				pre: prefix,
-				en:  strings.Trim(en.String(), "\n"),
-				ja:  strings.Trim(ja.String(), "\n"),
+				pre:  prefix,
+				en:   strings.Trim(en.String(), "\n"),
+				ja:   strings.Trim(ja.String(), "\n"),
+				post: post,
 			}
 			if en.Len() != 0 {
 				catalogs = append(catalogs, catalog)
@@ -141,6 +145,9 @@ func Extraction(diffSrc []byte) []Catalog {
 				ja.WriteString(l[1:])
 				ja.WriteString("\n")
 			} else {
+				if jadd {
+					post = l[1:]
+				}
 				jadd = false
 			}
 		}
@@ -148,6 +155,7 @@ func Extraction(diffSrc []byte) []Catalog {
 		if comment || jadd {
 			continue
 		}
+
 		// indexterm,etc.
 		if !strings.HasPrefix(l, "+") {
 			// original
@@ -238,9 +246,10 @@ func Extraction(diffSrc []byte) []Catalog {
 	// last
 	if en.Len() != 0 {
 		catalog := Catalog{
-			pre: prefix,
-			en:  strings.Trim(en.String(), "\n"),
-			ja:  strings.Trim(ja.String(), "\n"),
+			pre:  prefix,
+			en:   strings.Trim(en.String(), "\n"),
+			ja:   strings.Trim(ja.String(), "\n"),
+			post: post,
 		}
 		catalogs = append(catalogs, catalog)
 	}
