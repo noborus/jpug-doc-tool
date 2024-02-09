@@ -10,7 +10,7 @@ import (
 )
 
 // ファイル名の配列を受け取り、それぞれのファイル名のdiffから原文と日本語訳の対の配列を抽出し、
-// それぞれのファイル名に対応する辞書ファイルを作成する
+// それぞれのファイル名に対応するカタログファイル(filename.sgml.t)を作成する
 func Extract(fileNames []string) {
 	vTag, err := versionTag()
 	if err != nil {
@@ -19,8 +19,8 @@ func Extract(fileNames []string) {
 
 	for _, fileName := range fileNames {
 		diffSrc := getDiff(vTag, fileName)
-		pairs := Extraction(diffSrc)
-		saveCatalog(fileName, pairs)
+		catalogs := Extraction(diffSrc)
+		saveCatalog(fileName, catalogs)
 	}
 }
 
@@ -53,20 +53,20 @@ func getDiff(vTag string, fileName string) []byte {
 	return src
 }
 
-// diff を原文と日本語訳の対の配列に変換する
+// diff を原文と日本語訳の対(Catalog)の配列に変換する
 // <para>
-// + <!--
+// +<!--
 // english
-// + -->
-// + japanese
+// +-->
+// +japanese
 // </para>
 func Extraction(diffSrc []byte) []Catalog {
 	var en, ja, addja, index, indexj strings.Builder
 
 	pre := make([]string, 10)
 	prefix := ""
-	cdatapre := ""
-	var pairs []Catalog
+	preCDATA := ""
+	var catalogs []Catalog
 	var comment, jadd, extadd, indexF bool
 	var addPre string
 
@@ -81,14 +81,14 @@ func Extraction(diffSrc []byte) []Catalog {
 		pre = append(pre[1:], l[1:])
 		// CDATA
 		if m := STARTADDCOMMENTWITHC.FindAllStringSubmatch(line, 1); len(m) > 0 {
-			pair := Catalog{
+			catalog := Catalog{
 				pre:      prefix,
 				en:       strings.Trim(en.String(), "\n"),
 				ja:       strings.Trim(ja.String(), "\n"),
-				cdatapre: cdatapre,
+				preCDATA: preCDATA,
 			}
 			if en.Len() != 0 {
-				pairs = append(pairs, pair)
+				catalogs = append(catalogs, catalog)
 			}
 			en.Reset()
 			ja.Reset()
@@ -98,8 +98,8 @@ func Extraction(diffSrc []byte) []Catalog {
 				comment = true
 				continue
 			}
-			cdatapre = strings.Join(m[0][1:], "")
-			//en.WriteString(cdatapre)
+			preCDATA = strings.Join(m[0][1:], "")
+			//en.WriteString(preCDATA)
 			//en.WriteString("\n")
 			comment = true
 			continue
@@ -109,13 +109,13 @@ func Extraction(diffSrc []byte) []Catalog {
 					ja.WriteString(");\n")
 				}
 			}
-			pair := Catalog{
+			catalog := Catalog{
 				pre: prefix,
 				en:  strings.Trim(en.String(), "\n"),
 				ja:  strings.Trim(ja.String(), "\n"),
 			}
 			if en.Len() != 0 {
-				pairs = append(pairs, pair)
+				catalogs = append(catalogs, catalog)
 			}
 			en.Reset()
 			ja.Reset()
@@ -145,10 +145,9 @@ func Extraction(diffSrc []byte) []Catalog {
 			}
 		}
 
-		if comment {
+		if comment || jadd {
 			continue
 		}
-
 		// indexterm,etc.
 		if !strings.HasPrefix(l, "+") {
 			// original
@@ -178,11 +177,11 @@ func Extraction(diffSrc []byte) []Catalog {
 					indexj.WriteString("\n")
 					indexF = false
 					if index.Len() > 0 {
-						pair := Catalog{
+						catalog := Catalog{
 							pre: index.String(),
 							ja:  strings.Trim(indexj.String(), "\n"),
 						}
-						pairs = append(pairs, pair)
+						catalogs = append(catalogs, catalog)
 					}
 					index.Reset()
 					indexj.Reset()
@@ -192,21 +191,21 @@ func Extraction(diffSrc []byte) []Catalog {
 				indexj.WriteString("\n")
 				indexF = false
 				if index.Len() > 0 {
-					pair := Catalog{
+					catalog := Catalog{
 						pre: index.String(),
 						ja:  strings.Trim(indexj.String(), "\n"),
 					}
-					pairs = append(pairs, pair)
+					catalogs = append(catalogs, catalog)
 				}
 				index.Reset()
 				indexj.Reset()
 			} else {
 				if SPLITCOMMENT.MatchString(line) {
-					pair := Catalog{
+					catalog := Catalog{
 						pre: strings.Join(pre[:len(pre)-1], "\n") + "\n",
 						ja:  l[1:],
 					}
-					pairs = append(pairs, pair)
+					catalogs = append(catalogs, catalog)
 					continue
 				}
 			}
@@ -228,23 +227,23 @@ func Extraction(diffSrc []byte) []Catalog {
 			}
 		}
 		if !extadd && addja.Len() != 0 {
-			pair := Catalog{
+			catalog := Catalog{
 				pre: addPre,
 				ja:  strings.Trim(addja.String(), "\n"),
 			}
-			pairs = append(pairs, pair)
+			catalogs = append(catalogs, catalog)
 			addja.Reset()
 		}
 	}
 	// last
 	if en.Len() != 0 {
-		pair := Catalog{
+		catalog := Catalog{
 			pre: prefix,
 			en:  strings.Trim(en.String(), "\n"),
 			ja:  strings.Trim(ja.String(), "\n"),
 		}
-		pairs = append(pairs, pair)
+		catalogs = append(catalogs, catalog)
 	}
 
-	return pairs
+	return catalogs
 }

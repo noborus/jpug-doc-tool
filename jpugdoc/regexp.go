@@ -99,6 +99,7 @@ var STARTINDEXTERM = regexp.MustCompile(`<indexterm`)
 // indexterm終わりに一致
 var ENDINDEXTERM = regexp.MustCompile(`</indexterm`)
 
+// split-*コメントに一致
 var SPLITCOMMENT = regexp.MustCompile(`split-.*-[start|end]`)
 
 // コメント（英語原文）と続く文書（日本語翻訳）を取得

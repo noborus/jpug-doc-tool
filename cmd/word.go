@@ -14,7 +14,6 @@ var wordCmd = &cobra.Command{
 	Long:  `英単語と日本語単語の対応が含まれているかチェックする`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
-		var vTag string
 		var en, ja string
 		if en, err = cmd.PersistentFlags().GetString("en"); err != nil {
 			log.Println(err)
@@ -24,19 +23,14 @@ var wordCmd = &cobra.Command{
 			log.Println(err)
 			return
 		}
-		if len(args) > 0 {
-			jpugdoc.CheckWord(en, ja, vTag, args)
-			return
-		}
 
-		fileNames := targetFileName()
-		jpugdoc.CheckWord(en, ja, vTag, fileNames)
+		fileNames := expandFileNames(args)
+		jpugdoc.CheckWord(en, ja, "", fileNames)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(wordCmd)
-	wordCmd.PersistentFlags().StringP("vtag", "v", "", "original version tag")
 	wordCmd.PersistentFlags().StringP("en", "e", "", "English")
 	wordCmd.PersistentFlags().StringP("ja", "j", "", "Japanese")
 }

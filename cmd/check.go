@@ -18,10 +18,7 @@ var checkCmd = &cobra.Command{
 			log.Println(err)
 			return
 		}
-		fileNames := targetFileName()
-		if len(args) > 0 {
-			fileNames = args
-		}
+		fileNames := expandFileNames(args)
 		jpugdoc.Check(fileNames, *cf)
 	},
 }

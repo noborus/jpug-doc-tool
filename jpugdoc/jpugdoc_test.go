@@ -1,6 +1,9 @@
 package jpugdoc
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func Test_version(t *testing.T) {
 	type args struct {
@@ -38,6 +41,39 @@ func Test_version(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("version() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getCatalogs(t *testing.T) {
+	type args struct {
+		src []byte
+	}
+	tests := []struct {
+		name string
+		args args
+		want []Catalog
+	}{
+		{
+			name: "testTitle",
+			args: args{
+				src: []byte(`␝␟ <title>Acronyms</title>␟ <title>頭字語</title>␞␞`),
+			},
+			want: []Catalog{
+				{
+					pre:      "",
+					en:       " <title>Acronyms</title>",
+					ja:       " <title>頭字語</title>",
+					preCDATA: "",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getCatalogs(tt.args.src); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getCatalogs() = %v, want %v", got, tt.want)
 			}
 		})
 	}
