@@ -67,7 +67,7 @@ func Extraction(diffSrc []byte) []Catalog {
 	prefix := ""
 	preCDATA := ""
 	var catalogs []Catalog
-	var comment, jadd, extadd, indexF bool
+	var englishF, japaneseF, addExtraF, indexF bool
 	var addPre string
 
 	reader := bytes.NewReader(diffSrc)
@@ -78,24 +78,24 @@ func Extraction(diffSrc []byte) []Catalog {
 		diffLine := scanner.Text()
 		line := diffLine[1:]
 		text := strings.TrimSpace(diffLine)
-		extadd = false
+		addExtraF = false
 		if !strings.HasPrefix(diffLine, "+") {
 			prefixes = append(prefixes[1:], line)
 		}
-		// CDATA
-		if m := STARTADDCOMMENTWITHC.FindAllStringSubmatch(text, 1); len(m) > 0 {
+
+		if m := STARTADDCOMMENTWITHC.FindAllStringSubmatch(text, 1); len(m) > 0 { // CDATA
 			catalogs = addCatalogs(catalogs, prefix, en, ja, preCDATA)
 			en.Reset()
 			ja.Reset()
 			if len(m[0]) == 1 {
 				en.WriteString("\n")
-				comment = true
+				englishF = true
 				continue
 			}
 			preCDATA = strings.Join(m[0][1:], "")
-			comment = true
+			englishF = true
 			continue
-		} else if STARTADDCOMMENT.MatchString(text) {
+		} else if STARTADDCOMMENT.MatchString(text) { // <!--コメント始まり
 			if strings.HasSuffix(en.String(), "\n);\n") {
 				if !strings.HasSuffix(ja.String(), ");\n") {
 					ja.WriteString(");\n")
@@ -106,32 +106,32 @@ func Extraction(diffSrc []byte) []Catalog {
 			ja.Reset()
 			prefix = prefixes[len(prefixes)-1]
 			en.WriteString("\n")
-			comment = true
+			englishF = true
 			continue
-		} else if ENDADDCOMMENT.MatchString(text) || ENDADDCOMMENTWITHC.MatchString(text) {
-			comment = false
-			jadd = true
+		} else if ENDADDCOMMENT.MatchString(text) || ENDADDCOMMENTWITHC.MatchString(text) { // コメント終わり
+			englishF = false
+			japaneseF = true
 			continue
 		}
 
-		if comment {
+		if englishF {
+			/* 原文の`--`の置き換えによる ^- ^+ の差分は ^-を無視して^+を`--`に置き換えて追加する */
 			if diffLine[0] == '-' {
 				continue
 			}
-			line = REPHIGHHUN.ReplaceAllString(line, "-")
-			en.WriteString(line)
+			en.WriteString(REPHIGHHUN.ReplaceAllString(line, "-"))
 			en.WriteString("\n")
-		} else {
-			if jadd && strings.HasPrefix(diffLine, "+") {
-				ja.WriteString(line)
-				ja.WriteString("\n")
-			} else {
-				jadd = false
-			}
+			continue
 		}
 
-		if comment || jadd {
-			continue
+		if japaneseF {
+			if strings.HasPrefix(diffLine, "+") {
+				ja.WriteString(line)
+				ja.WriteString("\n")
+				continue
+			}
+			// 日本語の追加が終了
+			japaneseF = false
 		}
 
 		// indexterm,etc.
@@ -179,11 +179,12 @@ func Extraction(diffSrc []byte) []Catalog {
 				indexj.Reset()
 			} else {
 				if SPLITCOMMENT.MatchString(text) {
-					catalog := Catalog{
-						pre: strings.Join(prefixes[:len(prefixes)-1], "\n") + "\n",
-						ja:  line,
+					if strings.HasPrefix(diffLine, "+") {
+						addPre = strings.Join(prefixes, "\n") + "\n"
+						addja.WriteString(line)
+						addja.WriteString("\n")
+						log.Println("addExtraF", addja.String())
 					}
-					catalogs = append(catalogs, catalog)
 					continue
 				}
 			}
@@ -191,27 +192,27 @@ func Extraction(diffSrc []byte) []Catalog {
 				indexj.WriteString(line)
 				indexj.WriteString("\n")
 			}
-			if !indexF && !jadd {
+			if !indexF && !japaneseF {
 				if !strings.Contains(diffLine, "</indexterm>") {
 					if strings.Join(prefixes, "") != "" {
 						if addja.Len() == 0 {
 							addPre = strings.Join(prefixes, "\n") + "\n"
 						}
-						extadd = true
+						addExtraF = true
 						addja.WriteString(line)
 						addja.WriteString("\n")
 					}
 				}
 			}
 		}
-		if !extadd && addja.Len() != 0 {
+		if !addExtraF && addja.Len() != 0 {
 			catalogs = addJaCatalogs(catalogs, addPre, addja)
 			addja.Reset()
 		}
 	}
 	// last
 	catalogs = addCatalogs(catalogs, prefix, en, ja, preCDATA)
-
+	catalogs = addJaCatalogs(catalogs, addPre, addja)
 	return catalogs
 }
 
