@@ -32,8 +32,9 @@ func TestExtraction(t *testing.T) {
 			},
 			want: []Catalog{
 				{
-					en: "test",
-					ja: "テスト",
+					pre: "<para>",
+					en:  "test",
+					ja:  "テスト",
 				},
 			},
 		},
@@ -57,13 +58,13 @@ func TestExtraction(t *testing.T) {
 			},
 			want: []Catalog{
 				{
-					pre:      "",
+					pre:      "<para>",
 					en:       " test",
 					ja:       "テスト",
 					preCDATA: "",
 				},
 				{
-					pre:      "",
+					pre:      " test",
 					en:       " test2",
 					ja:       "テスト２",
 					preCDATA: "",
@@ -107,22 +108,13 @@ func TestExtraction2(t *testing.T) {
 			}(),
 			want: []Catalog{
 				{
-					pre:      "",
+					pre:      `  <sect1 id="tutorial-accessdb">`,
 					en:       "   <title>Accessing a Database</title>",
 					ja:       "   <title>データベースへのアクセス</title>",
 					preCDATA: "",
 				},
-				/*
-									{
-										pre: `   <indexterm zone="tutorial-accessdb">
-					    <primary>psql</primary>
-					   </indexterm>
-					`,
-										ja: "    <indexterm><primary>スーパーユーザ</primary></indexterm>",
-									},
-				*/
 				{
-					pre:      "<!--",
+					pre:      "",
 					en:       "    <indexterm><primary>superuser</primary></indexterm>\n    The last line could also be:",
 					ja:       "    <indexterm><primary>スーパーユーザ</primary></indexterm>\n最後の行は以下のようになっているかもしれません。",
 					preCDATA: "",
