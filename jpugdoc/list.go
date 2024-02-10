@@ -34,13 +34,13 @@ func writeCatalog(w io.Writer, catalogs []Catalog, pre bool, enOnly bool, jaOnly
 	for _, catalog := range catalogs {
 		if pre {
 			fmt.Fprintln(w, gchalk.Blue(catalog.pre))
-		} else {
-			if catalog.en == "" {
-				continue
-			}
 		}
 		if !jaOnly {
-			fmt.Fprintln(w, gchalk.Green(catalog.en))
+			if pre || catalog.en != "" {
+				fmt.Fprintln(w, gchalk.Green(catalog.en))
+			} else {
+				fmt.Fprintln(w, gchalk.Green(catalog.pre))
+			}
 		}
 		if !enOnly {
 			fmt.Fprintln(w, catalog.ja)

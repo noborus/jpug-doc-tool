@@ -20,9 +20,7 @@ func TestExtraction(t *testing.T) {
 			name: "test1",
 			args: args{
 				[]byte(` 
- 
- 
- 
+@@ 
  <para>
 +<!--
  test
@@ -32,8 +30,9 @@ func TestExtraction(t *testing.T) {
 			},
 			want: []Catalog{
 				{
-					en: "test",
-					ja: "テスト",
+					pre: "<para>",
+					en:  "test",
+					ja:  "テスト",
 				},
 			},
 		},
@@ -41,9 +40,7 @@ func TestExtraction(t *testing.T) {
 			name: "test2",
 			args: args{
 				[]byte(` 
- 
- 
- 
+@@
  <para>
 +<!--
   test
@@ -57,13 +54,13 @@ func TestExtraction(t *testing.T) {
 			},
 			want: []Catalog{
 				{
-					pre:      "",
+					pre:      "<para>",
 					en:       " test",
 					ja:       "テスト",
 					preCDATA: "",
 				},
 				{
-					pre:      "",
+					pre:      " test",
 					en:       " test2",
 					ja:       "テスト２",
 					preCDATA: "",
@@ -107,22 +104,13 @@ func TestExtraction2(t *testing.T) {
 			}(),
 			want: []Catalog{
 				{
-					pre:      "",
+					pre:      `  <sect1 id="tutorial-accessdb">`,
 					en:       "   <title>Accessing a Database</title>",
 					ja:       "   <title>データベースへのアクセス</title>",
 					preCDATA: "",
 				},
-				/*
-									{
-										pre: `   <indexterm zone="tutorial-accessdb">
-					    <primary>psql</primary>
-					   </indexterm>
-					`,
-										ja: "    <indexterm><primary>スーパーユーザ</primary></indexterm>",
-									},
-				*/
 				{
-					pre:      "<!--",
+					pre:      "",
 					en:       "    <indexterm><primary>superuser</primary></indexterm>\n    The last line could also be:",
 					ja:       "    <indexterm><primary>スーパーユーザ</primary></indexterm>\n最後の行は以下のようになっているかもしれません。",
 					preCDATA: "",
@@ -149,6 +137,109 @@ func TestExtraction2(t *testing.T) {
 					}
 				}
 				//t.Errorf("Extraction() = %s\n, want %s\n", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_trimPrefix(t *testing.T) {
+	type args struct {
+		s []string
+	}
+	tests := []struct {
+		name string
+		args args
+		want []string
+	}{
+		{
+			name: "test1",
+			args: args{
+				s: []string{
+					"a",
+					"",
+					"",
+					"",
+					"<para>",
+					"<!--",
+					" test",
+					"-->",
+					"テスト",
+					"</para>",
+				},
+			},
+			want: []string{
+				"<para>",
+				"<!--",
+				" test",
+				"-->",
+				"テスト",
+				"</para>",
+			},
+		},
+		{
+			name: "test2",
+			args: args{
+				s: []string{
+					"<para>",
+					"<!--",
+					" test",
+					"-->",
+					"テスト",
+					"</para>",
+				},
+			},
+			want: []string{
+				"<para>",
+				"<!--",
+				" test",
+				"-->",
+				"テスト",
+				"</para>",
+			},
+		},
+		{
+			name: "test3",
+			args: args{
+				s: []string{
+					"header",
+					"",
+					"<para>",
+					"<!--",
+					" test",
+					"-->",
+					"テスト",
+					"</para>",
+				},
+			},
+			want: []string{
+				"<para>",
+				"<!--",
+				" test",
+				"-->",
+				"テスト",
+				"</para>",
+			},
+		},
+		{
+			name: "test4",
+			args: args{
+				s: []string{
+					"hello",
+					"world",
+					"",
+				},
+			},
+			want: []string{
+				"hello",
+				"world",
+				"",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := prefixBlock(tt.args.s); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("trimPrefix() = %v, want %v", got, tt.want)
 			}
 		})
 	}

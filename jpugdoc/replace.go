@@ -104,11 +104,16 @@ func newTextra(apiConfig apiConfig) (*textra.TexTra, error) {
 
 // Replace all from catalog
 func (rep Rep) replaceCatalogs(src []byte) []byte {
+	// 追加形式の翻訳文を追加
+	for _, catalog := range rep.catalogs {
+		if catalog.en == "" {
+			src = rep.additionalReplace(src, catalog)
+		}
+	}
+	// コメント形式の翻訳文を追加
 	for _, catalog := range rep.catalogs {
 		if catalog.en != "" {
 			src = rep.replaceCatalog(src, catalog)
-		} else { // indexterm
-			src = rep.additionalReplace(src, catalog)
 		}
 	}
 	return src
