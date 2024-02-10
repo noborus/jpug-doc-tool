@@ -26,9 +26,10 @@ func Extract(fileNames []string) {
 
 // skip diff header
 func skipHeader(scanner *bufio.Scanner) {
-	for i := 0; i < 3; i++ {
-		if !scanner.Scan() {
-			return
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "@@") {
+			break
 		}
 	}
 }
@@ -180,10 +181,9 @@ func Extraction(diffSrc []byte) []Catalog {
 			} else {
 				if SPLITCOMMENT.MatchString(text) {
 					if strings.HasPrefix(diffLine, "+") {
-						addPre = strings.Join(prefixes, "\n") + "\n"
+						addPre = strings.Join(prefixBlock(prefixes), "\n") + "\n"
 						addja.WriteString(line)
 						addja.WriteString("\n")
-						log.Println("addExtraF", addja.String())
 					}
 					continue
 				}
@@ -196,7 +196,7 @@ func Extraction(diffSrc []byte) []Catalog {
 				if !strings.Contains(diffLine, "</indexterm>") {
 					if strings.Join(prefixes, "") != "" {
 						if addja.Len() == 0 {
-							addPre = strings.Join(prefixes, "\n") + "\n"
+							addPre = strings.Join(prefixBlock(prefixes), "\n") + "\n"
 						}
 						addExtraF = true
 						addja.WriteString(line)
@@ -216,6 +216,21 @@ func Extraction(diffSrc []byte) []Catalog {
 	return catalogs
 }
 
+// 逆から最初のブロックを残す
+func prefixBlock(s []string) []string {
+	blockF := false
+	for i := len(s) - 1; i >= 0; i-- {
+		if s[i] == "" && i < len(s)-3 { // 最低3行は残す
+			if blockF {
+				return s[i+1:]
+			}
+		} else {
+			blockF = true
+		}
+	}
+	return s
+}
+
 func addCatalogs(catalogs []Catalog, pre string, en strings.Builder, ja strings.Builder, preCDATA string) []Catalog {
 	catalog := Catalog{
 		pre:      pre,
@@ -232,7 +247,7 @@ func addCatalogs(catalogs []Catalog, pre string, en strings.Builder, ja strings.
 func addJaCatalogs(catalogs []Catalog, pre string, ja strings.Builder) []Catalog {
 	catalog := Catalog{
 		pre: pre,
-		ja:  strings.Trim(ja.String(), "\n"),
+		ja:  strings.TrimSuffix(ja.String(), "\n"),
 	}
 	if ja.Len() != 0 {
 		catalogs = append(catalogs, catalog)
