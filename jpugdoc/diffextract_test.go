@@ -17,7 +17,7 @@ func TestExtraction(t *testing.T) {
 		want []Catalog
 	}{
 		{
-			name: "test1",
+			name: "testNormal",
 			args: args{
 				[]byte(` 
 @@ 
@@ -30,14 +30,16 @@ func TestExtraction(t *testing.T) {
 			},
 			want: []Catalog{
 				{
-					pre: "<para>",
-					en:  "test",
-					ja:  "テスト",
+					pre:      "<para>",
+					en:       "test",
+					ja:       "テスト",
+					preCDATA: "",
+					post:     "</para>",
 				},
 			},
 		},
 		{
-			name: "test2",
+			name: "testDouble",
 			args: args{
 				[]byte(` 
 @@
@@ -58,12 +60,14 @@ func TestExtraction(t *testing.T) {
 					en:       " test",
 					ja:       "テスト",
 					preCDATA: "",
+					post:     "",
 				},
 				{
 					pre:      " test",
 					en:       " test2",
 					ja:       "テスト２",
 					preCDATA: "",
+					post:     "</para>",
 				},
 			},
 		},
@@ -71,7 +75,7 @@ func TestExtraction(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := Extraction(tt.args.src); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Extraction() = %#v, want %#v", got, tt.want)
+				t.Errorf("Extraction() = \n%#v, want \n%#v", got, tt.want)
 			}
 		})
 	}
@@ -99,21 +103,50 @@ func TestExtraction2(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-
 				return args{diffSrc: bytes}
 			}(),
 			want: []Catalog{
 				{
-					pre:      `  <sect1 id="tutorial-accessdb">`,
-					en:       "   <title>Accessing a Database</title>",
-					ja:       "   <title>データベースへのアクセス</title>",
-					preCDATA: "",
+					pre:  `  <sect1 id="tutorial-accessdb">`,
+					en:   "   <title>Accessing a Database</title>",
+					ja:   "   <title>データベースへのアクセス</title>",
+					post: "",
 				},
 				{
-					pre:      "",
-					en:       "    <indexterm><primary>superuser</primary></indexterm>\n    The last line could also be:",
-					ja:       "    <indexterm><primary>スーパーユーザ</primary></indexterm>\n最後の行は以下のようになっているかもしれません。",
-					preCDATA: "",
+					pre:  "",
+					en:   "    <indexterm><primary>superuser</primary></indexterm>\n    The last line could also be:",
+					ja:   "    <indexterm><primary>スーパーユーザ</primary></indexterm>\n最後の行は以下のようになっているかもしれません。",
+					post: "",
+				},
+			},
+		},
+		{
+			name: "Test width row.diff",
+			args: func() args {
+				file, err := os.Open("../testdata/row.diff")
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer file.Close()
+
+				bytes, err := io.ReadAll(file)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return args{diffSrc: bytes}
+			}(),
+			want: []Catalog{
+				{
+					pre:  "     <row>",
+					en:   "      <entry>External Syntax</entry>",
+					ja:   "      <entry>外部構文</entry>",
+					post: "      <entry>Meaning</entry>",
+				},
+				{
+					pre:  "      <entry>External Syntax</entry>",
+					en:   "      <entry>Meaning</entry>",
+					ja:   "      <entry>意味</entry>",
+					post: `     </row>`,
 				},
 			},
 		},

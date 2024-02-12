@@ -116,7 +116,7 @@ var MultiSpace = regexp.MustCompile(`\s+`)
 var MultiNL = regexp.MustCompile(`\n+`)
 
 // カタログから英語と日本語を取得
-var SPLITCATALOG = regexp.MustCompile(`(?s)␝(.*?)␟(.*?)␟(.*?)␞(.*?)␞`)
+var SPLITCATALOG = regexp.MustCompile(`(?s)␝(.*?)␟(.*?)␟(.*?)␞(.*?)␞(.*?)␞`)
 
 // 英単語 + /
 var ENWORD = regexp.MustCompile(`[/a-zA-Z_]+`)

@@ -135,6 +135,19 @@ func (rep Rep) replaceCatalog(src []byte, catalog Catalog) []byte {
 			break
 		}
 
+		if catalog.post != "" {
+			start := p + pp + len(cen)
+			if start > len(src) {
+				ret = append(ret, src[p:]...)
+				break
+			}
+			if !bytes.HasPrefix(src[start:], []byte(catalog.post)) {
+				ret = append(ret, src[p:p+pp+len(catalog.en)]...)
+				p = p + pp + len(catalog.en)
+				continue
+			}
+		}
+
 		if !inComment(src[:p+pp]) {
 			ret = append(ret, src[p:p+pp]...)
 			if inCDATA(src[:p+pp]) {

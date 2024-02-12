@@ -30,20 +30,24 @@ func list(w io.Writer, wf bool, pre bool, enOnly bool, jaOnly bool, fileNames []
 	}
 }
 
-func writeCatalog(w io.Writer, catalogs []Catalog, pre bool, enOnly bool, jaOnly bool) {
+func writeCatalog(w io.Writer, catalogs []Catalog, suffix bool, enOnly bool, jaOnly bool) {
 	for _, catalog := range catalogs {
-		if pre {
-			fmt.Fprintln(w, gchalk.Blue(catalog.pre))
+		en := strings.Trim(catalog.en, "\n")
+		if !suffix && en == "" {
+			continue
+		}
+
+		if suffix {
+			fmt.Fprintln(w, gchalk.Blue(strings.Trim(catalog.pre, "\n")))
 		}
 		if !jaOnly {
-			if pre || catalog.en != "" {
-				fmt.Fprintln(w, gchalk.Green(catalog.en))
-			} else {
-				fmt.Fprintln(w, gchalk.Green(catalog.pre))
-			}
+			fmt.Fprintln(w, gchalk.Green(en))
 		}
 		if !enOnly {
-			fmt.Fprintln(w, catalog.ja)
+			fmt.Fprintln(w, strings.Trim(catalog.ja, "\n"))
+		}
+		if suffix {
+			fmt.Fprintln(w, gchalk.Blue(strings.Trim(catalog.post, "\n")))
 		}
 		fmt.Fprintln(w)
 	}
