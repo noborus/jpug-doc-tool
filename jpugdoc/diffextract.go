@@ -67,6 +67,7 @@ func Extraction(diffSrc []byte) []Catalog {
 	prefixes := make([]string, 10)
 	prefix := ""
 	preCDATA := ""
+	postfix := ""
 	var catalogs []Catalog
 	var englishF, japaneseF, addExtraF, indexF bool
 	var addPre string
@@ -85,7 +86,7 @@ func Extraction(diffSrc []byte) []Catalog {
 		}
 
 		if m := STARTADDCOMMENTWITHC.FindAllStringSubmatch(text, 1); len(m) > 0 { // CDATA
-			catalogs = addCatalogs(catalogs, prefix, en, ja, preCDATA)
+			catalogs = addCatalogs(catalogs, prefix, en, ja, preCDATA, postfix)
 			en.Reset()
 			ja.Reset()
 			if len(m[0]) == 1 {
@@ -98,11 +99,11 @@ func Extraction(diffSrc []byte) []Catalog {
 			continue
 		} else if STARTADDCOMMENT.MatchString(text) { // <!--コメント始まり
 			if strings.HasSuffix(en.String(), "\n);\n") {
-				if !strings.HasSuffix(ja.String(), ");\n") {
+				if !strings.HasSuffix(ja.String(), ");\n") { // ");"だけの行はdiffで英語、日本語、");"の順になってしまうので、補正する
 					ja.WriteString(");\n")
 				}
 			}
-			catalogs = addCatalogs(catalogs, prefix, en, ja, preCDATA)
+			catalogs = addCatalogs(catalogs, prefix, en, ja, preCDATA, postfix)
 			en.Reset()
 			ja.Reset()
 			prefix = prefixes[len(prefixes)-1]
@@ -129,10 +130,12 @@ func Extraction(diffSrc []byte) []Catalog {
 			if strings.HasPrefix(diffLine, "+") {
 				ja.WriteString(line)
 				ja.WriteString("\n")
+				postfix = ""
 				continue
 			}
 			// 日本語の追加が終了
 			japaneseF = false
+			postfix = line
 		}
 
 		// indexterm,etc.
@@ -211,7 +214,7 @@ func Extraction(diffSrc []byte) []Catalog {
 		}
 	}
 	// last
-	catalogs = addCatalogs(catalogs, prefix, en, ja, preCDATA)
+	catalogs = addCatalogs(catalogs, prefix, en, ja, preCDATA, postfix)
 	catalogs = addJaCatalogs(catalogs, addPre, addja)
 	return catalogs
 }
@@ -231,12 +234,20 @@ func prefixBlock(s []string) []string {
 	return s
 }
 
-func addCatalogs(catalogs []Catalog, pre string, en strings.Builder, ja strings.Builder, preCDATA string) []Catalog {
+func addCatalogs(catalogs []Catalog, pre string, en strings.Builder, ja strings.Builder, preCDATA string, post string) []Catalog {
+	enStr := strings.Trim(en.String(), "\n")
+	if post == enStr {
+		post = ""
+	}
+	if post == ");" {
+		post = ""
+	}
 	catalog := Catalog{
 		pre:      pre,
-		en:       strings.Trim(en.String(), "\n"),
+		en:       enStr,
 		ja:       strings.Trim(ja.String(), "\n"),
 		preCDATA: preCDATA,
+		post:     post,
 	}
 	if en.Len() != 0 {
 		catalogs = append(catalogs, catalog)

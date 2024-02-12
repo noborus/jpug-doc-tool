@@ -58,7 +58,7 @@ func Test_getCatalogs(t *testing.T) {
 		{
 			name: "testTitle",
 			args: args{
-				src: []byte(`␝␟ <title>Acronyms</title>␟ <title>頭字語</title>␞␞`),
+				src: []byte(`␝␟ <title>Acronyms</title>␟ <title>頭字語</title>␞␞␞`),
 			},
 			want: []Catalog{
 				{
@@ -66,6 +66,7 @@ func Test_getCatalogs(t *testing.T) {
 					en:       " <title>Acronyms</title>",
 					ja:       " <title>頭字語</title>",
 					preCDATA: "",
+					post:     "",
 				},
 			},
 		},

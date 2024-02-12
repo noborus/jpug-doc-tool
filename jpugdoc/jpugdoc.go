@@ -111,7 +111,8 @@ func saveCatalog(fileName string, catalogs []Catalog) {
 		fmt.Fprintf(f, "␝%s␟", catalog.pre)
 		fmt.Fprintf(f, "%s␟", catalog.en)
 		fmt.Fprintf(f, "%s␞", catalog.ja)
-		fmt.Fprintf(f, "%s␞\n", catalog.preCDATA)
+		fmt.Fprintf(f, "%s␞", catalog.preCDATA)
+		fmt.Fprintf(f, "%s␞\n", catalog.post)
 	}
 }
 
@@ -137,6 +138,7 @@ func getCatalogs(src []byte) []Catalog {
 			en:       string(re[2]),
 			ja:       string(re[3]),
 			preCDATA: string(re[4]),
+			post:     string(re[5]),
 		}
 		catalogs = append(catalogs, c)
 	}
