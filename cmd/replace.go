@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"log"
-
 	"github.com/noborus/jpug-doc-tool/jpugdoc"
 	"github.com/spf13/cobra"
 )
@@ -13,36 +11,43 @@ var replaceCmd = &cobra.Command{
 	Short: "文書を「<!--英語-->日本語翻訳」に置き換える",
 	Long: `抽出した辞書に基づいて文書を「<!--英語-->日本語翻訳」に置き換える。
 文書により完全一致、類似文、機械翻訳で置き換える。`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		var vtag string
 		var update bool
 		var mt bool
 		var similar int
+		var mts int
 		var prompt bool
+		var verbose bool
 		var err error
 		if similar, err = cmd.PersistentFlags().GetInt("similar"); err != nil {
-			log.Println(err)
-			return
+			return err
 		}
 		if update, err = cmd.PersistentFlags().GetBool("update"); err != nil {
-			log.Println(err)
-			return
+			return err
 		}
 		if vtag, err = cmd.PersistentFlags().GetString("vtag"); err != nil {
-			log.Println(err)
-			return
+			return err
 		}
 		if mt, err = cmd.PersistentFlags().GetBool("mt"); err != nil {
-			log.Println(err)
-			return
+			return err
 		}
+		if mt {
+			mts = 90
+		}
+		if mts, err = cmd.PersistentFlags().GetInt("mts"); err != nil {
+			return err
+		}
+
 		if prompt, err = cmd.PersistentFlags().GetBool("prompt"); err != nil {
-			log.Println(err)
-			return
+			return err
+		}
+		if verbose, err = cmd.PersistentFlags().GetBool("verbose"); err != nil {
+			return err
 		}
 
 		fileNames := expandFileNames(args)
-		jpugdoc.Replace(fileNames, vtag, update, mt, similar, prompt)
+		return jpugdoc.Replace(fileNames, vtag, update, similar, mts, prompt, verbose)
 	},
 }
 
@@ -52,5 +57,7 @@ func init() {
 	replaceCmd.PersistentFlags().BoolP("update", "u", false, "Update")
 	replaceCmd.PersistentFlags().StringP("vtag", "v", "", "original version tag")
 	replaceCmd.PersistentFlags().BoolP("mt", "", false, "Use machine translation")
+	replaceCmd.PersistentFlags().IntP("mts", "", 90, "Use machine translation with similarity %")
 	replaceCmd.PersistentFlags().BoolP("prompt", "i", false, "Prompt before each replacement")
+	replaceCmd.PersistentFlags().BoolP("verbose", "", false, "Verbose output")
 }

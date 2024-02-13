@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"log"
-
 	"github.com/noborus/jpug-doc-tool/jpugdoc"
 	"github.com/spf13/cobra"
 )
@@ -12,20 +10,18 @@ var wordCmd = &cobra.Command{
 	Use:   "word",
 	Short: "対応する単語が含まれているかチェックする",
 	Long:  `英単語と日本語単語の対応が含まれているかチェックする`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		var err error
 		var en, ja string
 		if en, err = cmd.PersistentFlags().GetString("en"); err != nil {
-			log.Println(err)
-			return
+			return err
 		}
 		if ja, err = cmd.PersistentFlags().GetString("ja"); err != nil {
-			log.Println(err)
-			return
+			return err
 		}
 
 		fileNames := expandFileNames(args)
-		jpugdoc.CheckWord(en, ja, "", fileNames)
+		return jpugdoc.CheckWord(en, ja, "", fileNames)
 	},
 }
 

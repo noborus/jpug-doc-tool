@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"log"
-
 	"github.com/noborus/jpug-doc-tool/jpugdoc"
 	"github.com/spf13/cobra"
 )
@@ -12,14 +10,13 @@ var checkCmd = &cobra.Command{
 	Use:   "check",
 	Short: "文書をチェックする",
 	Long:  `英語と日本語の文書から翻訳をチェックする`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		cf, err := setCheckFlag(cmd)
 		if err != nil {
-			log.Println(err)
-			return
+			return err
 		}
 		fileNames := expandFileNames(args)
-		jpugdoc.Check(fileNames, *cf)
+		return jpugdoc.Check(fileNames, *cf)
 	},
 }
 

@@ -5,23 +5,29 @@ import (
 	"bytes"
 	"io"
 	"log"
+	"os"
 	"os/exec"
 	"strings"
 )
 
 // ファイル名の配列を受け取り、それぞれのファイル名のdiffから原文と日本語訳の対の配列を抽出し、
 // それぞれのファイル名に対応するカタログファイル(filename.sgml.t)を作成する
-func Extract(fileNames []string) {
+func Extract(fileNames []string) error {
 	vTag, err := versionTag()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	for _, fileName := range fileNames {
 		diffSrc := getDiff(vTag, fileName)
 		catalogs := Extraction(diffSrc)
+		catalogs, err = noTransPara(catalogs, fileName)
+		if err != nil {
+			log.Println(err)
+		}
 		saveCatalog(fileName, catalogs)
 	}
+	return nil
 }
 
 // skip diff header
@@ -234,8 +240,48 @@ func prefixBlock(s []string) []string {
 	return s
 }
 
+func noTransPara(catalogs []Catalog, fileName string) ([]Catalog, error) {
+	f, err := os.Open(fileName)
+	if err != nil {
+		return catalogs, err
+	}
+	defer f.Close()
+	src, err := io.ReadAll(f)
+	if err != nil {
+		return catalogs, err
+	}
+
+	paras := REPARA.FindAll(src, -1)
+	for _, para := range paras {
+		paraStr := extPara(para)
+		// 既に翻訳済みの場合はスキップ
+		if strings.HasPrefix(paraStr, "<!--") {
+			continue
+		}
+		if paraStr == "" {
+			continue
+		}
+		var en, ja strings.Builder
+		en.WriteString(paraStr)
+		ja.WriteString("no translation")
+		catalogs = addCatalogs(catalogs, "", en, ja, "", "")
+	}
+	return catalogs, nil
+}
+
+func extPara(src []byte) string {
+	re := REPARA.FindSubmatch(src)
+	enStr := stripNL(string(re[2]))
+	return enStr
+}
+
 func addCatalogs(catalogs []Catalog, pre string, en strings.Builder, ja strings.Builder, preCDATA string, post string) []Catalog {
 	enStr := strings.Trim(en.String(), "\n")
+	jaStr := strings.Trim(ja.String(), "\n")
+	if enStr == "" && jaStr == "" {
+		return catalogs
+	}
+
 	if post == enStr {
 		post = ""
 	}
@@ -245,23 +291,23 @@ func addCatalogs(catalogs []Catalog, pre string, en strings.Builder, ja strings.
 	catalog := Catalog{
 		pre:      pre,
 		en:       enStr,
-		ja:       strings.Trim(ja.String(), "\n"),
+		ja:       jaStr,
 		preCDATA: preCDATA,
 		post:     post,
 	}
-	if en.Len() != 0 {
-		catalogs = append(catalogs, catalog)
-	}
+	catalogs = append(catalogs, catalog)
 	return catalogs
 }
 
 func addJaCatalogs(catalogs []Catalog, pre string, ja strings.Builder) []Catalog {
+	if ja.Len() == 0 {
+		return catalogs
+	}
+
 	catalog := Catalog{
 		pre: pre,
 		ja:  strings.TrimSuffix(ja.String(), "\n"),
 	}
-	if ja.Len() != 0 {
-		catalogs = append(catalogs, catalog)
-	}
+	catalogs = append(catalogs, catalog)
 	return catalogs
 }

@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -12,7 +13,7 @@ import (
 
 var Version = "dev"
 
-var DicDir = "./.jpug-doc-tool/"
+var DicDir = filepath.Join(".", ".jpug-doc-tool/")
 
 var versionFile = "version.sgml"
 
@@ -75,9 +76,9 @@ func InitJpug() {
 		return
 	}
 
-	refdir := DicDir + "/ref"
-	if _, err := os.Stat(refdir); os.IsNotExist(err) {
-		err := os.Mkdir(refdir, 0o755)
+	refDir := filepath.Join(DicDir, "ref")
+	if _, err := os.Stat(refDir); os.IsNotExist(err) {
+		err := os.Mkdir(refDir, 0o755)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 		}
@@ -117,15 +118,14 @@ func saveCatalog(fileName string, catalogs []Catalog) {
 }
 
 // loadCatalog loads a catalog from the specified file.
-func loadCatalog(fileName string) []Catalog {
+func loadCatalog(fileName string) ([]Catalog, error) {
 	catalogName := filepath.Join(DicDir, fileName+".t")
 	src, err := ReadAllFile(catalogName)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		return nil
+		return nil, err
 	}
 
-	return getCatalogs(src)
+	return getCatalogs(src), nil
 }
 
 func getCatalogs(src []byte) []Catalog {
@@ -148,9 +148,14 @@ func getCatalogs(src []byte) []Catalog {
 // version.sgmlからバージョンタグを取得する
 // 15.4 → REL_15_4
 func versionTag() (string, error) {
+	cmd := exec.Command("make", "version.sgml")
+	if err := cmd.Run(); err != nil {
+		return "", err
+	}
+
 	src, err := ReadAllFile(versionFile)
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 	return version(src)
 }

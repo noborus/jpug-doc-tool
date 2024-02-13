@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"log"
 	"os"
 	"strings"
 
@@ -14,13 +13,11 @@ var mtCmd = &cobra.Command{
 	Use:   "mt",
 	Short: "APIを使用して文字列を翻訳する",
 	Long:  `機械翻訳APIを使用して文字列を翻訳する`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		en := strings.Join(args, " ")
 		en = strings.ReplaceAll(en, "\n", " ")
 		w := os.Stdout
-		if err := jpugdoc.MT(w, en); err != nil {
-			log.Fatal(err)
-		}
+		return jpugdoc.MT(w, en)
 	},
 }
 

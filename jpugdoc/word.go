@@ -2,34 +2,34 @@ package jpugdoc
 
 import (
 	"fmt"
-	"log"
+	"os"
 	"strings"
 
 	"github.com/jwalton/gchalk"
 )
 
 // CheckWord は英単語に対して日本語の単語が対になっているかをチェックします。
-func CheckWord(en string, ja string, vTag string, fileNames []string) {
+func CheckWord(en string, ja string, vTag string, fileNames []string) error {
 	if vTag == "" {
 		v, err := versionTag()
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		vTag = v
 	}
-
+	w := os.Stdout
 	for _, fileName := range fileNames {
 		src := getDiff(vTag, fileName)
 		pairs := Extraction(src)
 		for _, pair := range pairs {
 			if strings.Contains(pair.en, en) {
 				if !strings.Contains(pair.ja, ja) {
-					fmt.Printf("%s not include word)\n", fileName)
-					fmt.Println(gchalk.Green(pair.en))
-					fmt.Println(pair.ja)
+					fmt.Fprintf(w, "%s not include word)\n", fileName)
+					fmt.Fprintln(w, gchalk.Green(pair.en))
+					fmt.Fprintln(w, pair.ja)
 				}
 			}
 		}
-
 	}
+	return nil
 }
