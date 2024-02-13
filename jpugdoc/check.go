@@ -45,7 +45,10 @@ func Check(fileNames []string, cf CheckFlag) error {
 			fileCheck(fileName, cf)
 		}
 
-		diffSrc := getDiff(cf.VTag, fileName)
+		diffSrc, err := getDiff(cf.VTag, fileName)
+		if err != nil {
+			continue
+		}
 		formatCheck(fileName, diffSrc, cf)
 		translationCheck(fileName, diffSrc, cf)
 	}

@@ -101,6 +101,23 @@ func (rep *Rep) replace(fileName string) ([]byte, error) {
 		return nil, nil
 	}
 
+	ret, err := rep.replaceAll(fileName, src)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", fileName, err)
+	}
+	// 置き換えがない場合はnilを返す
+	if bytes.Equal(src, ret) {
+		return nil, nil
+	}
+	return ret, nil
+}
+
+func (rep *Rep) replaceAll(fileName string, src []byte) ([]byte, error) {
+	// 更新の場合はすでに翻訳がある箇所を更新する
+	if rep.update {
+		return rep.updateFromCatalog(fileName, src)
+	}
+
 	// 一致文置き換え
 	ret := rep.replaceCatalogs(src)
 
@@ -108,16 +125,6 @@ func (rep *Rep) replace(fileName string) ([]byte, error) {
 	ret = REPARA.ReplaceAllFunc(ret, rep.paraReplace)
 	if rep.err != nil {
 		return nil, fmt.Errorf("%s: %w", fileName, rep.err)
-	}
-
-	// 更新の場合はすでに翻訳がある箇所を更新する
-	if rep.update {
-		ret = rep.updateFromCatalog(fileName, rep.vTag, ret)
-	}
-
-	// 置き換えがない場合はnilを返す
-	if bytes.Equal(src, ret) {
-		return nil, nil
 	}
 	return ret, nil
 }
@@ -225,32 +232,32 @@ func inCDATA(src []byte) bool {
 }
 
 // コメント後の翻訳文の形式以外の追加文。
-func (rep Rep) additionalReplace(src []byte, c Catalog) []byte {
-	p := foundReplace(src, c)
+func (rep Rep) additionalReplace(src []byte, catalog Catalog) []byte {
+	p := foundReplace(src, catalog)
 	if p == -1 {
 		return src
 	}
 	ret := make([]byte, 0)
-	ret = append(ret, src[:p+len(c.pre)]...)
-	ret = append(ret, c.ja...)
+	ret = append(ret, src[:p+len(catalog.pre)]...)
+	ret = append(ret, catalog.ja...)
 	ret = append(ret, '\n')
-	ret = append(ret, src[p+len(c.pre):]...)
+	ret = append(ret, src[p+len(catalog.pre):]...)
 	return ret
 }
 
-func foundReplace(src []byte, c Catalog) int {
+func foundReplace(src []byte, catalog Catalog) int {
 	for p := 0; p < len(src); {
-		i := bytes.Index(src[p:], []byte(c.pre))
+		i := bytes.Index(src[p:], []byte(catalog.pre))
 		if i == -1 {
 			return -1
 		}
-		j := bytes.Index(src[p+i:], []byte("\n"+c.ja))
+		j := bytes.Index(src[p+i:], []byte("\n"+catalog.ja))
 		if j == -1 {
 			// before conversion.
 			return p + i
 		}
 		// Already converted.
-		p = p + i + j + len(c.pre) + 1
+		p = p + i + j + len(catalog.pre) + 1
 	}
 	return -1
 }
@@ -294,10 +301,13 @@ func (rep Rep) updateReplace(src []byte) []byte {
 	return src
 }
 
-func replaceCatalog(src []byte, catalogs []Catalog, o Catalog) []byte {
+func updateReplaceCatalog(src []byte, catalogs []Catalog, o Catalog) []byte {
 	var ja string
 	for _, c := range catalogs {
-		if o.en != "" && c.en != "" && o.ja != "" && c.en == o.en {
+		if c.en == "" || c.ja == "" || o.en == "" || o.ja == "" {
+			continue
+		}
+		if c.en == o.en {
 			if c.ja == o.ja {
 				return src
 			}
@@ -311,13 +321,16 @@ func replaceCatalog(src []byte, catalogs []Catalog, o Catalog) []byte {
 }
 
 // srcを新しいcatalogの日本語訳に置き換えて更新する
-func (rep Rep) updateFromCatalog(fileName string, vTag string, src []byte) []byte {
-	srcDiff := getDiff(vTag, fileName)
+func (rep Rep) updateFromCatalog(fileName string, src []byte) ([]byte, error) {
+	srcDiff, err := getDiff(rep.vTag, fileName)
+	if err != nil {
+		return nil, err
+	}
 	org := Extraction(srcDiff)
 	for _, o := range org {
-		src = replaceCatalog(src, rep.catalogs, o)
+		src = updateReplaceCatalog(src, rep.catalogs, o)
 	}
-	return src
+	return src, nil
 }
 
 // <para>の置き換え
