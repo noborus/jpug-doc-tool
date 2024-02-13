@@ -3,6 +3,7 @@ package jpugdoc
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 
@@ -25,7 +26,10 @@ func list(w io.Writer, wf bool, pre bool, enOnly bool, jaOnly bool, fileNames []
 		if wf {
 			fmt.Fprintln(w, gchalk.Red(fileName))
 		}
-		catalogs := loadCatalog(fileName)
+		catalogs, err := loadCatalog(fileName)
+		if err != nil {
+			log.Println(err)
+		}
 		writeCatalog(w, catalogs, pre, enOnly, jaOnly)
 	}
 }
@@ -61,7 +65,10 @@ func TSVList(fileNames []string) {
 
 func tsvList(w io.Writer, fileNames []string) {
 	for _, fileName := range fileNames {
-		catalogs := loadCatalog(fileName)
+		catalogs, err := loadCatalog(fileName)
+		if err != nil {
+			log.Println(err)
+		}
 		writeTSV(w, catalogs)
 	}
 }

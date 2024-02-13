@@ -12,7 +12,6 @@ func TestRep_replaceCatalogs(t *testing.T) {
 		catalogs []Catalog
 		vTag     string
 		update   bool
-		mt       bool
 		prompt   bool
 		similar  int
 		api      *textra.TexTra
@@ -68,7 +67,6 @@ This is a test.
 				catalogs: tt.fields.catalogs,
 				vTag:     tt.fields.vTag,
 				update:   tt.fields.update,
-				mt:       tt.fields.mt,
 				prompt:   tt.fields.prompt,
 				similar:  tt.fields.similar,
 				api:      tt.fields.api,

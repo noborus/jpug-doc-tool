@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
@@ -32,11 +31,11 @@ type CheckFlag struct {
 }
 
 // default check
-func Check(fileNames []string, cf CheckFlag) {
+func Check(fileNames []string, cf CheckFlag) error {
 	if cf.VTag == "" {
 		v, err := versionTag()
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		cf.VTag = v
 	}
@@ -50,6 +49,7 @@ func Check(fileNames []string, cf CheckFlag) {
 		formatCheck(fileName, diffSrc, cf)
 		translationCheck(fileName, diffSrc, cf)
 	}
+	return nil
 }
 
 // メッセージ、原文、日本語の形式で出力する
