@@ -18,7 +18,6 @@ var replaceCmd = &cobra.Command{
 		var similar int
 		var mts int
 		var prompt bool
-		var verbose bool
 		var err error
 		if similar, err = cmd.PersistentFlags().GetInt("similar"); err != nil {
 			return err
@@ -42,12 +41,9 @@ var replaceCmd = &cobra.Command{
 		if prompt, err = cmd.PersistentFlags().GetBool("prompt"); err != nil {
 			return err
 		}
-		if verbose, err = cmd.PersistentFlags().GetBool("verbose"); err != nil {
-			return err
-		}
 
 		fileNames := expandFileNames(args)
-		return jpugdoc.Replace(fileNames, vtag, update, similar, mts, prompt, verbose)
+		return jpugdoc.Replace(fileNames, vtag, update, similar, mts, prompt)
 	},
 }
 
@@ -59,5 +55,4 @@ func init() {
 	replaceCmd.PersistentFlags().BoolP("mt", "", false, "Use machine translation")
 	replaceCmd.PersistentFlags().IntP("mts", "", 90, "Use machine translation with similarity %")
 	replaceCmd.PersistentFlags().BoolP("prompt", "i", false, "Prompt before each replacement")
-	replaceCmd.PersistentFlags().BoolP("verbose", "", false, "Verbose output")
 }
