@@ -19,6 +19,9 @@ func Extract(fileNames []string) error {
 	}
 
 	for _, fileName := range fileNames {
+		if Verbose {
+			log.Printf("Extract: %s\n", fileName)
+		}
 		diffSrc, err := getDiff(vTag, fileName)
 		if err != nil {
 			return err

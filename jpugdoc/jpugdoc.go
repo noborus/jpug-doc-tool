@@ -17,6 +17,8 @@ var DicDir = filepath.Join(".", ".jpug-doc-tool/")
 
 var versionFile = "version.sgml"
 
+var Verbose bool
+
 type apiConfig struct {
 	ClientID             string
 	ClientSecret         string

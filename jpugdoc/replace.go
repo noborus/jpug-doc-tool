@@ -22,12 +22,11 @@ type Rep struct {
 	prompt   bool
 	api      *textra.TexTra
 	apiType  string
-	verbose  bool
 	// 機械翻訳エラー
 	err error
 }
 
-func newOpts(vTag string, update bool, similar int, mt int, prompt bool, verbose bool) (*Rep, error) {
+func newOpts(vTag string, update bool, similar int, mt int, prompt bool) (*Rep, error) {
 	rep := &Rep{
 		similar: similar,
 		update:  update,
@@ -52,17 +51,16 @@ func newOpts(vTag string, update bool, similar int, mt int, prompt bool, verbose
 	}
 
 	rep.prompt = prompt
-	rep.verbose = verbose
 	return rep, nil
 }
 
 // Replace は指定されたファイル名のファイルを置き換える
-func Replace(fileNames []string, vTag string, update bool, similar int, mt int, prompt bool, verbose bool) error {
-	rep, err := newOpts(vTag, update, similar, mt, prompt, verbose)
+func Replace(fileNames []string, vTag string, update bool, similar int, mt int, prompt bool) error {
+	rep, err := newOpts(vTag, update, similar, mt, prompt)
 	if err != nil {
 		return err
 	}
-	if rep.verbose {
+	if Verbose {
 		log.Printf("similar %d mt %d\n", rep.similar, rep.mt)
 	}
 
@@ -377,7 +375,7 @@ func (rep *Rep) paraReplace(src []byte) []byte {
 
 // 機械翻訳
 func (rep *Rep) MTtrans(enStr string) (string, error) {
-	if rep.verbose {
+	if Verbose {
 		fmt.Printf("API...[%.30s] ", enStr)
 	}
 	ja, err := rep.api.Translate(rep.apiType, enStr)
@@ -388,7 +386,7 @@ func (rep *Rep) MTtrans(enStr string) (string, error) {
 	if ja == "" {
 		return "", fmt.Errorf("replace: No translation")
 	}
-	if rep.verbose {
+	if Verbose {
 		fmt.Printf("Done\n")
 	}
 
@@ -414,7 +412,7 @@ func (rep *Rep) simMtReplace(src []byte, en string, enStr string) ([]byte, error
 		return src, nil
 	}
 	if maxScore > float64(rep.similar) {
-		if rep.verbose {
+		if Verbose {
 			fmt.Printf("Similar...[%f][%.30s]\n", maxScore, enStr)
 		}
 		simJa = strings.TrimRight(simJa, "\n")
