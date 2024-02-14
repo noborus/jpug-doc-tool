@@ -19,7 +19,10 @@ func Extract(fileNames []string) error {
 	}
 
 	for _, fileName := range fileNames {
-		diffSrc := getDiff(vTag, fileName)
+		diffSrc, err := getDiff(vTag, fileName)
+		if err != nil {
+			return err
+		}
 		catalogs := Extraction(diffSrc)
 		catalogs, err = noTransPara(catalogs, fileName)
 		if err != nil {
@@ -41,13 +44,13 @@ func skipHeader(scanner *bufio.Scanner) {
 }
 
 // git diffの結果を省略せずに取得する
-func getDiff(vTag string, fileName string) []byte {
+func getDiff(vTag string, fileName string) ([]byte, error) {
 	// git diff --histogram -U10000 REL_16_0 doc/src/sgml/ref/backup.sgml
 	args := []string{"diff", "--histogram", "-U10000", vTag, fileName}
 	cmd := exec.Command("git", args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Fatal("exec", err)
+		return nil, err
 	}
 
 	var src []byte
@@ -57,7 +60,7 @@ func getDiff(vTag string, fileName string) []byte {
 		log.Fatal("getDiff", err)
 	}
 	cmd.Wait()
-	return src
+	return src, nil
 }
 
 // diff を原文と日本語訳の対(Catalog)の配列に変換する

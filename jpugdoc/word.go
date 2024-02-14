@@ -19,7 +19,10 @@ func CheckWord(en string, ja string, vTag string, fileNames []string) error {
 	}
 	w := os.Stdout
 	for _, fileName := range fileNames {
-		src := getDiff(vTag, fileName)
+		src, err := getDiff(vTag, fileName)
+		if err != nil {
+			continue
+		}
 		pairs := Extraction(src)
 		for _, pair := range pairs {
 			if strings.Contains(pair.en, en) {
