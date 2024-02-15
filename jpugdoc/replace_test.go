@@ -7,7 +7,7 @@ import (
 	"github.com/noborus/go-textra"
 )
 
-func TestRep_replaceCatalogs(t *testing.T) {
+func TestRep_matchReplace(t *testing.T) {
 	type fields struct {
 		catalogs []Catalog
 		vTag     string
@@ -27,7 +27,7 @@ func TestRep_replaceCatalogs(t *testing.T) {
 		want   []byte
 	}{
 		{
-			name: "Test replaceCatalogs",
+			name: "Test matchReplace1",
 			fields: fields{
 				catalogs: []Catalog{
 					{
@@ -73,7 +73,7 @@ This is a test.
 				apiType:  tt.fields.apiType,
 			}
 			if got := rep.matchReplace(tt.args.src); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Rep.replaceCatalogs() = \n%v\nwant \n%v\n", string(got), string(tt.want))
+				t.Errorf("Rep.matchReplace() = \n%v\nwant \n%v\n", string(got), string(tt.want))
 			}
 		})
 	}

@@ -229,10 +229,6 @@ test
 			args: args{
 				src: []byte(`  <para>
   A custom scan provider will typically add paths for a base relation by
-  setting the following hook, which is called after the core code has
-  generated all the access paths it can for the relation (except for
-  Gather and Gather Merge paths, which are made after this call so that
-  they can use partial paths added by the hook):
 <programlisting>
   typedef void (*set_rel_pathlist_hook_type) (PlannerInfo *root,
 									RelOptInfo *rel,
@@ -245,10 +241,6 @@ test
 			want: [][]byte{
 				[]byte(`<para>
   A custom scan provider will typically add paths for a base relation by
-  setting the following hook, which is called after the core code has
-  generated all the access paths it can for the relation (except for
-  Gather and Gather Merge paths, which are made after this call so that
-  they can use partial paths added by the hook):
 <programlisting>`),
 			},
 		},

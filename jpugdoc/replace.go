@@ -268,7 +268,7 @@ func (rep *Rep) unmatchedReplace(fileName string, src []byte) ([]byte, error) {
 	if rep.err != nil {
 		return nil, fmt.Errorf("%s: %w", fileName, rep.err)
 	}
-	// <para><screen>の置き換え
+	// <para><screen>|<programlisting>の置き換え
 	ret = REPARASCREEN.ReplaceAllFunc(ret, rep.paraScreenReplace)
 	if rep.err != nil {
 		return nil, fmt.Errorf("%s: %w", fileName, rep.err)
@@ -362,12 +362,13 @@ func (rep Rep) updateFromCatalog(fileName string, src []byte) ([]byte, error) {
 // ReplaceAllFuncで呼び出される
 func (rep *Rep) paraScreenReplace(src []byte) []byte {
 	subMatch := REPARASCREEN.FindSubmatch(src)
-	para := subMatch[2]
-	if len(bytes.TrimSpace(para)) == 0 {
+	// <screen>又は<programlisting>が含まれていない場合はスキップ
+	if !containsAny(subMatch[3], [][]byte{[]byte("<screen>"), []byte("<programlisting>")}) {
 		return src
 	}
-	// <screen>又は<programlisting>が含まれていない場合はスキップ
-	if !containsAny(para, [][]byte{[]byte("<screen>"), []byte("<programlisting>")}) {
+
+	para := subMatch[2]
+	if len(bytes.TrimSpace(para)) == 0 {
 		return src
 	}
 	// 既に翻訳済みの場合はスキップ
@@ -379,17 +380,19 @@ func (rep *Rep) paraScreenReplace(src []byte) []byte {
 	org = REVHIGHHUN2.ReplaceAllString(org, "&#45;&#45;-")
 	org = REVHIGHHUN.ReplaceAllString(org, "&#45;-")
 	stripOrg := stripNL(string(para))
-
 	// 類似文、機械翻訳置き換え
 	ret, err := rep.simMtReplace(src, "", org, stripOrg, "")
 	if err != nil {
 		log.Println(err.Error())
 		rep.err = err
 	}
-	if rep.prompt {
-		return promptReplace(src, []byte(ret))
+	if ret == nil {
+		return src
 	}
-	return REPARASCREEN.ReplaceAll(src, []byte(ret))
+	if rep.prompt {
+		return promptReplace(src, ret)
+	}
+	return REPARASCREEN.ReplaceAll(src, ret)
 }
 
 func containsAny(b []byte, subs [][]byte) bool {
@@ -461,10 +464,14 @@ func (rep *Rep) paraReplace(src []byte) []byte {
 		log.Println(err.Error())
 		rep.err = err
 	}
-	if rep.prompt {
-		return promptReplace(src, []byte(ret))
+	if ret == nil {
+		return src
 	}
-	return REPARA.ReplaceAll(src, []byte(ret))
+	if rep.prompt {
+		return promptReplace(src, ret)
+	}
+
+	return REPARA.ReplaceAll(src, ret)
 }
 
 type Dummy struct{}
@@ -498,7 +505,9 @@ func (rep *Rep) MTtrans(enStr string) (string, error) {
 // 類似文、機械翻訳置き換え
 func (rep *Rep) simMtReplace(src []byte, pre string, org string, enStr string, post string) ([]byte, error) {
 	simJa, score := rep.findSimilar(src, enStr)
-
+	if simJa == "no translation" {
+		return nil, nil
+	}
 	mtJa, err := rep.mtTrans(enStr, score)
 	if err != nil {
 		return nil, err
@@ -513,7 +522,7 @@ func (rep *Rep) simMtReplace(src []byte, pre string, org string, enStr string, p
 	case mtJa != "":
 		para = fmt.Sprintf("$1%s<!--\n%s\n-->\n《機械翻訳》%s%s$3", pre, org, mtJa, post)
 	default:
-		return src, nil
+		return nil, nil
 	}
 	return []byte(para), nil
 }
