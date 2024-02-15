@@ -12,6 +12,13 @@ import (
 	"github.com/noborus/go-textra"
 )
 
+// DummyAPI は機械翻訳を実際には行わない
+var DummyAPI = true
+
+type Translator interface {
+	Translate(apiType string, source string) (string, error)
+}
+
 // Rep は置き換えを行う構造体
 type Rep struct {
 	catalogs []Catalog
@@ -20,7 +27,7 @@ type Rep struct {
 	similar  int
 	mt       int
 	prompt   bool
-	api      *textra.TexTra
+	api      Translator
 	apiType  string
 	// 機械翻訳エラー
 	err error
@@ -40,17 +47,24 @@ func newOpts(vTag string, update bool, similar int, mt int, prompt bool) (*Rep, 
 		}
 		rep.vTag = v
 	}
+	rep.prompt = prompt
 
-	mtCli, _ := newTextra(Config)
-	if mt > 0 && mtCli != nil {
-		rep.mt = mt
-		rep.api = mtCli
-	} else {
-		rep.mt = 0
+	if mt == 0 {
 		rep.api = nil
+		return rep, nil
 	}
 
-	rep.prompt = prompt
+	if DummyAPI {
+		rep.api = &Dummy{}
+		return rep, nil
+	}
+
+	mtCli, err := newTextra(Config)
+	if err != nil {
+		rep.api = nil
+		return rep, nil
+	}
+	rep.api = mtCli
 	return rep, nil
 }
 
@@ -68,7 +82,7 @@ func Replace(fileNames []string, vTag string, update bool, similar int, mt int, 
 		rep.catalogs, err = loadCatalog(fileName)
 		if err != nil {
 			log.Print(err.Error())
-			continue
+			// （新規ファイル）カタログがなくても続行
 		}
 		ret, err := rep.replace(fileName)
 		if err != nil {
@@ -118,6 +132,10 @@ func (rep *Rep) replaceAll(fileName string, src []byte) ([]byte, error) {
 
 	// 一致文置き換え
 	ret := rep.replaceCatalogs(src)
+
+	if rep.similar == 0 && rep.mt == 0 {
+		return ret, nil
+	}
 
 	// <para>のみ更に置き換える
 	ret = REPARA.ReplaceAllFunc(ret, rep.paraReplace)
@@ -331,46 +349,74 @@ func (rep Rep) updateFromCatalog(fileName string, src []byte) ([]byte, error) {
 	return src, nil
 }
 
-// <para>の置き換え
+// <para></para>の置き換え
+// ReplaceAllFuncで呼び出される
 func (rep *Rep) paraReplace(src []byte) []byte {
 	re := REPARA.FindSubmatch(src)
-	para := string(re[1])
-	en := strings.TrimRight(string(re[2]), "\n")
-	en = REVHIGHHUN2.ReplaceAllString(en, "&#45;&#45;-")
-	en = REVHIGHHUN.ReplaceAllString(en, "&#45;-")
-	enStr := stripNL(string(re[2]))
-
-	// 既に翻訳済みの場合はスキップ
-	if strings.HasPrefix(enStr, "<!--") {
+	tag := string(re[1])
+	para := re[2]
+	org := strings.TrimRight(string(para), "\n")
+	org = REVHIGHHUN2.ReplaceAllString(org, "&#45;&#45;-")
+	org = REVHIGHHUN.ReplaceAllString(org, "&#45;-")
+	stripOrg := stripNL(string(para))
+	// <para>\nで改行されていない場合はスキップ
+	if !strings.Contains(tag, "\n") {
 		return src
 	}
-	if strings.Contains(enStr, "<para>") && strings.Contains(enStr, "<!--") {
+
+	// 既に翻訳済みの場合はスキップ
+	if strings.HasPrefix(stripOrg, "<!--") {
+		return src
+	}
+	// 既に翻訳済みの場合はスキップ
+	if strings.Contains(stripOrg, "<para>") && strings.Contains(stripOrg, "<!--") {
 		return src
 	}
 	// 空白のみの場合はスキップ
-	if strings.Trim(enStr, " ") == "" {
+	if strings.Trim(stripOrg, " ") == "" {
 		return src
 	}
-
 	// 既に日本語がある場合はスキップ
-	if NIHONGO.MatchString(enStr) {
+	if NIHONGO.MatchString(stripOrg) {
 		return src
 	}
-	// <para>\nで改行されていない場合はスキップ
-	if !strings.Contains(para, "\n") {
+	// <returnvalue>が含まれている場合はスキップ
+	if strings.Contains(org, "<returnvalue>") {
 		return src
 	}
-	if bytes.Contains(src, []byte("<returnvalue>")) {
-		return src
+	// 翻訳不要の場合はスキップ
+	for _, catalog := range rep.catalogs {
+		if catalog.ja == "no translation" {
+			if catalog.en == stripOrg {
+				if Verbose {
+					log.Printf("skip: %s\n", stripOrg)
+				}
+				return src
+			}
+		}
 	}
-
+	pre := ""
+	post := ""
+	// <para>が含まれている場合は次の<para>を置き換え
+	if strings.Contains(stripOrg, "<para>") {
+		p := bytes.Index(para, []byte("<para>")) + len("<para>\n")
+		pre = string(para[:p])
+		org = string(para[p:])
+		stripOrg = stripNL(string(para))
+	}
 	// 類似文、機械翻訳置き換え
-	ret, err := rep.simMtReplace(src, en, enStr)
+	ret, err := rep.simMtReplace(src, pre, org, stripOrg, post)
 	if err != nil {
 		log.Println(err.Error())
 		rep.err = err
 	}
 	return ret
+}
+
+type Dummy struct{}
+
+func (d *Dummy) Translate(apiType string, source string) (string, error) {
+	return "機械翻訳", nil
 }
 
 // 機械翻訳
@@ -381,70 +427,87 @@ func (rep *Rep) MTtrans(enStr string) (string, error) {
 	ja, err := rep.api.Translate(rep.apiType, enStr)
 	if err != nil {
 		rep.api = nil
-		return "", fmt.Errorf("replace: %w", err)
+		return "", fmt.Errorf("mt: %w", err)
 	}
 	if ja == "" {
-		return "", fmt.Errorf("replace: No translation")
+		return "", fmt.Errorf("mt: No translation")
 	}
 	if Verbose {
 		fmt.Printf("Done\n")
 	}
 
 	ja = KUTEN.ReplaceAllString(ja, "。\n")
+	ja = strings.TrimRight(ja, "\n")
 	return ja, nil
 }
 
 // 類似文、機械翻訳置き換え
-func (rep *Rep) simMtReplace(src []byte, en string, enStr string) ([]byte, error) {
-	var maxScore float64
-	var simJa string
+func (rep *Rep) simMtReplace(src []byte, pre string, org string, enStr string, post string) ([]byte, error) {
+	simJa, score := rep.findSimilar(src, enStr)
 
-	// 最も類似度の高い日本語を探す
-	for _, c := range rep.catalogs {
-		distance := levenshtein.ComputeDistance(enStr, c.en)
-		score := (1 - (float64(distance) / float64(len(enStr)))) * 100
-		if score > maxScore {
-			simJa = c.ja
-			maxScore = score
-		}
+	mtJa, err := rep.mtTrans(enStr, score)
+	if err != nil {
+		return nil, err
 	}
-	if simJa == "no translation" {
+
+	para := ""
+	switch {
+	case simJa != "" && mtJa != "":
+		para = fmt.Sprintf("$1%s<!--\n%s\n-->\n《マッチ度[%f]》%s\n《機械翻訳》%s%s$3", pre, org, score, simJa, mtJa, post)
+	case simJa != "":
+		para = fmt.Sprintf("$1%s<!--\n%s\n-->\n《マッチ度[%f]》%s%s$3", pre, org, score, simJa, post)
+	case mtJa != "":
+		para = fmt.Sprintf("$1%s<!--\n%s\n-->\n《機械翻訳》%s%s$3", pre, org, mtJa, post)
+	default:
 		return src, nil
 	}
-	if maxScore > float64(rep.similar) {
+
+	if rep.prompt {
+		return promptReplace(src, []byte(para)), nil
+	}
+	return REPARA.ReplaceAll(src, []byte(para)), nil
+}
+
+func (rep *Rep) findSimilar(src []byte, enStr string) (string, float64) {
+	simJa, maxScore := findSimilar(rep.catalogs, src, enStr)
+	if rep.similar != 0 && maxScore > float64(rep.similar) {
 		if Verbose {
 			fmt.Printf("Similar...[%f][%.30s]\n", maxScore, enStr)
 		}
 		simJa = strings.TrimRight(simJa, "\n")
 	} else {
 		simJa = ""
+		maxScore = 0
 	}
+	return simJa, maxScore
+}
 
+func (rep *Rep) mtTrans(enStr string, score float64) (string, error) {
 	mtJa := ""
-	para := ""
-	if maxScore < float64(rep.mt) {
+	if rep.api != nil && score < float64(rep.mt) {
 		ja, err := rep.MTtrans(enStr)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
+		ja = strings.TrimRight(ja, "\n")
 		mtJa = ja
 	}
+	return mtJa, nil
+}
 
-	if simJa != "" && mtJa != "" {
-		mtJa = strings.TrimRight(mtJa, "\n")
-		para = fmt.Sprintf("$1<!--\n%s\n-->\n《マッチ度[%f]》%s\n《機械翻訳》%s$3", en, maxScore, simJa, mtJa)
-	} else if simJa != "" {
-		para = fmt.Sprintf("$1<!--\n%s\n-->\n《マッチ度[%f]》%s$3", en, maxScore, simJa)
-	} else if mtJa != "" {
-		para = fmt.Sprintf("$1<!--\n%s\n-->\n《機械翻訳》%s$3", en, mtJa)
-	} else {
-		return src, nil
+func findSimilar(catalogs []Catalog, src []byte, enStr string) (string, float64) {
+	var maxScore float64
+	var simJa string
+	// 最も類似度の高い日本語を探す
+	for _, catalog := range catalogs {
+		distance := levenshtein.ComputeDistance(enStr, catalog.en)
+		score := (1 - (float64(distance) / float64(len(enStr)))) * 100
+		if score > maxScore {
+			simJa = catalog.ja
+			maxScore = score
+		}
 	}
-	if !rep.prompt {
-		return REPARA.ReplaceAll(src, []byte(para)), nil
-	}
-
-	return promptReplace(src, []byte(para)), nil
+	return simJa, maxScore
 }
 
 // file rewrite.
