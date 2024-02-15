@@ -28,16 +28,15 @@ var replaceCmd = &cobra.Command{
 		if vtag, err = cmd.PersistentFlags().GetString("vtag"); err != nil {
 			return err
 		}
+		if mts, err = cmd.PersistentFlags().GetInt("mts"); err != nil {
+			return err
+		}
 		if mt, err = cmd.PersistentFlags().GetBool("mt"); err != nil {
 			return err
 		}
 		if mt {
 			mts = 90
 		}
-		if mts, err = cmd.PersistentFlags().GetInt("mts"); err != nil {
-			return err
-		}
-
 		if prompt, err = cmd.PersistentFlags().GetBool("prompt"); err != nil {
 			return err
 		}
@@ -53,6 +52,6 @@ func init() {
 	replaceCmd.PersistentFlags().BoolP("update", "u", false, "Update")
 	replaceCmd.PersistentFlags().StringP("vtag", "v", "", "original version tag")
 	replaceCmd.PersistentFlags().BoolP("mt", "", false, "Use machine translation")
-	replaceCmd.PersistentFlags().IntP("mts", "", 90, "Use machine translation with similarity %")
+	replaceCmd.PersistentFlags().IntP("mts", "", 0, "Use machine translation with similarity %")
 	replaceCmd.PersistentFlags().BoolP("prompt", "i", false, "Prompt before each replacement")
 }

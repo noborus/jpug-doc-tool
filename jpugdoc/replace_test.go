@@ -72,7 +72,7 @@ This is a test.
 				api:      tt.fields.api,
 				apiType:  tt.fields.apiType,
 			}
-			if got := rep.replaceCatalogs(tt.args.src); !reflect.DeepEqual(got, tt.want) {
+			if got := rep.matchReplace(tt.args.src); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Rep.replaceCatalogs() = \n%v\nwant \n%v\n", string(got), string(tt.want))
 			}
 		})

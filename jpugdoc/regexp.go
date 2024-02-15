@@ -7,6 +7,13 @@ import (
 // <para> </para> に一致させる
 var REPARA = regexp.MustCompile(`(?s)(<para>\n*)(.*?)(\s*</para>)`)
 
+// <para> <screen>|<programlisting> に一致させる
+var REPARASCREEN = regexp.MustCompile(`(?s)(<para>\n*)(.*?)(\s*(</para>|<screen>|<programlisting>))`)
+
+func regParaScreen(src []byte) [][]byte {
+	return REPARASCREEN.FindAll(src, -1)
+}
+
 // <para> </para> に一致させる（チェック用）
 var CHECKPARA = regexp.MustCompile(`\s*(<!--\n?\s+)?(?s)(<para>\n*)(.*?)(\s*</para>)(\n*\s*-->)?`)
 

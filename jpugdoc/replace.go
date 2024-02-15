@@ -131,50 +131,34 @@ func (rep *Rep) replaceAll(fileName string, src []byte) ([]byte, error) {
 	}
 
 	// 一致文置き換え
-	ret := rep.replaceCatalogs(src)
+	ret := rep.matchReplace(src)
 
 	if rep.similar == 0 && rep.mt == 0 {
 		return ret, nil
 	}
-
-	// <para>のみ更に置き換える
-	ret = REPARA.ReplaceAllFunc(ret, rep.paraReplace)
-	if rep.err != nil {
-		return nil, fmt.Errorf("%s: %w", fileName, rep.err)
-	}
-	return ret, nil
+	// 類似文、機械翻訳置き換え
+	return rep.unmatchedReplace(fileName, ret)
 }
 
-func newTextra(apiConfig apiConfig) (*textra.TexTra, error) {
-	if apiConfig.ClientID == "" || apiConfig.ClientSecret == "" {
-		return nil, fmt.Errorf("textra: ClientID and ClientSecret are required")
-	}
-	config := textra.Config{}
-	config.ClientID = apiConfig.ClientID
-	config.ClientSecret = apiConfig.ClientSecret
-	config.Name = apiConfig.Name
-	return textra.New(config)
-}
-
-// Replace all from catalog
-func (rep *Rep) replaceCatalogs(src []byte) []byte {
+// 一致文置き換え
+func (rep *Rep) matchReplace(src []byte) []byte {
 	// 追加形式の翻訳文を追加
 	for _, catalog := range rep.catalogs {
 		if catalog.en == "" {
-			src = rep.additionalReplace(src, catalog)
+			src = rep.matchAdditional(src, catalog)
 		}
 	}
 	// コメント形式の翻訳文を追加
 	for _, catalog := range rep.catalogs {
 		if catalog.en != "" {
-			src = rep.replaceCatalog(src, catalog)
+			src = rep.matchComment(src, catalog)
 		}
 	}
 	return src
 }
 
 // カタログを一つづつ置き換える
-func (rep Rep) replaceCatalog(src []byte, catalog Catalog) []byte {
+func (rep Rep) matchComment(src []byte, catalog Catalog) []byte {
 	if catalog.ja == "no translation" {
 		return src
 	}
@@ -248,7 +232,7 @@ func inCDATA(src []byte) bool {
 }
 
 // コメント後の翻訳文の形式以外の追加文。
-func (rep Rep) additionalReplace(src []byte, catalog Catalog) []byte {
+func (rep Rep) matchAdditional(src []byte, catalog Catalog) []byte {
 	p := foundReplace(src, catalog)
 	if p == -1 {
 		return src
@@ -276,6 +260,31 @@ func foundReplace(src []byte, catalog Catalog) int {
 		p = p + i + j + len(catalog.pre) + 1
 	}
 	return -1
+}
+
+func (rep *Rep) unmatchedReplace(fileName string, src []byte) ([]byte, error) {
+	// <para>の置き換え
+	ret := REPARA.ReplaceAllFunc(src, rep.paraReplace)
+	if rep.err != nil {
+		return nil, fmt.Errorf("%s: %w", fileName, rep.err)
+	}
+	// <para><screen>の置き換え
+	ret = REPARASCREEN.ReplaceAllFunc(ret, rep.paraScreenReplace)
+	if rep.err != nil {
+		return nil, fmt.Errorf("%s: %w", fileName, rep.err)
+	}
+	return ret, nil
+}
+
+func newTextra(apiConfig apiConfig) (*textra.TexTra, error) {
+	if apiConfig.ClientID == "" || apiConfig.ClientSecret == "" {
+		return nil, fmt.Errorf("textra: ClientID and ClientSecret are required")
+	}
+	config := textra.Config{}
+	config.ClientID = apiConfig.ClientID
+	config.ClientSecret = apiConfig.ClientSecret
+	config.Name = apiConfig.Name
+	return textra.New(config)
 }
 
 // promptReplace は置き換えを質問する
@@ -349,12 +358,55 @@ func (rep Rep) updateFromCatalog(fileName string, src []byte) ([]byte, error) {
 	return src, nil
 }
 
+// <para><screen>の置き換え
+// ReplaceAllFuncで呼び出される
+func (rep *Rep) paraScreenReplace(src []byte) []byte {
+	subMatch := REPARASCREEN.FindSubmatch(src)
+	para := subMatch[2]
+	if len(bytes.TrimSpace(para)) == 0 {
+		return src
+	}
+	// <screen>又は<programlisting>が含まれていない場合はスキップ
+	if !containsAny(para, [][]byte{[]byte("<screen>"), []byte("<programlisting>")}) {
+		return src
+	}
+	// 既に翻訳済みの場合はスキップ
+	if bytes.Contains(para, []byte("<!--")) {
+		return src
+	}
+
+	org := strings.TrimRight(string(para), "\n")
+	org = REVHIGHHUN2.ReplaceAllString(org, "&#45;&#45;-")
+	org = REVHIGHHUN.ReplaceAllString(org, "&#45;-")
+	stripOrg := stripNL(string(para))
+
+	// 類似文、機械翻訳置き換え
+	ret, err := rep.simMtReplace(src, "", org, stripOrg, "")
+	if err != nil {
+		log.Println(err.Error())
+		rep.err = err
+	}
+	if rep.prompt {
+		return promptReplace(src, []byte(ret))
+	}
+	return REPARASCREEN.ReplaceAll(src, []byte(ret))
+}
+
+func containsAny(b []byte, subs [][]byte) bool {
+	for _, sub := range subs {
+		if bytes.Contains(b, sub) {
+			return true
+		}
+	}
+	return false
+}
+
 // <para></para>の置き換え
 // ReplaceAllFuncで呼び出される
 func (rep *Rep) paraReplace(src []byte) []byte {
-	re := REPARA.FindSubmatch(src)
-	tag := string(re[1])
-	para := re[2]
+	subMatch := REPARA.FindSubmatch(src)
+	tag := string(subMatch[1])
+	para := subMatch[2]
 	org := strings.TrimRight(string(para), "\n")
 	org = REVHIGHHUN2.ReplaceAllString(org, "&#45;&#45;-")
 	org = REVHIGHHUN.ReplaceAllString(org, "&#45;-")
@@ -363,7 +415,6 @@ func (rep *Rep) paraReplace(src []byte) []byte {
 	if !strings.Contains(tag, "\n") {
 		return src
 	}
-
 	// 既に翻訳済みの場合はスキップ
 	if strings.HasPrefix(stripOrg, "<!--") {
 		return src
@@ -380,8 +431,8 @@ func (rep *Rep) paraReplace(src []byte) []byte {
 	if NIHONGO.MatchString(stripOrg) {
 		return src
 	}
-	// <returnvalue>が含まれている場合はスキップ
-	if strings.Contains(org, "<returnvalue>") {
+	// <returnvalue>,<screen>が含まれている場合はスキップ
+	if strings.Contains(org, "<returnvalue>") || strings.Contains(org, "<screen>") || strings.Contains(org, "<programlisting>") {
 		return src
 	}
 	// 翻訳不要の場合はスキップ
@@ -410,7 +461,10 @@ func (rep *Rep) paraReplace(src []byte) []byte {
 		log.Println(err.Error())
 		rep.err = err
 	}
-	return ret
+	if rep.prompt {
+		return promptReplace(src, []byte(ret))
+	}
+	return REPARA.ReplaceAll(src, []byte(ret))
 }
 
 type Dummy struct{}
@@ -461,11 +515,7 @@ func (rep *Rep) simMtReplace(src []byte, pre string, org string, enStr string, p
 	default:
 		return src, nil
 	}
-
-	if rep.prompt {
-		return promptReplace(src, []byte(para)), nil
-	}
-	return REPARA.ReplaceAll(src, []byte(para)), nil
+	return []byte(para), nil
 }
 
 func (rep *Rep) findSimilar(src []byte, enStr string) (string, float64) {
