@@ -12,12 +12,11 @@ import (
 	"github.com/noborus/go-textra"
 )
 
-// DummyAPI は機械翻訳を実際には行わない
-var DummyAPI = true
-
-type Translator interface {
-	Translate(apiType string, source string) (string, error)
-}
+const (
+	MTTransStart = "«"
+	MTTransEnd   = "»"
+	MTL          = len(MTTransStart)
+)
 
 // Rep は置き換えを行う構造体
 type Rep struct {
@@ -27,45 +26,6 @@ type Rep struct {
 	similar  int
 	mt       int
 	prompt   bool
-	api      Translator
-	apiType  string
-	// 機械翻訳エラー
-	err error
-}
-
-func newOpts(vTag string, update bool, similar int, mt int, prompt bool) (*Rep, error) {
-	rep := &Rep{
-		similar: similar,
-		update:  update,
-		mt:      mt,
-		apiType: Config.APIAutoTranslateType,
-	}
-	if update && vTag == "" {
-		v, err := versionTag()
-		if err != nil {
-			return rep, err
-		}
-		rep.vTag = v
-	}
-	rep.prompt = prompt
-
-	if mt == 0 {
-		rep.api = nil
-		return rep, nil
-	}
-
-	if DummyAPI {
-		rep.api = &Dummy{}
-		return rep, nil
-	}
-
-	mtCli, err := newTextra(Config)
-	if err != nil {
-		rep.api = nil
-		return rep, nil
-	}
-	rep.api = mtCli
-	return rep, nil
 }
 
 // Replace は指定されたファイル名のファイルを置き換える
@@ -86,10 +46,6 @@ func Replace(fileNames []string, vTag string, update bool, similar int, mt int, 
 		}
 		ret, err := rep.replace(fileName)
 		if err != nil {
-			// 機械翻訳エラーだった場合は終了
-			if rep.err != nil {
-				log.Fatal(rep.err)
-			}
 			log.Print(err.Error())
 			continue
 		}
@@ -103,6 +59,24 @@ func Replace(fileNames []string, vTag string, update bool, similar int, mt int, 
 		fmt.Printf("replace: %s\n", fileName)
 	}
 	return nil
+}
+
+func newOpts(vTag string, update bool, similar int, mt int, prompt bool) (*Rep, error) {
+	rep := &Rep{
+		similar: similar,
+		update:  update,
+		mt:      mt,
+	}
+	if update && vTag == "" {
+		v, err := versionTag()
+		if err != nil {
+			return rep, err
+		}
+		rep.vTag = v
+	}
+	rep.prompt = prompt
+
+	return rep, nil
 }
 
 // replace はファイルを置き換えた結果を返す
@@ -265,14 +239,8 @@ func foundReplace(src []byte, catalog Catalog) int {
 func (rep *Rep) unmatchedReplace(fileName string, src []byte) ([]byte, error) {
 	// <para>の置き換え
 	ret := REPARA.ReplaceAllFunc(src, rep.paraReplace)
-	if rep.err != nil {
-		return nil, fmt.Errorf("%s: %w", fileName, rep.err)
-	}
 	// <para><screen>|<programlisting>の置き換え
 	ret = REPARASCREEN.ReplaceAllFunc(ret, rep.paraScreenReplace)
-	if rep.err != nil {
-		return nil, fmt.Errorf("%s: %w", fileName, rep.err)
-	}
 	return ret, nil
 }
 
@@ -384,7 +352,6 @@ func (rep *Rep) paraScreenReplace(src []byte) []byte {
 	ret, err := rep.simMtReplace(src, "", org, stripOrg, "")
 	if err != nil {
 		log.Println(err.Error())
-		rep.err = err
 	}
 	if ret == nil {
 		return src
@@ -434,6 +401,11 @@ func (rep *Rep) paraReplace(src []byte) []byte {
 	if NIHONGO.MatchString(stripOrg) {
 		return src
 	}
+	pre, org, stripOrg, post, err := lastBlock(para, org, stripOrg)
+	if err != nil {
+		log.Println(err.Error())
+		return src
+	}
 	// <returnvalue>,<screen>が含まれている場合はスキップ
 	if strings.Contains(org, "<returnvalue>") || strings.Contains(org, "<screen>") || strings.Contains(org, "<programlisting>") {
 		return src
@@ -449,20 +421,10 @@ func (rep *Rep) paraReplace(src []byte) []byte {
 			}
 		}
 	}
-	pre := ""
-	post := ""
-	// <para>が含まれている場合は次の<para>を置き換え
-	if strings.Contains(stripOrg, "<para>") {
-		p := bytes.Index(para, []byte("<para>")) + len("<para>\n")
-		pre = string(para[:p])
-		org = string(para[p:])
-		stripOrg = stripNL(string(para))
-	}
 	// 類似文、機械翻訳置き換え
 	ret, err := rep.simMtReplace(src, pre, org, stripOrg, post)
 	if err != nil {
 		log.Println(err.Error())
-		rep.err = err
 	}
 	if ret == nil {
 		return src
@@ -474,32 +436,55 @@ func (rep *Rep) paraReplace(src []byte) []byte {
 	return REPARA.ReplaceAll(src, ret)
 }
 
-type Dummy struct{}
+func lastBlock(para []byte, org string, stripOrg string) (string, string, string, string, error) {
+	pre := ""
+	post := ""
+	// <para>が含まれている場合は次の<para>を置き換え
+	if strings.Contains(stripOrg, "<para>") {
+		p := bytes.LastIndex(para, []byte("<para>")) + len("<para>\n")
+		if p > len(para) {
+			return "", "", "", "", fmt.Errorf("no para")
+		}
+		pre = string(para[:p])
+		org = string(para[p:])
+		stripOrg = stripNL(string(para))
 
-func (d *Dummy) Translate(apiType string, source string) (string, error) {
-	return "機械翻訳", nil
+	}
+	// <screen>が含まれている場合は</screen>の後を置き換え
+	if strings.Contains(stripOrg, "<screen>") {
+		p := bytes.LastIndex(para, []byte("</screen>")) + len("</screen>\n")
+		if p > len(para) {
+			return "", "", "", "", fmt.Errorf("no para")
+		}
+		pre = string(para[:p])
+		org = string(para[p:])
+		stripOrg = stripNL(string(para))
+		log.Printf("</screen>%s</para>\n", org)
+	}
+	// <programlisting>が含まれている場合は</programlisting>の後を置き換え
+	if strings.Contains(stripOrg, "<programlisting>") {
+		p := bytes.LastIndex(para, []byte("</programlisting>")) + len("</programlisting>\n")
+		if p > len(para) {
+			return "", "", "", "", fmt.Errorf("no para")
+		}
+		pre = string(para[:p])
+		org = string(para[p:])
+		stripOrg = stripNL(string(para))
+		log.Printf("</programlistring>%s</para>\n", org)
+	}
+	return pre, org, stripOrg, post, nil
 }
 
-// 機械翻訳
-func (rep *Rep) MTtrans(enStr string) (string, error) {
-	if Verbose {
-		fmt.Printf("API...[%.30s] ", enStr)
+// 機械翻訳のためのマークを付ける
+func (rep *Rep) mtMark(enStr string, score float64) string {
+	// <returnvalue>が含まれていたらスキップ
+	if strings.Contains(enStr, "<returnvalue>") {
+		return ""
 	}
-	ja, err := rep.api.Translate(rep.apiType, enStr)
-	if err != nil {
-		rep.api = nil
-		return "", fmt.Errorf("mt: %w", err)
+	if score < float64(rep.mt) {
+		return MTTransStart + enStr + MTTransEnd
 	}
-	if ja == "" {
-		return "", fmt.Errorf("mt: No translation")
-	}
-	if Verbose {
-		fmt.Printf("Done\n")
-	}
-
-	ja = KUTEN.ReplaceAllString(ja, "。\n")
-	ja = strings.TrimRight(ja, "\n")
-	return ja, nil
+	return ""
 }
 
 // 類似文、機械翻訳置き換え
@@ -508,10 +493,7 @@ func (rep *Rep) simMtReplace(src []byte, pre string, org string, enStr string, p
 	if simJa == "no translation" {
 		return nil, nil
 	}
-	mtJa, err := rep.mtTrans(enStr, score)
-	if err != nil {
-		return nil, err
-	}
+	mtJa := rep.mtMark(enStr, score)
 
 	para := ""
 	switch {
@@ -529,29 +511,23 @@ func (rep *Rep) simMtReplace(src []byte, pre string, org string, enStr string, p
 
 func (rep *Rep) findSimilar(src []byte, enStr string) (string, float64) {
 	simJa, maxScore := findSimilar(rep.catalogs, src, enStr)
-	if rep.similar != 0 && maxScore > float64(rep.similar) {
-		if Verbose {
-			fmt.Printf("Similar...[%f][%.30s]\n", maxScore, enStr)
-		}
-		simJa = strings.TrimRight(simJa, "\n")
-	} else {
-		simJa = ""
-		maxScore = 0
+	if rep.similar == 0 || maxScore < float64(rep.similar) {
+		return "", 0
 	}
-	return simJa, maxScore
-}
+	// 機械翻訳の類似文を除外
+	if strings.Contains(simJa, "《機械翻訳》") {
+		return "", 0
+	}
+	// すでに類似文マークがある場合はマークを外す
+	if strings.Contains(simJa, "《マッチ度") {
+		simJa = strings.Split(simJa, "》")[1]
+	}
+	if Verbose {
+		fmt.Printf("Similar...[%f][%.30s]\n", maxScore, enStr)
+	}
+	simJa = strings.TrimRight(simJa, "\n")
 
-func (rep *Rep) mtTrans(enStr string, score float64) (string, error) {
-	mtJa := ""
-	if rep.api != nil && score < float64(rep.mt) {
-		ja, err := rep.MTtrans(enStr)
-		if err != nil {
-			return "", err
-		}
-		ja = strings.TrimRight(ja, "\n")
-		mtJa = ja
-	}
-	return mtJa, nil
+	return simJa, maxScore
 }
 
 func findSimilar(catalogs []Catalog, src []byte, enStr string) (string, float64) {

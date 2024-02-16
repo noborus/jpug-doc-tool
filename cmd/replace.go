@@ -51,7 +51,7 @@ func init() {
 	replaceCmd.PersistentFlags().IntP("similar", "s", 0, "Degree of similarity")
 	replaceCmd.PersistentFlags().BoolP("update", "u", false, "Update")
 	replaceCmd.PersistentFlags().StringP("vtag", "v", "", "original version tag")
-	replaceCmd.PersistentFlags().BoolP("mt", "", false, "Use machine translation")
+	replaceCmd.PersistentFlags().BoolP("mt", "", false, "Mark with machine translation")
 	replaceCmd.PersistentFlags().IntP("mts", "", 0, "Use machine translation with similarity %")
 	replaceCmd.PersistentFlags().BoolP("prompt", "i", false, "Prompt before each replacement")
 }
