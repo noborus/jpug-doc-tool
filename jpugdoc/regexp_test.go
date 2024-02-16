@@ -200,3 +200,58 @@ func Test_stripPROGRAMLISTING(t *testing.T) {
 		})
 	}
 }
+
+func Test_regParaScreen(t *testing.T) {
+	type args struct {
+		src []byte
+	}
+	tests := []struct {
+		name string
+		args args
+		want [][]byte
+	}{
+		{
+			name: "test1",
+			args: args{
+				src: []byte(`<para>
+<screen>
+test
+</screen>
+</para>`),
+			},
+			want: [][]byte{
+				[]byte(`<para>
+<screen>`),
+			},
+		},
+		{
+			name: "test2",
+			args: args{
+				src: []byte(`  <para>
+  A custom scan provider will typically add paths for a base relation by
+<programlisting>
+  typedef void (*set_rel_pathlist_hook_type) (PlannerInfo *root,
+									RelOptInfo *rel,
+										Index rti,
+									RangeTblEntry *rte);
+  extern PGDLLIMPORT set_rel_pathlist_hook_type set_rel_pathlist_hook;
+</programlisting>
+  </para>`),
+			},
+			want: [][]byte{
+				[]byte(`<para>
+  A custom scan provider will typically add paths for a base relation by
+<programlisting>`),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := regParaScreen(tt.args.src); !reflect.DeepEqual(got, tt.want) {
+				for i := range got {
+					t.Errorf("regParaScreen():%d = %v, want %v", i, string(got[i]), string(tt.want[i]))
+				}
+			}
+		})
+	}
+}
