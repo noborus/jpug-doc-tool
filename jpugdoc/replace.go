@@ -35,7 +35,7 @@ func Replace(fileNames []string, vTag string, update bool, similar int, mt int, 
 		return err
 	}
 	if Verbose {
-		log.Printf("similar %d mt %d\n", rep.similar, rep.mt)
+		log.Printf("マッチ度 %d 以上を採用。マッチ度 %d 以下であれば機械翻訳を追加\n", rep.similar, rep.mt)
 	}
 
 	for _, fileName := range fileNames {
@@ -142,7 +142,7 @@ func (rep Rep) matchComment(src []byte, catalog Catalog) []byte {
 
 	p := 0
 	pp := 0
-	ret := make([]byte, 0)
+	ret := make([]byte, 0, len(src)*2)
 	for p < len(src) {
 		pp = bytes.Index(src[p:], cen)
 		if pp == -1 {
@@ -150,7 +150,15 @@ func (rep Rep) matchComment(src []byte, catalog Catalog) []byte {
 			break
 		}
 
-		if catalog.post != "" {
+		if catalog.post == "" {
+			// 一致前が改行でない場合はスキップ
+			if src[p+pp-1] != '\n' {
+				ret = append(ret, src[p:p+pp+len(catalog.en)]...)
+				p = p + pp + len(catalog.en)
+				continue
+			}
+		} else {
+			// 一致後がpostでない場合はスキップ
 			start := p + pp + len(cen)
 			if start > len(src) {
 				ret = append(ret, src[p:]...)
@@ -330,6 +338,10 @@ func (rep Rep) updateFromCatalog(fileName string, src []byte) ([]byte, error) {
 // ReplaceAllFuncで呼び出される
 func (rep *Rep) paraScreenReplace(src []byte) []byte {
 	subMatch := REPARASCREEN.FindSubmatch(src)
+	// <para>\nで改行されていない場合はスキップ
+	if !bytes.HasPrefix(subMatch[1][6:], []byte("\n")) {
+		return src
+	}
 	// <screen>又は<programlisting>が含まれていない場合はスキップ
 	if !containsAny(subMatch[3], [][]byte{[]byte("<screen>"), []byte("<programlisting>")}) {
 		return src
@@ -377,6 +389,10 @@ func (rep *Rep) paraReplace(src []byte) []byte {
 	subMatch := REPARA.FindSubmatch(src)
 	tag := string(subMatch[1])
 	para := subMatch[2]
+	// </para>の前に改行がない場合はスキップ
+	if !bytes.Contains(subMatch[3], []byte("\n")) {
+		return src
+	}
 	org := strings.TrimRight(string(para), "\n")
 	org = REVHIGHHUN2.ReplaceAllString(org, "&#45;&#45;-")
 	org = REVHIGHHUN.ReplaceAllString(org, "&#45;-")
@@ -403,7 +419,6 @@ func (rep *Rep) paraReplace(src []byte) []byte {
 	}
 	pre, org, stripOrg, post, err := lastBlock(para, org, stripOrg)
 	if err != nil {
-		log.Println(err.Error())
 		return src
 	}
 	// <returnvalue>,<screen>が含まれている場合はスキップ
@@ -436,63 +451,65 @@ func (rep *Rep) paraReplace(src []byte) []byte {
 	return REPARA.ReplaceAll(src, ret)
 }
 
+// para内の最後のブロックを返す
 func lastBlock(para []byte, org string, stripOrg string) (string, string, string, string, error) {
 	pre := ""
 	post := ""
+	p := 0
 	// <para>が含まれている場合は次の<para>を置き換え
 	if strings.Contains(stripOrg, "<para>") {
-		p := bytes.LastIndex(para, []byte("<para>")) + len("<para>\n")
-		if p > len(para) {
+		l := bytes.Index(para, []byte("<para>"))
+		// <para>の後が改行で終わっていない場合はスキップ
+		if !bytes.HasPrefix(para[l+6:], []byte("\n")) {
 			return "", "", "", "", fmt.Errorf("no para")
 		}
-		pre = string(para[:p])
-		org = string(para[p:])
-		stripOrg = stripNL(string(para))
+		p = l + len("<para>\n")
+	} else if strings.Contains(stripOrg, "</screen>") {
+		// </screen>が含まれている場合は</screen>の後を置き換え
+		p = bytes.LastIndex(para, []byte("</screen>")) + len("</screen>\n")
+	} else if strings.Contains(stripOrg, "</programlisting>") {
+		// </programlisting>が含まれている場合は</programlisting>の後を置き換え
+		p = bytes.LastIndex(para, []byte("</programlisting>")) + len("</programlisting>\n")
+	} else {
+		return pre, org, stripOrg, post, nil
+	}
 
+	if p > len(para) {
+		return "", "", "", "", fmt.Errorf("no para")
 	}
-	// <screen>が含まれている場合は</screen>の後を置き換え
-	if strings.Contains(stripOrg, "<screen>") {
-		p := bytes.LastIndex(para, []byte("</screen>")) + len("</screen>\n")
-		if p > len(para) {
-			return "", "", "", "", fmt.Errorf("no para")
-		}
-		pre = string(para[:p])
-		org = string(para[p:])
-		stripOrg = stripNL(string(para))
-		log.Printf("</screen>%s</para>\n", org)
-	}
-	// <programlisting>が含まれている場合は</programlisting>の後を置き換え
-	if strings.Contains(stripOrg, "<programlisting>") {
-		p := bytes.LastIndex(para, []byte("</programlisting>")) + len("</programlisting>\n")
-		if p > len(para) {
-			return "", "", "", "", fmt.Errorf("no para")
-		}
-		pre = string(para[:p])
-		org = string(para[p:])
-		stripOrg = stripNL(string(para))
-		log.Printf("</programlistring>%s</para>\n", org)
-	}
+
+	pre = string(para[:p])
+	para = para[p:]
+	org = string(para)
+	stripOrg = stripNL(string(para))
 	return pre, org, stripOrg, post, nil
 }
 
 // 機械翻訳のためのマークを付ける
 func (rep *Rep) mtMark(enStr string, score float64) string {
-	// <returnvalue>が含まれていたらスキップ
-	if strings.Contains(enStr, "<returnvalue>") {
-		return ""
-	}
 	if score < float64(rep.mt) {
 		return MTTransStart + enStr + MTTransEnd
 	}
 	return ""
 }
 
-// 類似文、機械翻訳置き換え
+// 類似文、機械翻訳（マーク）へ置き換え
 func (rep *Rep) simMtReplace(src []byte, pre string, org string, enStr string, post string) ([]byte, error) {
 	simJa, score := rep.findSimilar(src, enStr)
 	if simJa == "no translation" {
 		return nil, nil
 	}
+	// <returnvalue>が含まれていたらスキップ
+	if strings.Contains(enStr, "<returnvalue>") {
+		return nil, nil
+	}
+
+	if Verbose {
+		if simJa != "" {
+			fmt.Printf("Similar...[%f][%.30s]\n", score, enStr)
+		}
+	}
+	// 機械翻訳のためのマークを付ける
 	mtJa := rep.mtMark(enStr, score)
 
 	para := ""
@@ -521,9 +538,6 @@ func (rep *Rep) findSimilar(src []byte, enStr string) (string, float64) {
 	// すでに類似文マークがある場合はマークを外す
 	if strings.Contains(simJa, "《マッチ度") {
 		simJa = strings.Split(simJa, "》")[1]
-	}
-	if Verbose {
-		fmt.Printf("Similar...[%f][%.30s]\n", maxScore, enStr)
 	}
 	simJa = strings.TrimRight(simJa, "\n")
 
