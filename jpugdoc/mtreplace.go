@@ -16,7 +16,7 @@ type MTType struct {
 
 var MTMARKREG = regexp.MustCompile(`«(.*?)»`)
 
-var MaxTranslate = 1
+var MaxTranslate = 100
 
 func MTReplace(fileNames []string, prompt bool) error {
 	cli, err := newTextra(Config)
