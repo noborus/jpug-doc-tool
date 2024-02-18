@@ -164,6 +164,7 @@ func stripNONJA(src []byte) []byte {
 }
 
 var KUTEN = regexp.MustCompile(`。`)
+var KUTEN2 = regexp.MustCompile(`。）?`)
 
 var REPHIGHHUN = regexp.MustCompile(`&#0?45;`)
 
