@@ -15,9 +15,8 @@ var mtreplaceCmd = &cobra.Command{
 		if limit, err = cmd.PersistentFlags().GetInt("limit"); err != nil {
 			return err
 		}
-		jpugdoc.MaxTranslate = limit
 		fileNames := expandFileNames(args)
-		return jpugdoc.MTReplace(fileNames, false)
+		return jpugdoc.MTReplace(fileNames, limit, false)
 	},
 }
 

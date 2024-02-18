@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strings"
 
 	"github.com/noborus/go-textra"
 )
@@ -11,14 +12,13 @@ import (
 type MTType struct {
 	APIAutoTranslateType string
 	cli                  *textra.TexTra
+	maxTranslate         int
 	count                int
 }
 
 var MTMARKREG = regexp.MustCompile(`«(.*?)»`)
 
-var MaxTranslate = 100
-
-func MTReplace(fileNames []string, prompt bool) error {
+func MTReplace(fileNames []string, limit int, prompt bool) error {
 	cli, err := newTextra(Config)
 	if err != nil {
 		return fmt.Errorf("textra: %s", err)
@@ -26,6 +26,7 @@ func MTReplace(fileNames []string, prompt bool) error {
 	var mt = MTType{
 		APIAutoTranslateType: Config.APIAutoTranslateType, // PostgreSQLマニュアル翻訳
 		cli:                  cli,
+		maxTranslate:         limit,
 	}
 
 	for _, fileName := range fileNames {
@@ -49,7 +50,7 @@ func MTReplace(fileNames []string, prompt bool) error {
 			return fmt.Errorf("rewrite: %s: %w", fileName, err)
 		}
 		fmt.Printf("MTreplace: %s\n", fileName)
-		if mt.count > MaxTranslate {
+		if mt.count > mt.maxTranslate {
 			break
 		}
 	}
@@ -63,6 +64,10 @@ func (mt *MTType) Replace(src string, prompt bool) (string, error) {
 func (mt *MTType) ReplaceText(src string) (string, error) {
 	var globalErr error
 	ret := MTMARKREG.ReplaceAllStringFunc(src, func(m string) string {
+		if mt.count > mt.maxTranslate {
+			log.Println("Limit the number of requests")
+			return m
+		}
 		// Remove the « and »
 		englishText := m[MTL : len(m)-MTL]
 		// Translate the text
@@ -71,10 +76,8 @@ func (mt *MTType) ReplaceText(src string) (string, error) {
 			globalErr = err
 			return m
 		}
-		if mt.count > MaxTranslate {
-			log.Println("Limit the number of requests")
-			return m
-		}
+		japaneseText = postProcess(japaneseText)
+
 		// Return the translated text
 		return japaneseText
 	})
@@ -87,7 +90,7 @@ func (mt *MTType) machineTranslate(origin string) (string, error) {
 	}
 	// Limit the number of requests
 	mt.count++
-	if mt.count > MaxTranslate {
+	if mt.count > mt.maxTranslate {
 		return MTTransStart + origin + MTTransEnd, nil
 	}
 	ja, err := mt.cli.Translate(mt.APIAutoTranslateType, string(origin))
@@ -96,4 +99,28 @@ func (mt *MTType) machineTranslate(origin string) (string, error) {
 		return "", err
 	}
 	return ja, nil
+}
+
+func postProcess(str string) string {
+	re := regexp.MustCompile(`\((.*?)\)`)
+	str = re.ReplaceAllStringFunc(str, func(m string) string {
+		// Remove the ( and )
+		inner := m[1 : len(m)-1]
+		// Check if the inner string contains any full-width characters
+		for _, r := range inner {
+			if r > '\u007F' {
+				// If it does, replace the brackets with full-width brackets
+				return "（" + inner + "）"
+			}
+		}
+		// If it doesn't, return the match as is
+		return m
+	})
+	str = KUTEN2.ReplaceAllStringFunc(str, func(m string) string {
+		if m == "。）" {
+			return "。）\n"
+		}
+		return "。\n"
+	})
+	return strings.TrimRight(str, "\n")
 }
