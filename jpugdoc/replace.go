@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/Songmu/prompter"
@@ -152,10 +153,12 @@ func (rep Rep) matchComment(src []byte, catalog Catalog) []byte {
 
 		if catalog.post == "" {
 			// 一致前が改行でない場合はスキップ
-			if src[p+pp-1] != '\n' {
-				ret = append(ret, src[p:p+pp+len(catalog.en)]...)
-				p = p + pp + len(catalog.en)
-				continue
+			if p+pp < len(src) && p+pp > 0 {
+				if src[p+pp-1] != '\n' {
+					ret = append(ret, src[p:p+pp+len(catalog.en)]...)
+					p = p + pp + len(catalog.en)
+					continue
+				}
 			}
 		} else {
 			// 一致後がpostでない場合はスキップ
@@ -249,6 +252,8 @@ func (rep *Rep) unmatchedReplace(fileName string, src []byte) ([]byte, error) {
 	ret := REPARA.ReplaceAllFunc(src, rep.paraReplace)
 	// <para><screen>|<programlisting>の置き換え
 	ret = REPARASCREEN.ReplaceAllFunc(ret, rep.paraScreenReplace)
+	// 類似文が空の置き換え
+	ret = SIMILARBLANK.ReplaceAllFunc(ret, rep.similarReplace)
 	return ret, nil
 }
 
@@ -302,6 +307,7 @@ func (rep Rep) updateReplace(src []byte) []byte {
 	return src
 }
 
+// enが一致してjaが違う場合は更新する
 func updateReplaceCatalog(src []byte, catalogs []Catalog, o Catalog) []byte {
 	var ja string
 	for _, c := range catalogs {
@@ -483,6 +489,29 @@ func lastBlock(para []byte, org string, stripOrg string) (string, string, string
 	org = string(para)
 	stripOrg = stripNL(string(para))
 	return pre, org, stripOrg, post, nil
+}
+
+// 《マッチ度[]》に実際のマッチ度を入れて置き換え
+func (rep *Rep) similarReplace(src []byte) []byte {
+	re := regexp.MustCompile(`<!--`)
+	matches := re.FindAllIndex(src, -1)
+	lastMatch := matches[len(matches)-1]
+	subMatch := SIMILARBLANK2.FindSubmatch(src[lastMatch[1]:])
+	if subMatch == nil {
+		log.Println("no match")
+		return src
+	}
+	org := subMatch[1]
+	ja, score := findSimilar(rep.catalogs, src, string(org))
+	if ja == "no translation" {
+		return src
+	}
+	ja = STRIPPMT.ReplaceAllString(ja, "")
+	ja = STRIPM.ReplaceAllString(ja, "")
+	ja = strings.TrimLeft(ja, " ")
+	ja = strings.TrimRight(ja, "\n")
+	ret := fmt.Sprintf("$1《マッチ度[%f]》%s\n", score, ja)
+	return SIMILARBLANK.ReplaceAll(src, []byte(ret))
 }
 
 // 機械翻訳のためのマークを付ける

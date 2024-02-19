@@ -248,8 +248,53 @@ test
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := regParaScreen(tt.args.src); !reflect.DeepEqual(got, tt.want) {
+				if len(got) != len(tt.want) {
+					t.Errorf("regParaScreen(): len(got) = %d, len(want) = %d", len(got), len(tt.want))
+				}
 				for i := range got {
 					t.Errorf("regParaScreen():%d = %v, want %v", i, string(got[i]), string(tt.want[i]))
+				}
+			}
+		})
+	}
+}
+
+func Test_similarBlank(t *testing.T) {
+	type args struct {
+		src []byte
+	}
+	tests := []struct {
+		name string
+		args args
+		want [][]byte
+	}{
+		{
+			name: "test1",
+			args: args{
+				src: []byte(`<!--
+te,st
+-->
+《マッチ度[]》
+`),
+			},
+			want: [][]byte{
+				[]byte(`<!--
+te,st
+-->
+《マッチ度[]》
+`),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := similarBlank(tt.args.src); !reflect.DeepEqual(got, tt.want) {
+				t.Error("got:", got)
+				if len(got) != len(tt.want) {
+					t.Errorf("similarBlank(): len(got) = %d, len(want) = %d", len(got), len(tt.want))
+				}
+				for i := range got {
+					t.Errorf("similarBlank():%d = %v, want %v", i, string(got[i]), string(tt.want[i]))
 				}
 			}
 		})
