@@ -6,12 +6,16 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/neurosnap/sentences"
+	"github.com/neurosnap/sentences/english"
+
 	"github.com/noborus/go-textra"
 )
 
 type MTType struct {
 	APIAutoTranslateType string
 	cli                  *textra.TexTra
+	tokenizer            *sentences.DefaultSentenceTokenizer
 	maxTranslate         int
 	count                int
 }
@@ -23,10 +27,15 @@ func MTReplace(fileNames []string, limit int, prompt bool) error {
 	if err != nil {
 		return fmt.Errorf("textra: %s", err)
 	}
+	tokenizer, err := english.NewSentenceTokenizer(nil)
+	if err != nil {
+		return err
+	}
 	var mt = MTType{
 		APIAutoTranslateType: Config.APIAutoTranslateType, // PostgreSQLマニュアル翻訳
 		cli:                  cli,
 		maxTranslate:         limit,
+		tokenizer:            tokenizer,
 	}
 
 	for _, fileName := range fileNames {
@@ -76,8 +85,6 @@ func (mt *MTType) ReplaceText(src string) (string, error) {
 			globalErr = err
 			return m
 		}
-		japaneseText = postProcess(japaneseText)
-
 		// Return the translated text
 		return japaneseText
 	})
@@ -93,12 +100,34 @@ func (mt *MTType) machineTranslate(origin string) (string, error) {
 	if mt.count > mt.maxTranslate {
 		return MTTransStart + origin + MTTransEnd, nil
 	}
-	ja, err := mt.cli.Translate(mt.APIAutoTranslateType, string(origin))
-	if err != nil {
-		log.Println("machineTranslate:", err)
-		return "", err
+
+	var origins []string
+	if len(origin) > 500 {
+		origins = mt.splitSentences(origin)
+	} else {
+		origins = []string{origin}
 	}
-	return ja, nil
+
+	var ja strings.Builder
+	for _, origin := range origins {
+		origin = strings.TrimRight(origin, ".") + "."
+		translated, err := mt.cli.Translate(mt.APIAutoTranslateType, origin)
+		if err != nil {
+			log.Println("machineTranslate:", err)
+			return "", err
+		}
+		ja.WriteString(translated)
+	}
+	return postProcess(ja.String()), nil
+}
+
+func (mt *MTType) splitSentences(src string) []string {
+	sentences := mt.tokenizer.Tokenize(src)
+	ret := make([]string, 0, len(sentences))
+	for _, s := range sentences {
+		ret = append(ret, s.Text)
+	}
+	return ret
 }
 
 func postProcess(str string) string {
