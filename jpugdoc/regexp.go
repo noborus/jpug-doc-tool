@@ -73,6 +73,8 @@ func StripEntry(src []byte) []byte {
 // XMLのコメントに一致
 var RECOMMENT = regexp.MustCompile(`(?s)<!--(.*?)-->`)
 
+var COMMENTSTART = regexp.MustCompile(`<!--`)
+
 // コメントが含まれていれば true
 func containComment(src []byte) bool {
 	return RECOMMENT.Match(src)
