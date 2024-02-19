@@ -6,6 +6,7 @@ require (
 	github.com/Songmu/prompter v0.5.1
 	github.com/agnivade/levenshtein v1.1.1
 	github.com/jwalton/gchalk v1.3.0
+	github.com/neurosnap/sentences v1.1.2
 	github.com/noborus/go-textra v0.0.0-20230113031853-3e16094015e2
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.18.2
@@ -30,10 +31,10 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a // indirect
-	golang.org/x/oauth2 v0.16.0 // indirect
-	golang.org/x/sys v0.16.0 // indirect
-	golang.org/x/term v0.16.0 // indirect
+	golang.org/x/exp v0.0.0-20240213143201-ec583247a57a // indirect
+	golang.org/x/oauth2 v0.17.0 // indirect
+	golang.org/x/sys v0.17.0 // indirect
+	golang.org/x/term v0.17.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/protobuf v1.32.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
