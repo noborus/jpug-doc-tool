@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"regexp"
 	"strings"
 
 	"github.com/Songmu/prompter"
@@ -493,12 +492,13 @@ func lastBlock(para []byte, org string, stripOrg string) (string, string, string
 
 // 《マッチ度[]》に実際のマッチ度を入れて置き換え
 func (rep *Rep) similarReplace(src []byte) []byte {
-	re := regexp.MustCompile(`<!--`)
-	matches := re.FindAllIndex(src, -1)
+	matches := COMMENTSTART.FindAllIndex(src, -1)
+	if len(matches) == 0 {
+		return src
+	}
 	lastMatch := matches[len(matches)-1]
 	subMatch := SIMILARBLANK2.FindSubmatch(src[lastMatch[1]:])
 	if subMatch == nil {
-		log.Println("no match")
 		return src
 	}
 	org := subMatch[1]
