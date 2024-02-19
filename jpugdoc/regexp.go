@@ -14,17 +14,17 @@ func regParaScreen(src []byte) [][]byte {
 	return REPARASCREEN.FindAll(src, -1)
 }
 
-var SIMILARBLANK = regexp.MustCompile(`(?s)(<\!--\n(.*?)-->\n(.*?))(《マッチ度\[\]》)\n`)
+var BLANKBRACKET = regexp.MustCompile(`(?s)(<\!--\n(.*?)-->\n(.*?))(《》)\n`)
 
 func similarBlank(src []byte) [][]byte {
-	return SIMILARBLANK.FindAll(src, -1)
+	return BLANKBRACKET.FindAll(src, -1)
 }
 
 var STRIPPMT = regexp.MustCompile(`(?s)《機械翻訳》.*`)
 
 var STRIPM = regexp.MustCompile(`《.*》`)
 
-var SIMILARBLANK2 = regexp.MustCompile(`(?s)(.*?)-->\n(.*?)(《マッチ度\[\]》)\n`)
+var BLANKBRACKET2 = regexp.MustCompile(`(?s)(.*?)-->\n(.*?)(《》)\n`)
 
 // <para> </para> に一致させる（チェック用）
 var CHECKPARA = regexp.MustCompile(`\s*(<!--\n?\s+)?(?s)(<para>\n*)(.*?)(\s*</para>)(\n*\s*-->)?`)

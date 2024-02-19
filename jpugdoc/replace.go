@@ -251,8 +251,8 @@ func (rep *Rep) unmatchedReplace(fileName string, src []byte) ([]byte, error) {
 	ret := REPARA.ReplaceAllFunc(src, rep.paraReplace)
 	// <para><screen>|<programlisting>の置き換え
 	ret = REPARASCREEN.ReplaceAllFunc(ret, rep.paraScreenReplace)
-	// 類似文が空の置き換え
-	ret = SIMILARBLANK.ReplaceAllFunc(ret, rep.similarReplace)
+	// 空カッコ《》の置き換え
+	ret = BLANKBRACKET.ReplaceAllFunc(ret, rep.blankBracketReplace)
 	return ret, nil
 }
 
@@ -284,6 +284,7 @@ func stripNL(src string) string {
 	return str
 }
 
+/*
 func (rep Rep) updateReplace(src []byte) []byte {
 	pair, left, err := newCatalog(src)
 	if err != nil {
@@ -305,6 +306,7 @@ func (rep Rep) updateReplace(src []byte) []byte {
 	}
 	return src
 }
+*/
 
 // enが一致してjaが違う場合は更新する
 func updateReplaceCatalog(src []byte, catalogs []Catalog, o Catalog) []byte {
@@ -490,28 +492,35 @@ func lastBlock(para []byte, org string, stripOrg string) (string, string, string
 	return pre, org, stripOrg, post, nil
 }
 
-// 《マッチ度[]》に実際のマッチ度を入れて置き換え
-func (rep *Rep) similarReplace(src []byte) []byte {
+// <!-- -->《》に実際のマッチ度、機械翻訳を入れて置き換え
+func (rep *Rep) blankBracketReplace(src []byte) []byte {
 	matches := COMMENTSTART.FindAllIndex(src, -1)
 	if len(matches) == 0 {
 		return src
 	}
 	lastMatch := matches[len(matches)-1]
-	subMatch := SIMILARBLANK2.FindSubmatch(src[lastMatch[1]:])
+	subMatch := BLANKBRACKET2.FindSubmatch(src[lastMatch[1]:])
 	if subMatch == nil {
 		return src
 	}
-	org := subMatch[1]
-	ja, score := findSimilar(rep.catalogs, src, string(org))
-	if ja == "no translation" {
+	enStr := stripNL(string(subMatch[1]))
+	simJa, score := rep.findSimilar(src, enStr)
+	if simJa == "no translation" {
 		return src
 	}
-	ja = STRIPPMT.ReplaceAllString(ja, "")
-	ja = STRIPM.ReplaceAllString(ja, "")
-	ja = strings.TrimLeft(ja, " ")
-	ja = strings.TrimRight(ja, "\n")
-	ret := fmt.Sprintf("$1《マッチ度[%f]》%s\n", score, ja)
-	return SIMILARBLANK.ReplaceAll(src, []byte(ret))
+	simJa = STRIPPMT.ReplaceAllString(simJa, "")
+	simJa = STRIPM.ReplaceAllString(simJa, "")
+	simJa = strings.TrimLeft(simJa, " ")
+	simJa = strings.TrimRight(simJa, "\n")
+	// 機械翻訳のためのマークを付ける
+	mtJa := rep.mtMark(enStr, score)
+	ret, err := replaceDst(score, simJa, mtJa)
+	if err != nil {
+		log.Println(err.Error())
+		return src
+	}
+	para := fmt.Sprintf("$1%s\n", ret)
+	return BLANKBRACKET.ReplaceAll(src, []byte(para))
 }
 
 // 機械翻訳のためのマークを付ける
@@ -541,18 +550,26 @@ func (rep *Rep) simMtReplace(src []byte, pre string, org string, enStr string, p
 	// 機械翻訳のためのマークを付ける
 	mtJa := rep.mtMark(enStr, score)
 
-	para := ""
-	switch {
-	case simJa != "" && mtJa != "":
-		para = fmt.Sprintf("$1%s<!--\n%s\n-->\n《マッチ度[%f]》%s\n《機械翻訳》%s%s$3", pre, org, score, simJa, mtJa, post)
-	case simJa != "":
-		para = fmt.Sprintf("$1%s<!--\n%s\n-->\n《マッチ度[%f]》%s%s$3", pre, org, score, simJa, post)
-	case mtJa != "":
-		para = fmt.Sprintf("$1%s<!--\n%s\n-->\n《機械翻訳》%s%s$3", pre, org, mtJa, post)
-	default:
+	ej, err := replaceDst(score, simJa, mtJa)
+	if err != nil {
+		log.Println(err.Error())
 		return nil, nil
 	}
+	para := fmt.Sprintf("$1%s<!--\n%s\n-->\n%s%s$3", pre, org, ej, post)
 	return []byte(para), nil
+}
+
+func replaceDst(score float64, simJa string, mtJa string) (string, error) {
+	switch {
+	case simJa != "" && mtJa != "":
+		return fmt.Sprintf("《マッチ度[%f]》%s\n《機械翻訳》%s", score, simJa, mtJa), nil
+	case simJa != "":
+		return fmt.Sprintf("《マッチ度[%f]》%s", score, simJa), nil
+	case mtJa != "":
+		return fmt.Sprintf("《機械翻訳》%s", mtJa), nil
+	default:
+		return "", fmt.Errorf("no match")
+	}
 }
 
 func (rep *Rep) findSimilar(src []byte, enStr string) (string, float64) {
