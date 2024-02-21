@@ -300,3 +300,44 @@ te,st
 		})
 	}
 }
+
+func Test_signMaatch(t *testing.T) {
+	type args struct {
+		src []byte
+	}
+	tests := []struct {
+		name string
+		args args
+		want []byte
+	}{
+		{
+			name: "test1",
+			args: args{
+				src: []byte("test(en)"),
+			},
+			want: []byte("(en)"),
+		},
+		{
+			name: "Heikki Linnakangas",
+			args: args{
+				src: []byte("Fix (Heikki Linnakangas)"),
+			},
+			want: []byte("(Heikki Linnakangas)"),
+		},
+		{
+			name: "test2",
+			args: args{
+				src: []byte(`(Andres Freund,
+				Daniel Gustafsson)`),
+			},
+			want: []byte("(Andres Freund, Daniel Gustafsson)"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := signMatch(tt.args.src); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("signMatch() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

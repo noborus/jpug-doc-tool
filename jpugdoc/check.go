@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"unicode"
 
 	"github.com/Songmu/prompter"
 	"github.com/jwalton/gchalk"
@@ -27,6 +28,7 @@ type CheckFlag struct {
 	Word   bool
 	Tag    bool
 	Num    bool
+	Sign   bool
 	Strict bool
 }
 
@@ -120,6 +122,14 @@ func enjaCheck(fileName string, catalog Catalog, cf CheckFlag) []result {
 		}
 	}
 
+	if cf.Sign {
+		unSign := signCheck(en, ja)
+		if len(unSign) > 0 {
+			r := makeResult(fmt.Sprintf("原文にある[%s]が含まれていません", gchalk.Red(strings.Join(unSign, " ｜ "))), en, ja)
+			results = append(results, r)
+		}
+	}
+
 	return results
 }
 
@@ -162,6 +172,19 @@ func numCheck(en string, ja string) []string {
 	return unNum
 }
 
+// 原文内の署名が日本語内にあるかチェックする
+func signCheck(en string, ja string) []string {
+	signs := ENSIGN.FindAllString(en, -1)
+	unSign := make([]string, 0)
+	for _, s := range signs {
+		//log.Println(s, ja)
+		if !strings.Contains(ja, s) {
+			unSign = append(unSign, s)
+		}
+	}
+	return unSign
+}
+
 // 日本語訳内の英単語、数字が原文に含まれているかチェックする
 func wordCheck(en string, ja string) []string {
 	ja = STRIPNONJA.ReplaceAllString(ja, "")
@@ -188,8 +211,7 @@ func translationCheck(fileName string, src []byte, cf CheckFlag) {
 		}
 	}
 
-	ignoreName := DicDir + fileName + ".ignore"
-	ignoreList := loadIgnore(ignoreName)
+	ignoreList := loadIgnore(fileName)
 
 	if len(results) > 0 {
 		fmt.Println(gchalk.Green(fileName))
@@ -206,7 +228,7 @@ func translationCheck(fileName string, src []byte, cf CheckFlag) {
 		}
 	}
 	if len(ignores) > 0 {
-		registerIgnore(ignoreName, ignores)
+		registerIgnore(fileName, ignores)
 	}
 }
 
@@ -215,8 +237,7 @@ func formatCheck(fileName string, diffSrc []byte, cf CheckFlag) {
 	var results []result
 	var ignores []string
 
-	ignoreName := DicDir + fileName + ".ignore"
-	ignoreList := loadIgnore(ignoreName)
+	ignoreList := loadIgnore(fileName)
 
 	results = commentCheck(diffSrc, cf)
 	if len(results) > 0 {
@@ -235,7 +256,7 @@ func formatCheck(fileName string, diffSrc []byte, cf CheckFlag) {
 		}
 	}
 	if len(ignores) > 0 {
-		registerIgnore(ignoreName, ignores)
+		registerIgnore(fileName, ignores)
 	}
 }
 
@@ -278,50 +299,15 @@ func commentCheck(diffSrc []byte, cf CheckFlag) []result {
 
 // ファイル自体チェックする
 func fileCheck(fileName string, cf CheckFlag) error {
-	var results []result
-	var ignores []string
-
 	f, err := os.Open(fileName)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	ignoreName := DicDir + fileName + ".ignore"
-	//ignoreList := loadIgnore(ignoreName)
-	var buf strings.Builder
-	var paraFlag, commentFlag, ok bool
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		l := scanner.Text()
-		buf.WriteString(l)
-		buf.WriteRune('\n')
-		if !commentFlag && strings.Contains(l, "<para>") {
-			paraFlag = true
-			continue
-		}
-		if paraFlag && strings.Contains(l, "<!--") {
-			commentFlag = true
-			ok = true
-		}
-
-		if strings.Contains(l, "-->") {
-			commentFlag = false
-			continue
-		}
-
-		if !commentFlag && strings.Contains(l, "</para>") {
-			paraFlag = false
-			ok = false
-			buf.Reset()
-			continue
-		}
-		if paraFlag && !ok {
-			r := makeResult(gchalk.Red("コメントがありません"), buf.String(), "")
-			results = append(results, r)
-			buf.Reset()
-		}
-	}
+	var ignores []string
+	ignoreList := loadIgnore(fileName)
+	results := checkPara(ignoreList, f)
 
 	if len(results) > 0 {
 		fmt.Println(gchalk.Green(fileName))
@@ -335,40 +321,74 @@ func fileCheck(fileName string, cf CheckFlag) error {
 		}
 	}
 	if len(ignores) > 0 {
-		registerIgnore(ignoreName, ignores)
+		registerIgnore(fileName, ignores)
 	}
 	return nil
 }
 
-// paraCheck は<para>内にコメント（<!-- -->)が含まれているかチェックする
-func paraCheck(src []byte) []result {
+func checkPara(ignoreList IgnoreList, f *os.File) []result {
 	var results []result
-	p := 0
-	pp := 0
-	for p < len(src) {
-		pp = bytes.Index(src[p:], []byte("<para>"))
-		if pp == -1 {
-			break
-		}
-		if inComment(src[:p+pp]) {
-			p = p + pp + 7
-			continue
-		}
-		e := bytes.Index(src[p+pp:], []byte("</para>"))
-		if e == -1 {
-			break
-		}
-		if bytes.Contains(src, []byte("<returnvalue>")) {
-			p = p + pp + 7
-			continue
-		}
-		if !bytes.Contains(src[p:p+pp+e], []byte("<!--")) {
-			if !NIHONGO.Match(src[p+pp : p+pp+e+8]) {
-				r := makeResult(gchalk.Red("コメントがありません"), string(src[p+pp:p+pp+e+8]), "")
-				results = append(results, r)
+	var buf strings.Builder
+	var paraFlag, commentFlag bool
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		//log.Println(paraFlag, commentFlag, line)
+		if !commentFlag && !paraFlag && strings.Contains(line, "<para>") {
+			if !strings.Contains(line, "</para>") {
+				paraFlag = true
+				buf.Reset()
+				buf.WriteString(line)
+				buf.WriteRune('\n')
+				continue
 			}
 		}
-		p = p + pp + e + 8
+		if paraFlag {
+			buf.WriteString(line)
+			buf.WriteRune('\n')
+		}
+		if !commentFlag && strings.Contains(line, "</para>") {
+			paraFlag = false
+			results = checkParaContent(ignoreList, buf.String(), results)
+			buf.Reset()
+			continue
+		}
+		if !paraFlag && strings.HasPrefix(line, "-->") {
+			commentFlag = false
+			continue
+		}
+		if !paraFlag && strings.HasPrefix(line, "<!--") {
+			commentFlag = true
+			continue
+		}
 	}
 	return results
+}
+
+func checkParaContent(ignoreList IgnoreList, para string, results []result) []result {
+	if len(para) == 0 {
+		return results
+	}
+	if strings.Contains(para, "<!--") {
+		return results
+	}
+	// paraの中に日本語が含まれていたら無視
+	if isJapanese(para) {
+		return results
+	}
+	if ignoreList[stripNL(para)] {
+		return results
+	}
+	r := makeResult(gchalk.Red("コメントがありません"), para, "")
+	results = append(results, r)
+	return results
+}
+
+func isJapanese(para string) bool {
+	for _, r := range para {
+		if unicode.Is(unicode.Han, r) || unicode.Is(unicode.Katakana, r) || unicode.Is(unicode.Hiragana, r) {
+			return true
+		}
+	}
+	return false
 }

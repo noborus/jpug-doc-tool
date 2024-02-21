@@ -16,7 +16,7 @@ type Catalog struct {
 }
 
 func (c Catalog) String() string {
-	return fmt.Sprintf("p:%s\ne:%s\nj:%s\nc:%s\n", c.pre, c.en, c.ja, c.preCDATA)
+	return fmt.Sprintf("p:%s\ne:%s\nj:%s\nc:%sq:%s\n", c.pre, c.en, c.ja, c.preCDATA, c.post)
 }
 
 // 一つのファイルから原文と日本語訳の対の配列を抽出する

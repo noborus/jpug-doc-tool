@@ -188,3 +188,15 @@ var REVHIGHHUN2 = regexp.MustCompile(`---`)
 
 // 訳注を除外
 var YAKUCHU = regexp.MustCompile(`[\(|\[|（]訳注[^\[|\)|）]]*[\]|\)|）]`)
+
+var ENSIGN = regexp.MustCompile(`\([a-zA-Z, ]+\)$`)
+
+// 最後の署名(name)に一致させる
+func signMatch(src []byte) []byte {
+	en := stripNL(string(src))
+	ret := ENSIGN.FindAllString(en, -1)
+	if len(ret) == 0 {
+		return nil
+	}
+	return []byte(ret[len(ret)-1])
+}
