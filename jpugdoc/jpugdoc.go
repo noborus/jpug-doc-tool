@@ -185,7 +185,7 @@ func getMemberName() (map[string]bool, error) {
 	if len(m) == 0 {
 		return nil, fmt.Errorf("release-*.sgmlが見つかりません")
 	}
-	f, err := os.Open(m[0])
+	f, err := os.Open(m[len(m)-1])
 	if err != nil {
 		return nil, err
 	}
