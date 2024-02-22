@@ -109,7 +109,10 @@ func initConfig() {
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
-
+	viper.SetEnvPrefix("JPUG")
+	viper.BindEnv("APIKEY")
+	viper.BindEnv("APISecret")
+	viper.BindEnv("APIName")
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())

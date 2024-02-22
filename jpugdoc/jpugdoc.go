@@ -19,15 +19,15 @@ var versionFile = "version.sgml"
 
 var Verbose bool
 
-type apiConfig struct {
-	ClientID             string
-	ClientSecret         string
-	Name                 string
+type jpugDocConfig struct {
+	APIKEY               string
+	APISecret            string
+	APIName              string
 	APIAutoTranslate     string
 	APIAutoTranslateType string
 }
 
-var Config apiConfig
+var Config jpugDocConfig
 
 var ignoreFile map[string]struct{} = map[string]struct{}{
 	"jpug-doc.sgml":  {},

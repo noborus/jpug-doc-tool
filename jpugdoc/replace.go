@@ -256,14 +256,14 @@ func (rep *Rep) unmatchedReplace(fileName string, src []byte) ([]byte, error) {
 	return ret, nil
 }
 
-func newTextra(apiConfig apiConfig) (*textra.TexTra, error) {
-	if apiConfig.ClientID == "" || apiConfig.ClientSecret == "" {
-		return nil, fmt.Errorf("textra: ClientID and ClientSecret are required")
+func newTextra(apiConfig jpugDocConfig) (*textra.TexTra, error) {
+	if apiConfig.APIKEY == "" || apiConfig.APISecret == "" {
+		return nil, fmt.Errorf("textra: API KEY and API Secret are required")
 	}
 	config := textra.Config{}
-	config.ClientID = apiConfig.ClientID
-	config.ClientSecret = apiConfig.ClientSecret
-	config.Name = apiConfig.Name
+	config.ClientID = apiConfig.APIKEY
+	config.ClientSecret = apiConfig.APISecret
+	config.Name = apiConfig.APIName
 	return textra.New(config)
 }
 

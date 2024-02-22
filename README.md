@@ -5,23 +5,13 @@
 
 前バージョンの翻訳を新しいバージョンに適用したり、翻訳のチェックが可能です。
 
-gitコマンドがパスに含まれている必要があります。
-主に以下のよう形式の英語原文と日本語訳を対象とします。
-
-```xml
-<para>
-<!--
-英語原文
--->
-日本語訳
-</para>
-```
-
 ## インストール
 
 ```console
 go install github.com/noborus/jpug-doc-tool@latest
 ```
+
+[https://github.com/noborus/jpug-doc-tool/releases/latest](https://github.com/noborus/jpug-doc-tool/releases/latest)に各OSバイナリもあります。
 
 ## 使い方
 
@@ -32,22 +22,247 @@ cd github.com/pgsql-jp/jpug-doc/doc/src/sgml
 jpug-doc-tool サブコマンド
 ```
 
-※ 一部文字色を変えて出力されます。デフォルトでは端末出力の場合のみ色が付き、リダイレクトした場合は付きません。
-環境変数`FORCE_COLOR`により色付きの条件を変更できます。
+サブコマンドには以下があります。
 
-色を変更しない
+- `extract` 英文、日本語文の抽出
+- `replace` 英文、日本語文の置き換え
+- `mtreplace` 機械翻訳の置き換え
+- `list` 英文、日本語文の出力
+- `check` 英文、日本語文のチェック
+- `mt` 指定した英文を日本語に機械翻訳
+
+PostgreSQLバージョンアップ時には、`extract`（抽出）→`replace`（置き換え）→`mtreplace`（機械翻訳）の順で実行します。
+
+`list`,`check`,`mt`は最新バージョン翻訳に役立てるためのコマンドです。
+
+### 抽出コマンド
+
+`extract`サブコマンドにより、英文、日本語文の抽出を行います。基本的に完了しているバージョンのブランチで行います。
+例えば完了しているバージョンがdoc_ja_15(15.4)で、新しいバージョンがdoc_ja_16(16.0)の例を示します。
 
 ```console
-export FORCE_COLOR=0
+git checkout doc_ja_15
+cd doc/src/sgml
+jpug-doc-tool extract
 ```
 
-色を必ず（リダイレクトしても）変更する
+内部的には `git diff REL_15_4 doc_ja_15`を実行して、変更箇所から英語と日本語を抽出します。
+抽出は`.jpug-doc-tool`ディレクトリに`ファイル名.sgml.t`ファイルを作成します。
+
+### 置き換えコマンド
+
+`replace`サブコマンドにより、英文、翻訳文の抽出した翻訳文（doc/src/sgml/.jpug-doc-toolディレクトリにあるファイル）を新しいバージョンに適用して、英語のみの文書から英語、翻訳文の形式に置き換えます。
+オプションなしの場合は、完全一致のみ置き換えます
+（引数が無ければ、全sgmlファイル。引数としてファイル名を指定すると、そのファイルのみを置き換えます）。
 
 ```console
-export FORCE_COLOR=1
+git checkout doc_ja_16
+cd doc/src/sgml
+jpug-doc-tool replace
 ```
 
-## 機械翻訳
+オプションを追加することで、類似度や機械翻訳の置き換えを行います（ここでは機械翻訳はせずに機械翻訳のマークを付けるだけです）。
+
+```console
+jpug-doc-tool replace  --similar 50 --mt
+```
+
+`--similar 50`は類似度が50ポイント以上の場合に置き換えます。さらに90ポイント以下（デフォルト）の場合は`--mt`は機械翻訳のマークを付けます。
+90ポイントを変更する場合は、`--mts`オプションで指定します。
+
+実行結果は以下のようになります。`«`と`»`で囲まれた部分が機械翻訳のマークで、中身の英文が翻訳対象です。
+
+```xml
+     <para>
+<!--
+      <literal>PLAIN</literal> prevents either compression or
+      out-of-line storage.  This is the only possible strategy for
+      columns of non-<acronym>TOAST</acronym>-able data types.
+-->
+《マッチ度[56.994819]》<literal>PLAIN</literal>は圧縮や行外の格納を防止します。
+さらにvarlena型での単一バイトヘッダの使用を無効にします。
+これは<acronym>TOAST</acronym>化不可能のデータ型の列に対してのみ取り得る戦略です。
+《機械翻訳》« <literal>PLAIN</literal> prevents either compression or out-of-line storage.  This is the only possible strategy for columns of non-<acronym>TOAST</acronym>-able data types. »
+     </para>
+```
+
+### 機械翻訳置き換えコマンド
+
+機械翻訳はAPIを使用して翻訳するため、後述する[APIの設定](#machine-translation-setting)が必要です。
+
+mtreplaceサブコマンドにより、機械翻訳のみを置き換えます。`*sgml`、`ref/*sgml`ファイルをチェックして、`«`と`»`で囲まれた部分を機械翻訳で置き換えます。
+
+```console
+jpug-doc-tool mtreplace
+```
+
+結果は以下のようになります。
+
+```xml
+     <para>
+<!--
+      <literal>PLAIN</literal> prevents either compression or
+      out-of-line storage.  This is the only possible strategy for
+      columns of non-<acronym>TOAST</acronym>-able data types.
+-->
+《マッチ度[56.994819]》<literal>PLAIN</literal>は圧縮や行外の格納を防止します。
+さらにvarlena型での単一バイトヘッダの使用を無効にします。
+これは<acronym>TOAST</acronym>化不可能のデータ型の列に対してのみ取り得る戦略です。
+《機械翻訳》<literal>PLAIN</literal>は圧縮も行外の格納も防止します。
+これは<acronym>TOAST</acronym>不可能なデータ型の列に対する唯一の可能な戦略です。
+     </para>
+```
+
+### リストコマンド
+
+`list`サブコマンドにより、.tファイルの内容を見やすく出力します。
+
+```console
+jpug-doc-tool list
+```
+
+オプション無しは全てのファイルを対象に英語、日本語訳を出力します。これは色を付けて出力されます。
+
+![list.png](https://raw.githubusercontent.com/noborus/jpug-doc-tool/main/doc/list.png)
+
+
+`--en`オプションは英語のみ、`--ja`オプションは日本語のみを出力します。
+
+`--pre`オプションは、（もしあれば）抽出時の前後の行を出力します。
+
+`--tsv`オプションはタブ区切りで出力します。
+
+sgmlファイルを指定すれば、そのsgmlファイルに対応している英文、日本語文を出力します。
+
+```console
+jpug-doc-tool list acronyms.sgml
+```
+
+### チェックコマンド
+
+`check`サブコマンドにより、git diffを解析やファイル自体の原文と英語をチェックして問題がありそうな箇所を表示します。
+git diffを解析して原文と英語をチェックして問題がありそうな箇所を表示します。
+表示された内容が修正する必要があるとは限りません。目で見て必要な場合に修正します。
+
+```console
+jpug-doc-tool check [-w] [-n] [-t] [-p]
+```
+
+#### コメント形式のチェック(-pオプション)
+
+`-p`オプションを指定すると、コメント形式のチェックを行います。
+
+```console
+jpug-doc-tool check -p
+```
+
+![para.png](https://raw.githubusercontent.com/noborus/jpug-doc-tool/main/doc/check.png)
+
+以下のようなparaは未翻訳であろうと推測して出力します。
+
+NGなので出力
+
+```xml
+<para>
+test
+</para>
+```
+
+OKなのでスルー
+
+```xml
+<para>
+<!--
+test
+-->
+テスト
+</para>
+```
+
+#### 英単語チェック
+
+**翻訳の日本語文**に含まれる英単語が**英文**にも含まれているかチェックします。
+
+```console
+jpug-doc-tool check -w
+```
+
+```console
+ref/set_session_auth.sgml
+<========================================
+[SQL]が含まれていません
+ The privileges necessary to execute this command are left implementation-defined by the standard.
+-----------------------------------------
+標準SQLでは、このコマンドを実行するために必要な権限は、実装に依存するとされています。
+========================================>
+```
+
+このチェックは、以下のようになっている箇所では`ok`が英単語なので、コメントの方に`ok`が含まれているかをチェックします。
+
+```xml
+<para>
+<!--
+test is ok
+-->
+テストはok
+</para>
+```
+
+これによりURLが古くなっている場合に検出できる可能性が高いです。
+
+#### 数値チェック
+
+**英文**にある数値が**翻訳の日本語文**にもあるかチェックします。
+
+```console
+jpug-doc-tool check -n
+```
+
+数値の表記方法が変わっている場合に正しいかどうか判断できないので出力されます。
+
+```text
+config.sgml
+<========================================
+原文にある[200]が含まれていません
+Vacuum also allows removal of old files from the <filename>pg_xact</filename> subdirectory, which is why the default is a relatively low 200 million transactions. This parameter can only be set at server start, but the setting can be reduced for individual tables by changing table storage parameters. For more information see <xref linkend="vacuum-for-wraparound"/>.
+-----------------------------------------
+vacuumは同時に<filename>pg_xact</filename>サブディレクトリから古いファイルの削除を許可します。
+       これが、比較的低い2億トランザクションがデフォルトである理由です。
+       このパラメータはサーバ起動時にのみ設定可能です。
+しかし、この設定はテーブルストレージパラメータの変更により、それぞれのテーブルで減らすことができます。
+詳細は<xref linkend="vacuum-for-wraparound"/>を参照してください。
+========================================>
+```
+
+#### タグチェック
+
+**英文**にある内部タグが**翻訳の日本語文**にもあるかチェックします。
+
+```console
+jpug-doc-tool check -t
+```
+
+```text
+<========================================
+原文にある[<emphasis>]が含まれていません
+It is recommended that you use the <application>pg_dump</application> and <application>pg_dumpall</application> programs from the <emphasis>newer</emphasis> version of <productname>PostgreSQL</productname>, to take advantage of enhancements that might have been made in these programs. Current releases of the dump programs can read data from any server version back to 7.0.
+-----------------------------------------
+新しいバージョンの<productname>PostgreSQL</productname>の<application>pg_dump</application>と<application>pg_dumpall</application>を使用することを勧めます。
+これらのプログラムで拡張された機能を利用する可能性があるためです。
+現在のリリースのダンププログラムは7.0以降のバージョンのサーバからデータを読み取ることができます。
+========================================>
+```
+
+### 機械翻訳コマンド
+
+`mt`サブコマンドにより、引数で指定した英文を日本語に機械翻訳します。[APIの設定](#machine-translation-setting)が必要です。
+
+```console
+jpug-doc-tool mt "This is a pen."
+これはペンです。
+```
+
+## 機械翻訳設定{#machine-translation-setting}
 
 [みんなの自動翻訳＠TexTra®](https://mt-auto-minhon-mlt.ucri.jgn-x.jp/)のAPIをを利用して、翻訳します。
 
@@ -56,9 +271,9 @@ export FORCE_COLOR=1
 アカウントを作成したら、`$(HOME)/.jpug-doc-tool.yaml` にAPIの設定を書きます。
 
 ```yaml
-ClientID: 1234567890abcdef1234567dummy # (API key)
-ClientSecret: e123123456456abcdefabcdefabdummy # (API secret)
-Name: "noborus" # (ログインID)
+APIKEY: 1234567890abcdef1234567dummy # (API key)
+APISecret: e123123456456abcdefabcdefabdummy # (API secret)
+APIName: "noborus" # (ログインID)
 APIAutoTranslate: "mt" #
 APIAutoTranslateType: "c-1640_en_ja" # （翻訳エンジン） 汎用NT は "generalNT_en_ja" になります。
 ```
@@ -83,215 +298,19 @@ generalNT_en_ja: これはペンです。
 
 この翻訳設定は置き換えでも使用します。
 
-## 英文、日本語文の抽出
+## 注意事項
 
-まず最初に元ドキュメントから英文と翻訳文を抽出します。`doc_ja_13`のブランチ名か`pg131tail`のようなタグ名に切り替えます。
+※ 一部文字色を変えて出力されます。デフォルトでは端末出力の場合のみ色が付き、リダイレクトした場合は付きません。
+環境変数`FORCE_COLOR`により色付きの条件を変更できます。
 
-```console
-git checkout doc_ja_13
-```
-
-抽出するには `jpug-doc-tool extract`を実行します。
+色を変更しない
 
 ```console
-cd github.com/pgsql-jp/jpug-doc/doc/src/sgml
-jpug-doc-tool extract
+export FORCE_COLOR=0
 ```
 
-実行したディレクトリに `.jpug-doc-tool/acronyms.sgml.t` のようにsgmlに対応した対訳のセットファイルが作られます。
-
-## 英文、日本語文の出力
-
-`list`サブコマンドにより .tファイルの内容を見やすく出力します。
-
-引数がない場合は全部を出力します。
+色を必ず（リダイレクトしても）変更する
 
 ```console
-jpug-doc-tool list
-```
-
-![list.png](https://raw.githubusercontent.com/noborus/jpug-doc-tool/main/doc/list.png)
-
-sgmlファイルを指定すれば、そのsgmlファイルに対応している英文、日本語文を出力します。
-
-```console
-jpug-doc-tool list acronyms.sgml
-```
-
-オプションにより英語のみ(`--en`)、日本語のみ(`--ja`)を指定できます。
-
-```console
-jpug-doc-tool list --en acronyms.sgml
-```
-
-## 置き換え
-
-英文、翻訳文の抽出した翻訳文を新しいバージョンに適用して、英語のみの文書から英語、翻訳文の形式に置き換えます。新しいブランチに切り替えてから `replace`を実行します。ファイル名を指定しなかった場合は全*sgmlファイルを置き換え対象にします。
-
-```console
-git checkout doc_ja_13
-jpug-doc-tool replace [ファイル名.sgml]
-```
-
-置き換えるのは、para内にコメント（英語原文）がない部分のみです。すでに翻訳済みの部分は何もしません。
-
-オプションを付けずに`replace`を実行した場合は、スペース、改行等を除いて完全に一致した場合のみ置き換えます。
-
-### 機械翻訳で翻訳する
-
-`replace`に `--mt`オプションをつけると、機械翻訳によって置き換えます。時間もかかるのでファイルを指定しての実行をオススメします。
-
-```console
-jpug-doc-tool replace --mt [ファイル名.sgml]
-```
-
-実行すると時間がかかるためAPI問い合わせした場合は以下のように`API...`、`Done`と表示されます。
-
-```console
-API...Done
-API...Done
-...
-```
-
-置き換えした箇所は以下のように`《機械翻訳》｀のコメントの後に翻訳文が追加されています。
-
-```diff
-  <para>
---- a/doc/src/sgml/hash.sgml
-+++ b/doc/src/sgml/hash.sgml
-+<!--
-   Hash indexes support only single-column indexes and do not allow
-   uniqueness checking.
-+-->
-+<!-- 《機械翻訳》 -->
-+ハッシュのインデックスはサポートの単一カラムのインデックスのみで、一意性のチェックはできません。
-  </para>
-```
-
-### 類似文を対象にする
-
-`-s` 又は `--similar`にスコア（100点満点）のオプションをつけると「レーベンシュタイン距離」により文字列の類似度を測って指定したスコア以上であれば置き換えます。時間もかかるのでファイルを指定しての実行をオススメします。
-
-```console
-jpug-doc-tool replace -s 90 [ファイル名.sgml]
-```
-
-90点以上であれば、数文字が違うだけの少し変更した文章についても置き換えます。完全一致ではないときには以下のようにマッチ度と元文章を付けて置き換えます。目で見て、不要な部分を消して修正する必要があります。
-
-```diff
--- a/doc/src/sgml/func.sgml
-+++ b/doc/src/sgml/func.sgml
-@@ -12337,8 +12337,14 @@ SELECT EXTRACT(CENTURY FROM TIMESTAMP '2001-02-16 20:38:40');
-       <term><literal>day</literal></term>
-       <listitem>
-        <para>
-+<!--
-         For <type>timestamp</type> values, the day (of the month) field
-         (1&ndash;31) ; for <type>interval</type> values, the number of days
-+-->
-+<!-- マッチ度[94.656489]
-+For <type>timestamp</type> values, the day (of the month) field (1 - 31) ; for <type>interval</type> values, the number of days
-+-->
-+<type>timestamp</type>値については、(月内の)日付フィールド(1〜31)。<type>interval</type>値については日数。
-        </para>
-```
-
-## チェック
-
-git diffを解析して原文と英語をチェックして問題がありそうな箇所を表示します。
-表示された内容が修正する必要があるとは限りません。目で見て必要な場合に修正します。
-
-### コメント形式のチェック
-
-オプションがない場合はコメント形式を単純にコメントが含まれていないかをチェックするだけなので、
-
-```console
-jpug-doc-tool check
-```
-
-![list.png](https://raw.githubusercontent.com/noborus/jpug-doc-tool/main/doc/check.png)
-
-以下のようなparaは未翻訳であろうと推測して出力します。
-
-NGなので出力
-
-```xml
-<para>
-test
-</para>
-```
-
-OKなのでスルー
-
-```xml
-<para>
-<!--
-test
--->
-テスト
-</para>
-```
-
-### 英単語チェック
-
-翻訳の日本語文に含まれる英単語が英文にも含まれているかチェックします。
-
-```console
-jpug-doc-tool check -w
-```
-
-以下のようになっている箇所では`ok`が英単語なので、コメントの方に`ok`が含まれているかをチェックします。
-
-```xml
-<para>
-<!--
-test is ok
--->
-テストはok
-</para>
-```
-
-これによりURLが古くなっている場合に検出できる可能性が高いです。
-
-### 数値チェック
-
-英文にある数値が日本語にもあるかチェックします。
-
-```console
-jpug-doc-tool check -n
-```
-
-数値の表記方法が変わっている場合に正しいかどうか判断できないので出力されます。
-
-```text
-config.sgml
-<========================================
-原文にある[200]が含まれていません
-Vacuum also allows removal of old files from the <filename>pg_xact</filename> subdirectory, which is why the default is a relatively low 200 million transactions. This parameter can only be set at server start, but the setting can be reduced for individual tables by changing table storage parameters. For more information see <xref linkend="vacuum-for-wraparound"/>.
------------------------------------------
-vacuumは同時に<filename>pg_xact</filename>サブディレクトリから古いファイルの削除を許可します。
-       これが、比較的低い2億トランザクションがデフォルトである理由です。
-       このパラメータはサーバ起動時にのみ設定可能です。
-しかし、この設定はテーブルストレージパラメータの変更により、それぞれのテーブルで減らすことができます。
-詳細は<xref linkend="vacuum-for-wraparound"/>を参照してください。
-========================================>
-```
-
-### タグチェック
-
-英文にある内部タグが日本語にもあるかチェックします。
-
-```console
-jpug-doc-tool check -t
-```
-
-```text
-<========================================
-原文にある[<emphasis>]が含まれていません
-It is recommended that you use the <application>pg_dump</application> and <application>pg_dumpall</application> programs from the <emphasis>newer</emphasis> version of <productname>PostgreSQL</productname>, to take advantage of enhancements that might have been made in these programs. Current releases of the dump programs can read data from any server version back to 7.0.
------------------------------------------
-新しいバージョンの<productname>PostgreSQL</productname>の<application>pg_dump</application>と<application>pg_dumpall</application>を使用することを勧めます。
-これらのプログラムで拡張された機能を利用する可能性があるためです。
-現在のリリースのダンププログラムは7.0以降のバージョンのサーバからデータを読み取ることができます。
-========================================>
+export FORCE_COLOR=1
 ```
