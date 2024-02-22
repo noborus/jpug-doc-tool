@@ -258,3 +258,34 @@ func Test_enjaCheck(t *testing.T) {
 		})
 	}
 }
+
+func Test_signCheck(t *testing.T) {
+	type args struct {
+		en string
+		ja string
+	}
+	tests := []struct {
+		name string
+		args args
+		want []string
+	}{
+		{
+			name: "test1",
+			args: args{
+				en: `Fix memory leak when performing JIT inlining (Andres Freund,
+ Daniel Gustafsson)`,
+				ja: `JITインライン化時のメモリリークを修正しました。`,
+			},
+			want: []string{
+				"(Andres Freund, Daniel Gustafsson)",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := signCheck(tt.args.en, tt.args.ja); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("signCheck() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

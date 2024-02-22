@@ -301,7 +301,7 @@ te,st
 	}
 }
 
-func Test_signMaatch(t *testing.T) {
+func Test_signMatch(t *testing.T) {
 	type args struct {
 		src []byte
 	}
@@ -328,9 +328,25 @@ func Test_signMaatch(t *testing.T) {
 			name: "test2",
 			args: args{
 				src: []byte(`(Andres Freund,
-				Daniel Gustafsson)`),
+Daniel Gustafsson)`),
 			},
 			want: []byte("(Andres Freund, Daniel Gustafsson)"),
+		},
+		{
+			name: "test3",
+			args: args{
+				src: []byte(`Return the correct status code when a new client disconnects without
+ responding to the server's password challenge (Liu Lang, Tom Lane)
+ `),
+			},
+			want: []byte("(Liu Lang, Tom Lane)"),
+		},
+		{
+			name: "test4",
+			args: args{
+				src: []byte(`(Franz-Josef Färber)`),
+			},
+			want: []byte("(Franz-Josef Färber)"),
 		},
 	}
 	for _, tt := range tests {

@@ -87,7 +87,6 @@ func enjaCheck(fileName string, catalog Catalog, cf CheckFlag) []result {
 	ja = MultiNL.ReplaceAllString(ja, " ")
 	ja = MultiSpace.ReplaceAllString(ja, " ")
 	ja = YAKUCHU.ReplaceAllString(ja, "")
-
 	if en == "" || ja == "" {
 		return nil
 	}
@@ -174,10 +173,9 @@ func numCheck(en string, ja string) []string {
 
 // 原文内の署名が日本語内にあるかチェックする
 func signCheck(en string, ja string) []string {
-	signs := ENSIGN.FindAllString(en, -1)
+	signs := ENSIGN.FindAllString(stripNL(en), -1)
 	unSign := make([]string, 0)
 	for _, s := range signs {
-		//log.Println(s, ja)
 		if !strings.Contains(ja, s) {
 			unSign = append(unSign, s)
 		}
