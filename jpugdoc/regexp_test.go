@@ -301,7 +301,7 @@ te,st
 	}
 }
 
-func Test_signMatch(t *testing.T) {
+func Test_authorMatch(t *testing.T) {
 	type args struct {
 		src []byte
 	}
@@ -351,8 +351,8 @@ Daniel Gustafsson)`),
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := signMatch(tt.args.src); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("signMatch() = %v, want %v", got, tt.want)
+			if got := authorMatch(tt.args.src); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("authorMatch() = %v, want %v", got, tt.want)
 			}
 		})
 	}

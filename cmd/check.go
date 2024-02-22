@@ -29,7 +29,7 @@ func setCheckFlag(cmd *cobra.Command) (*jpugdoc.CheckFlag, error) {
 		Word:   false,
 		Tag:    false,
 		Num:    false,
-		Sign:   false,
+		Author: false,
 	}
 	var err error
 	if cf.VTag, err = cmd.PersistentFlags().GetString("vtag"); err != nil {
@@ -56,7 +56,7 @@ func setCheckFlag(cmd *cobra.Command) (*jpugdoc.CheckFlag, error) {
 	if cf.WIP, err = cmd.PersistentFlags().GetBool("wip"); err != nil {
 		return nil, err
 	}
-	if cf.Sign, err = cmd.PersistentFlags().GetBool("sign"); err != nil {
+	if cf.Author, err = cmd.PersistentFlags().GetBool("author"); err != nil {
 		return nil, err
 	}
 	return cf, nil
@@ -69,7 +69,7 @@ func init() {
 	checkCmd.PersistentFlags().BoolP("word", "w", false, "Word check")
 	checkCmd.PersistentFlags().BoolP("tag", "t", false, "Tag check")
 	checkCmd.PersistentFlags().BoolP("num", "n", false, "Num check")
-	checkCmd.PersistentFlags().BoolP("sign", "x", false, "Sign check")
+	checkCmd.PersistentFlags().BoolP("author", "x", false, "Author check")
 	checkCmd.PersistentFlags().BoolP("strict", "s", false, "strict check")
 	checkCmd.PersistentFlags().BoolP("ignore", "i", false, "Prompt before ignore registration")
 	checkCmd.PersistentFlags().BoolP("wip", "a", false, "Work in progress check")

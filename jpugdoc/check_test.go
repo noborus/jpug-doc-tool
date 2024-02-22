@@ -259,10 +259,11 @@ func Test_enjaCheck(t *testing.T) {
 	}
 }
 
-func Test_signCheck(t *testing.T) {
+func Test_authorCheck(t *testing.T) {
 	type args struct {
-		en string
-		ja string
+		authors map[string]bool
+		en      string
+		ja      string
 	}
 	tests := []struct {
 		name string
@@ -272,6 +273,9 @@ func Test_signCheck(t *testing.T) {
 		{
 			name: "test1",
 			args: args{
+				authors: map[string]bool{
+					"Andres Freund": true,
+				},
 				en: `Fix memory leak when performing JIT inlining (Andres Freund,
  Daniel Gustafsson)`,
 				ja: `JITインライン化時のメモリリークを修正しました。`,
@@ -283,8 +287,8 @@ func Test_signCheck(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := signCheck(tt.args.en, tt.args.ja); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("signCheck() = %v, want %v", got, tt.want)
+			if got := authorCheck(tt.args.authors, tt.args.en, tt.args.ja); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("authorCheck() = %v, want %v", got, tt.want)
 			}
 		})
 	}
