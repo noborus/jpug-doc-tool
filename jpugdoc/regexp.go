@@ -191,7 +191,7 @@ var YAKUCHU = regexp.MustCompile(`[\(|\[|（]訳注[^\[|\)|）]]*[\]|\)|）]`)
 
 var ENAUTHOR = regexp.MustCompile(`\([a-zA-ZÀ-ÿ, \.\-]+\)$`)
 
-// 最後の署名(name)に一致させる
+// 最後の作者(name)に一致させる
 func authorMatch(src []byte) []byte {
 	en := stripNL(string(src))
 	ret := ENAUTHOR.FindAllString(en, -1)
