@@ -1,6 +1,7 @@
 package jpugdoc
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"log"
@@ -174,4 +175,34 @@ func version(src []byte) (string, error) {
 	}
 	tag := fmt.Sprintf("REL_%s_%s", string(re[1]), strings.TrimLeft(v, "_"))
 	return tag, nil
+}
+
+func getMemberName() (map[string]bool, error) {
+	m, err := filepath.Glob("release-*.sgml")
+	if err != nil {
+		return nil, err
+	}
+	if len(m) == 0 {
+		return nil, fmt.Errorf("release-*.sgmlが見つかりません")
+	}
+	f, err := os.Open(m[0])
+	if err != nil {
+		return nil, err
+	}
+	return getMember(f), err
+}
+
+func getMember(f *os.File) map[string]bool {
+	members := make(map[string]bool)
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, "<member>") {
+			m := strings.TrimSpace(line)
+			m = strings.TrimPrefix(m, "<member>")
+			m = strings.TrimSuffix(m, "</member>")
+			members[m] = true
+		}
+	}
+	return members
 }

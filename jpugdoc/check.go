@@ -21,15 +21,16 @@ type result struct {
 
 // CheckFlag represents the item to check.
 type CheckFlag struct {
-	VTag   string
-	Ignore bool
-	WIP    bool
-	Para   bool
-	Word   bool
-	Tag    bool
-	Num    bool
-	Sign   bool
-	Strict bool
+	VTag    string
+	Ignore  bool
+	WIP     bool
+	Para    bool
+	Word    bool
+	Tag     bool
+	Num     bool
+	Author  bool
+	Strict  bool
+	members map[string]bool
 }
 
 // default check
@@ -40,6 +41,13 @@ func Check(fileNames []string, cf CheckFlag) error {
 			return err
 		}
 		cf.VTag = v
+	}
+	if cf.Author {
+		members, err := getMemberName()
+		if err != nil {
+			return err
+		}
+		cf.members = members
 	}
 
 	for _, fileName := range fileNames {
@@ -121,11 +129,13 @@ func enjaCheck(fileName string, catalog Catalog, cf CheckFlag) []result {
 		}
 	}
 
-	if cf.Sign {
-		unSign := signCheck(en, ja)
-		if len(unSign) > 0 {
-			r := makeResult(fmt.Sprintf("原文にある[%s]が含まれていません", gchalk.Red(strings.Join(unSign, " ｜ "))), en, ja)
-			results = append(results, r)
+	if cf.Author {
+		if strings.HasPrefix(fileName, "release-") {
+			unAuthor := authorCheck(cf.members, en, ja)
+			if len(unAuthor) > 0 {
+				r := makeResult(fmt.Sprintf("原文にある[%s]が含まれていません", gchalk.Red(strings.Join(unAuthor, " ｜ "))), en, ja)
+				results = append(results, r)
+			}
 		}
 	}
 
@@ -172,15 +182,20 @@ func numCheck(en string, ja string) []string {
 }
 
 // 原文内の署名が日本語内にあるかチェックする
-func signCheck(en string, ja string) []string {
-	signs := ENSIGN.FindAllString(stripNL(en), -1)
-	unSign := make([]string, 0)
-	for _, s := range signs {
+func authorCheck(members map[string]bool, en string, ja string) []string {
+	authors := ENAUTHOR.FindAllString(stripNL(en), -1)
+	unAuthor := make([]string, 0)
+	for _, s := range authors {
+		as := strings.Split(strings.Trim(s, "()"), ",")
+		a := stripNL(as[0])
+		if a == "" || !members[a] {
+			return nil
+		}
 		if !strings.Contains(ja, s) {
-			unSign = append(unSign, s)
+			unAuthor = append(unAuthor, s)
 		}
 	}
-	return unSign
+	return unAuthor
 }
 
 // 日本語訳内の英単語、数字が原文に含まれているかチェックする
