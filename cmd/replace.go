@@ -18,6 +18,7 @@ var replaceCmd = &cobra.Command{
 		var similar int
 		var mts int
 		var prompt bool
+		var wip bool
 		var err error
 		if similar, err = cmd.PersistentFlags().GetInt("similar"); err != nil {
 			return err
@@ -40,9 +41,12 @@ var replaceCmd = &cobra.Command{
 		if prompt, err = cmd.PersistentFlags().GetBool("prompt"); err != nil {
 			return err
 		}
+		if wip, err = cmd.PersistentFlags().GetBool("wip"); err != nil {
+			return err
+		}
 
 		fileNames := expandFileNames(args)
-		return jpugdoc.Replace(fileNames, vtag, update, similar, mts, prompt)
+		return jpugdoc.Replace(fileNames, vtag, update, similar, mts, wip, prompt)
 	},
 }
 
@@ -53,5 +57,6 @@ func init() {
 	replaceCmd.PersistentFlags().StringP("vtag", "v", "", "original version tag")
 	replaceCmd.PersistentFlags().BoolP("mt", "", false, "Mark with machine translation")
 	replaceCmd.PersistentFlags().IntP("mts", "", 0, "Use machine translation with similarity %")
+	replaceCmd.PersistentFlags().BoolP("wip", "a", false, "Update even while work is in progress")
 	replaceCmd.PersistentFlags().BoolP("prompt", "i", false, "Prompt before each replacement")
 }
