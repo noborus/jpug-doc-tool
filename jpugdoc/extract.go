@@ -79,12 +79,20 @@ func PARAExtraction(src []byte) []Catalog {
 	return pairs
 }
 
-// コメント（英語原文）と続く文書（日本語翻訳）のペア、残り文字列、エラーを返す
-// <!--
-// english
-// -->
-// japanese
-// の形式に一致しない場合はエラーを返す
+/*
+	コメント（英語原文）と続く文書（日本語翻訳）のペア、残り文字列、エラーを返す
+
+```xml
+
+	<!--
+	  english
+	-->
+	japanese
+
+```
+
+	の形式に一致しない場合はエラーを返す
+*/
 func newCatalog(para []byte) (Catalog, []byte, error) {
 	re := EXCOMMENT.FindSubmatch(para)
 	if len(re) < 3 {

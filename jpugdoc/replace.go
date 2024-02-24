@@ -25,11 +25,12 @@ type Rep struct {
 	update   bool
 	similar  int
 	mt       int
+	wip      bool
 	prompt   bool
 }
 
 // Replace は指定されたファイル名のファイルを置き換える
-func Replace(fileNames []string, vTag string, update bool, similar int, mt int, prompt bool) error {
+func Replace(fileNames []string, vTag string, update bool, similar int, mt int, wip bool, prompt bool) error {
 	rep, err := newOpts(vTag, update, similar, mt, prompt)
 	if err != nil {
 		return err
@@ -308,8 +309,21 @@ func (rep Rep) updateReplace(src []byte) []byte {
 }
 */
 
+// srcを新しいcatalogの日本語訳に置き換えて更新する
+func (rep Rep) updateFromCatalog(fileName string, src []byte) ([]byte, error) {
+	srcDiff, err := getDiff(rep.vTag, fileName)
+	if err != nil {
+		return nil, err
+	}
+	org := Extraction(srcDiff)
+	for _, o := range org {
+		src = updateReplaceCatalog(src, rep.catalogs, o, rep.wip)
+	}
+	return src, nil
+}
+
 // enが一致してjaが違う場合は更新する
-func updateReplaceCatalog(src []byte, catalogs []Catalog, o Catalog) []byte {
+func updateReplaceCatalog(src []byte, catalogs []Catalog, o Catalog, wip bool) []byte {
 	var ja string
 	for _, c := range catalogs {
 		if c.en == "" || c.ja == "" || o.en == "" || o.ja == "" {
@@ -322,23 +336,16 @@ func updateReplaceCatalog(src []byte, catalogs []Catalog, o Catalog) []byte {
 			ja = c.ja
 		}
 	}
-	if ja != "" {
-		return bytes.ReplaceAll(src, []byte(o.ja), []byte(ja))
+	if ja == "" {
+		return src
 	}
-	return src
-}
-
-// srcを新しいcatalogの日本語訳に置き換えて更新する
-func (rep Rep) updateFromCatalog(fileName string, src []byte) ([]byte, error) {
-	srcDiff, err := getDiff(rep.vTag, fileName)
-	if err != nil {
-		return nil, err
+	if len(o.ja) < 10 {
+		return src
 	}
-	org := Extraction(srcDiff)
-	for _, o := range org {
-		src = updateReplaceCatalog(src, rep.catalogs, o)
+	if !wip && STRIPM.Match([]byte(ja)) {
+		return src
 	}
-	return src, nil
+	return bytes.ReplaceAll(src, []byte(o.ja), []byte(ja))
 }
 
 // <para><screen>の置き換え
