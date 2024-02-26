@@ -274,14 +274,14 @@ func Test_similarBlank(t *testing.T) {
 				src: []byte(`<!--
 te,st
 -->
-《マッチ度[]》
+《》
 `),
 			},
 			want: [][]byte{
 				[]byte(`<!--
 te,st
 -->
-《マッチ度[]》
+《》
 `),
 			},
 		},
@@ -353,6 +353,144 @@ Daniel Gustafsson)`),
 		t.Run(tt.name, func(t *testing.T) {
 			if got := authorMatch(tt.args.src); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("authorMatch() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_titleMatch(t *testing.T) {
+	type args struct {
+		src []byte
+	}
+	tests := []struct {
+		name string
+		args args
+		want []byte
+	}{
+		{
+			name: "test no title",
+			args: args{
+				src: []byte(`test`),
+			},
+			want: nil,
+		},
+		{
+			name: "test1",
+			args: args{
+				src: []byte(`<!-- doc/src/sgml/wal.sgml -->
+
+<chapter id="wal">
+ <title>Reliability and the Write-Ahead Log</title>
+
+ <para>
+`),
+			},
+			want: []byte(` <title>Reliability and the Write-Ahead Log</title>`),
+		},
+		{
+			name: "test2",
+			args: args{
+				src: []byte(`<!-- doc/src/sgml/wal.sgml -->
+
+<chapter id="wal">
+<!--
+ <title>Reliability and the Write-Ahead Log</title>
+-->
+ <title>信頼性とログ先行書き込み</title>
+
+ <para>
+`),
+			},
+			want: nil,
+		},
+		{
+			name: "test3",
+			args: args{
+				src: []byte(`
+<sect2 id="bloom-examples">
+ <title>Examples</title>
+			   
+<para>
+`),
+			},
+			want: []byte(` <title>Examples</title>`),
+		},
+		{
+			name: "test4",
+			args: args{
+				src: []byte(` <sect1 id="release-16-1">
+  <title>Release 16.1</title>
+
+  <para>
+ `),
+			},
+			want: []byte(` <title>Release 16.1</title`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := titleMatch(tt.args.src); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("titleMatch() = [%v], want [%v]", string(got), string(tt.want))
+			}
+		})
+	}
+}
+
+func Test_titleMatch2(t *testing.T) {
+	type args struct {
+		src []byte
+	}
+	tests := []struct {
+		name  string
+		args  args
+		want1 []byte
+		want2 []byte
+	}{
+		{
+			name: "test no title",
+			args: args{
+				src: []byte(`test`),
+			},
+			want1: nil,
+			want2: nil,
+		},
+		{
+			name: "test1",
+			args: args{
+				src: []byte(`<!-- doc/src/sgml/wal.sgml -->
+
+<chapter id="wal">
+ <title>Reliability and the Write-Ahead Log</title>
+ 
+<para>
+`),
+			},
+			want1: []byte(nil),
+			want2: []byte(nil),
+		},
+		{
+			name: "test2",
+			args: args{
+				src: []byte(`<!-- doc/src/sgml/wal.sgml -->
+
+<chapter id="wal">
+<!--
+ <title>Reliability and the Write-Ahead Log</title>
+-->
+ <title>信頼性とログ先行書き込み</title>
+ 
+<para>
+`),
+			},
+			want1: []byte("<title>Reliability and the Write-Ahead Log</title>"),
+			want2: []byte("<title>信頼性とログ先行書き込み</title>"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got1, got2 := titleMatch2(tt.args.src); !reflect.DeepEqual(got1, tt.want1) || !reflect.DeepEqual(got2, tt.want2) {
+				t.Errorf("titleMatch2()1 = %v, want %v", string(got1), string(tt.want1))
+				t.Errorf("titleMatch2()2  = %v, want %v", string(got2), string(tt.want2))
 			}
 		})
 	}
