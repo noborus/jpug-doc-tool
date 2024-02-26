@@ -1,6 +1,9 @@
 package jpugdoc
 
-import "strings"
+import (
+	"log"
+	"strings"
+)
 
 var titleData = `
 <title>Arguments</title>,<title>引数</title>
@@ -77,8 +80,8 @@ func titleMap() map[string]string {
 	for _, line := range lines {
 		parts := strings.Split(line, ",")
 		if len(parts) != 2 {
-		   log.Printf("Unexpected format in titleData: %s", line)
-		   continue
+			log.Printf("Unexpected format in titleData: %s", line)
+			continue
 		}
 		m[parts[0]] = parts[1]
 	}
