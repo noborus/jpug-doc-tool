@@ -200,3 +200,25 @@ func authorMatch(src []byte) []byte {
 	}
 	return []byte(ret[len(ret)-1])
 }
+
+var TITLE = regexp.MustCompile(`(?U)( *<title>[a-zA-Z0-9 \.\-]+</title>)\n([^\-])`)
+
+func titleMatch(src []byte) []byte {
+	ret := TITLE.FindSubmatch(src)
+	if len(ret) == 0 {
+		return nil
+	}
+	return ret[1]
+}
+
+var TITLE2 = regexp.MustCompile(`(?U)<!--\s*(<title>.*</title>)\s*-->\s*(<title>.*</title>)`)
+
+func titleMatch2(src []byte) ([]byte, []byte) {
+	ret := TITLE2.FindSubmatch(src)
+	if len(ret) == 0 {
+		return nil, nil
+	}
+	return ret[1], ret[2]
+}
+
+var RELEASENUM = regexp.MustCompile(`[0-9\.]+`)

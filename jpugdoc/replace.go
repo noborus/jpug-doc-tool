@@ -21,6 +21,7 @@ const (
 // Rep は置き換えを行う構造体
 type Rep struct {
 	catalogs []Catalog
+	titles   map[string]string
 	vTag     string
 	update   bool
 	similar  int
@@ -35,6 +36,7 @@ func Replace(fileNames []string, vTag string, update bool, similar int, mt int, 
 	if err != nil {
 		return err
 	}
+	rep.titles = titleMap()
 	if Verbose {
 		log.Printf("マッチ度 %d 以上を採用。マッチ度 %d 以下であれば機械翻訳を追加\n", rep.similar, rep.mt)
 	}
@@ -117,6 +119,7 @@ func (rep *Rep) replaceAll(fileName string, src []byte) ([]byte, error) {
 
 // 一致文置き換え
 func (rep *Rep) matchReplace(src []byte) []byte {
+	src = rep.replaceTitle(src)
 	// 追加形式の翻訳文を追加
 	for _, catalog := range rep.catalogs {
 		if catalog.en == "" {
@@ -130,6 +133,48 @@ func (rep *Rep) matchReplace(src []byte) []byte {
 		}
 	}
 	return src
+}
+
+func (rep *Rep) replaceTitle(src []byte) []byte {
+	idxes := TITLE2.FindAllSubmatchIndex(src, -1)
+	ret := src
+	for _, idx := range idxes {
+		en := src[idx[2]:idx[3]]
+		ja := src[idx[4]:idx[5]]
+		if nja, ok := rep.titles[string(en)]; ok {
+			if nja != string(ja) {
+				ret = bytes.Replace(ret, ja, []byte(nja), -1)
+			}
+		}
+	}
+
+	idexes := TITLE.FindAllSubmatchIndex(src, -1)
+	for _, idx := range idexes {
+		en := src[idx[2]:idx[3]]
+		ent := strings.TrimLeft(string(en), " ")
+		spc := len(en) - len(ent)
+		nja := ""
+		if strings.Contains(ent, "Release ") {
+			v := RELEASENUM.Find(en)
+			nja = "<title>リリース" + string(v) + "</title>"
+			log.Println(string(en))
+		}
+
+		if strings.Contains(ent, "Migration to Version") {
+			v := RELEASENUM.Find(en)
+			nja = "<title>バージョン" + string(v) + "への移行</title>"
+			log.Println(string(en))
+		}
+
+		if j, ok := rep.titles[ent]; ok {
+			nja = j
+		}
+		if len(nja) > 0 {
+			title := fmt.Sprintf("<!--\n%s\n-->\n%s%s\n%s", en, strings.Repeat(" ", spc), nja, src[idx[4]:idx[5]])
+			ret = bytes.Replace(ret, src[idx[0]:idx[1]], []byte(title), -1)
+		}
+	}
+	return ret
 }
 
 // カタログを一つづつ置き換える
