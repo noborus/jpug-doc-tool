@@ -424,13 +424,24 @@ func Test_titleMatch(t *testing.T) {
   <para>
  `),
 			},
-			want: []byte(` <title>Release 16.1</title`),
+			want: []byte(`  <title>Release 16.1</title>`),
+		},
+		{
+			name: "test5",
+			args: args{
+				src: []byte(` <formalpara>
+ <title>Release date:</title>
+ <para>2024-02-08</para>
+ </formalpara>
+`),
+			},
+			want: []byte(` <title>Release date:</title>`),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := titleMatch(tt.args.src); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("titleMatch() = [%v], want [%v]", string(got), string(tt.want))
+				t.Errorf("titleMatch() = [%v]\n, want [%v]", string(got), string(tt.want))
 			}
 		})
 	}
