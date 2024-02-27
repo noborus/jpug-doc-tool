@@ -157,13 +157,11 @@ func (rep *Rep) replaceTitle(src []byte) []byte {
 		if strings.Contains(ent, "Release ") {
 			v := RELEASENUM.Find(en)
 			nja = "<title>リリース" + string(v) + "</title>"
-			log.Println(string(en))
 		}
 
 		if strings.Contains(ent, "Migration to Version") {
 			v := RELEASENUM.Find(en)
 			nja = "<title>バージョン" + string(v) + "への移行</title>"
-			log.Println(string(en))
 		}
 
 		if j, ok := rep.titles[ent]; ok {
