@@ -55,6 +55,7 @@ var titleData = `
 <title>Transforms</title>,<title>変換</title>
 <title>Trigger Functions</title>,<title>トリガ関数</title>
 <title>Usage</title>,<title>使用方法</title>
+<title>Release Notes</title>,<title>リリースノート</title>
 <title>Release date:</title>,<title>リリース日:</title>
 <title>Changes</title>,<title>変更点</title>
 <title>Server</title>,<title>サーバ</title>
@@ -78,6 +79,9 @@ func titleMap() map[string]string {
 	lines := strings.Split(titleData, "\n")
 	m := make(map[string]string)
 	for _, line := range lines {
+		if line == "" {
+			continue
+		}
 		parts := strings.Split(line, ",")
 		if len(parts) != 2 {
 			log.Printf("Unexpected format in titleData: %s", line)

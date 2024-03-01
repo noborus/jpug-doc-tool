@@ -179,7 +179,7 @@ func Extraction(diffSrc []byte) []Catalog {
 					indexj.WriteString("\n")
 					indexF = false
 					if index.Len() > 0 {
-						catalogs = addJaCatalogs(catalogs, index.String(), indexj)
+						catalogs = addJaCatalogs(catalogs, index.String(), indexj, postfix)
 					}
 					index.Reset()
 					indexj.Reset()
@@ -189,7 +189,7 @@ func Extraction(diffSrc []byte) []Catalog {
 				indexj.WriteString("\n")
 				indexF = false
 				if index.Len() > 0 {
-					catalogs = addJaCatalogs(catalogs, index.String(), indexj)
+					catalogs = addJaCatalogs(catalogs, index.String(), indexj, postfix)
 				}
 				index.Reset()
 				indexj.Reset()
@@ -221,13 +221,13 @@ func Extraction(diffSrc []byte) []Catalog {
 			}
 		}
 		if !addExtraF && addja.Len() != 0 {
-			catalogs = addJaCatalogs(catalogs, addPre, addja)
+			catalogs = addJaCatalogs(catalogs, addPre, addja, line)
 			addja.Reset()
 		}
 	}
 	// last
 	catalogs = addCatalogs(catalogs, prefix, en, ja, preCDATA, postfix)
-	catalogs = addJaCatalogs(catalogs, addPre, addja)
+	catalogs = addJaCatalogs(catalogs, addPre, addja, "")
 	return catalogs
 }
 
@@ -305,14 +305,14 @@ func addCatalogs(catalogs []Catalog, pre string, en strings.Builder, ja strings.
 	return catalogs
 }
 
-func addJaCatalogs(catalogs []Catalog, pre string, ja strings.Builder) []Catalog {
+func addJaCatalogs(catalogs []Catalog, pre string, ja strings.Builder, post string) []Catalog {
 	if ja.Len() == 0 {
 		return catalogs
 	}
-
 	catalog := Catalog{
-		pre: pre,
-		ja:  strings.TrimSuffix(ja.String(), "\n"),
+		pre:  pre,
+		ja:   strings.TrimSuffix(ja.String(), "\n"),
+		post: post,
 	}
 	catalogs = append(catalogs, catalog)
 	return catalogs

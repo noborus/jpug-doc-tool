@@ -156,12 +156,16 @@ func (rep *Rep) replaceTitle(src []byte) []byte {
 		nja := ""
 		if strings.Contains(ent, "Release ") {
 			v := RELEASENUM.Find(en)
-			nja = "<title>リリース" + string(v) + "</title>"
+			if v != nil {
+				nja = "<title>リリース" + string(v) + "</title>"
+			}
 		}
 
 		if strings.Contains(ent, "Migration to Version") {
 			v := RELEASENUM.Find(en)
-			nja = "<title>バージョン" + string(v) + "への移行</title>"
+			if v != nil {
+				nja = "<title>バージョン" + string(v) + "への移行</title>"
+			}
 		}
 
 		if j, ok := rep.titles[ent]; ok {
@@ -283,6 +287,9 @@ func foundReplace(src []byte, catalog Catalog) int {
 		if j == -1 {
 			// before conversion.
 			return p + i
+		}
+		if strings.Contains(catalog.ja, "split-") {
+			break
 		}
 		// Already converted.
 		p = p + i + j + len(catalog.pre) + 1
