@@ -227,7 +227,7 @@ func translationCheck(fileName string, src []byte, cf CheckFlag) {
 	ignoreList := loadIgnore(fileName)
 
 	if len(results) > 0 {
-		fmt.Println(gchalk.Green(fileName))
+		fmt.Println(gchalk.WithBgYellow().Black(fileName))
 		for _, r := range results {
 			if ignoreList[strings.TrimRight(r.en, "\n")] {
 				continue
