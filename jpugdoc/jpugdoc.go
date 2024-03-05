@@ -18,6 +18,12 @@ var DicDir = filepath.Join(".", ".jpug-doc-tool/")
 
 var versionFile = "version.sgml"
 
+var (
+	ErrVersionTag = fmt.Errorf("version tag error")
+	ErrMemberName = fmt.Errorf("member name error")
+	ErrNoMatch    = fmt.Errorf("no match")
+)
+
 var Verbose bool
 
 type jpugDocConfig struct {
@@ -153,12 +159,12 @@ func getCatalogs(src []byte) []Catalog {
 func versionTag() (string, error) {
 	cmd := exec.Command("make", "version.sgml")
 	if err := cmd.Run(); err != nil {
-		return "", err
+		return "", fmt.Errorf("%w: %v", ErrVersionTag, err)
 	}
 
 	src, err := ReadAllFile(versionFile)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%w: %v", ErrVersionTag, err)
 	}
 	return version(src)
 }
@@ -180,16 +186,16 @@ func version(src []byte) (string, error) {
 func getMemberName() (map[string]bool, error) {
 	m, err := filepath.Glob("release-*.sgml")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %v", ErrMemberName, err)
 	}
 	if len(m) == 0 {
-		return nil, fmt.Errorf("release-*.sgmlが見つかりません")
+		return nil, fmt.Errorf("%w: release-*.sgmlが見つかりません", ErrMemberName)
 	}
 	f, err := os.Open(m[len(m)-1])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %v", ErrMemberName, err)
 	}
-	return getMember(f), err
+	return getMember(f), nil
 }
 
 func getMember(f *os.File) map[string]bool {
