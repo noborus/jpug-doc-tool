@@ -3,6 +3,7 @@ package jpugdoc
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -24,7 +25,7 @@ func Extract(fileNames []string) error {
 		}
 		diffSrc, err := getDiff(vTag, fileName)
 		if err != nil {
-			return err
+			return fmt.Errorf("getDiff: %w", err)
 		}
 		catalogs := Extraction(diffSrc)
 		catalogs, err = noTransPara(catalogs, fileName)
@@ -249,12 +250,12 @@ func prefixBlock(s []string) []string {
 func noTransPara(catalogs []Catalog, fileName string) ([]Catalog, error) {
 	f, err := os.Open(fileName)
 	if err != nil {
-		return catalogs, err
+		return catalogs, fmt.Errorf("noTransPara: %w", err)
 	}
 	defer f.Close()
 	src, err := io.ReadAll(f)
 	if err != nil {
-		return catalogs, err
+		return catalogs, fmt.Errorf("noTransPara: %w", err)
 	}
 
 	paras := REPARA.FindAll(src, -1)

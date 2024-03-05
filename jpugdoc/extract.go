@@ -96,7 +96,7 @@ func PARAExtraction(src []byte) []Catalog {
 func newCatalog(para []byte) (Catalog, []byte, error) {
 	re := EXCOMMENT.FindSubmatch(para)
 	if len(re) < 3 {
-		return Catalog{}, nil, fmt.Errorf("no match")
+		return Catalog{}, nil, ErrNoMatch
 	}
 	enstr := strings.ReplaceAll(string(re[1]), "\n", " ")
 	enstr = MultiSpace.ReplaceAllString(enstr, " ")

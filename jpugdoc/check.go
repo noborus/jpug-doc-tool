@@ -38,7 +38,7 @@ func Check(fileNames []string, cf CheckFlag) error {
 	if cf.VTag == "" {
 		v, err := versionTag()
 		if err != nil {
-			return err
+			return fmt.Errorf("version tag error: %w", err)
 		}
 		cf.VTag = v
 	}
