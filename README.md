@@ -29,6 +29,7 @@ jpug-doc-tool サブコマンド
 - `mtreplace` 機械翻訳の置き換え
 - `list` 英文、日本語文の出力
 - `check` 英文、日本語文のチェック
+- `word` 英単語と日本語の単語のチェック
 - `mt` 指定した英文を日本語に機械翻訳
 
 PostgreSQLバージョンアップ時には、`extract`（抽出）→`replace`（置き換え）→`mtreplace`（機械翻訳）の順で実行します。
@@ -124,7 +125,6 @@ jpug-doc-tool list
 オプション無しは全てのファイルを対象に英語、日本語訳を出力します。これは色を付けて出力されます。
 
 ![list.png](https://raw.githubusercontent.com/noborus/jpug-doc-tool/main/doc/list.png)
-
 
 `--en`オプションは英語のみ、`--ja`オプションは日本語のみを出力します。
 
@@ -253,6 +253,44 @@ It is recommended that you use the <application>pg_dump</application> and <appli
 ========================================>
 ```
 
+#### 貢献者チェック
+
+relase-*sgmlには、項目毎に貢献者が記載されています。このチェックは、貢献者が記載されているかをチェックします。
+
+```console
+jpug-doc-tool check -x
+```
+
+```text
+<========================================
+原文にある[(Masahiko Sawada, Noriyoshi Shinoda)]が含まれていません
+ Add speculative lock information to the <link linkend="view-pg-locks"><structname>pg_locks</structname></link> system view (Masahiko Sawada, Noriyoshi Shinoda)
+-----------------------------------------
+投機的ロックの情報を<link linkend="view-pg-locks"><structname>pg_locks</structname></link>システムビューに追加しました。 (Sawada Masahiko, Shinoda Noriyoshi)
+========================================>
+```
+
+#### 英語と日本語の単語のチェック
+
+英単語と日本語の単語を指定して、その英単語が英語文にあり、日本語訳に日本語の単語がない文を出力します。
+
+```console
+jpug-doc-tool word -w "database" -j "データベース"
+```
+
+auth-delay.sgml
+
+```xml
+  <filename>auth_delay</filename> causes the server to pause briefly before
+  reporting authentication failure, to make brute-force attacks on database
+  passwords more difficult.  Note that it does nothing to prevent
+  denial-of-service attacks, and may even exacerbate them, since processes
+  that are waiting before reporting authentication failure will still consume
+  connection slots.
+<filename>auth_delay</filename>はパスワードの総当たり攻撃をより難しくするために認証エラーの報告を行う前にわずかにサーバを停止させます。
+これはDoS攻撃を防ぐためのものでは無いことに注意してください。認証エラーを待たせ、コネクションスロットを消費させるため、DoS攻撃の影響を増長させるかもしれません。
+```
+
 ### 機械翻訳コマンド
 
 `mt`サブコマンドにより、引数で指定した英文を日本語に機械翻訳します。[APIの設定](#machine-translation-setting)が必要です。
@@ -264,7 +302,7 @@ jpug-doc-tool mt "This is a pen."
 
 ## 機械翻訳設定{#machine-translation-setting}
 
-[みんなの自動翻訳＠TexTra®](https://mt-auto-minhon-mlt.ucri.jgn-x.jp/)のAPIをを利用して、翻訳します。
+[みんなの自動翻訳＠TexTra®](https://mt-auto-minhon-mlt.ucri.jgn-x.jp/)のAPIを利用して、翻訳します。
 
 みんなの自動翻訳＠TexTraのアカウントが必要です。まずアカウントを作成してください。
 
