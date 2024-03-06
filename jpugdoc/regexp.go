@@ -201,7 +201,7 @@ func authorMatch(src []byte) []byte {
 	return []byte(ret[len(ret)-1])
 }
 
-var TITLE = regexp.MustCompile(`(?U)( *<title>[a-zA-Z0-9 \.\-:]+</title>)\n([^\-])`)
+var TITLE = regexp.MustCompile(`(?U)\n( *<title>[a-zA-Z0-9 \.\-:]+</title>)\n([^\-])`)
 
 func titleMatch(src []byte) []byte {
 	ret := TITLE.FindSubmatch(src)

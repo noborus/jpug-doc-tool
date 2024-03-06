@@ -172,7 +172,7 @@ func (rep *Rep) replaceTitle(src []byte) []byte {
 			nja = j
 		}
 		if len(nja) > 0 {
-			title := fmt.Sprintf("<!--\n%s\n-->\n%s%s\n%s", en, strings.Repeat(" ", spc), nja, src[idx[4]:idx[5]])
+			title := fmt.Sprintf("\n<!--\n%s\n-->\n%s%s\n%s", en, strings.Repeat(" ", spc), nja, src[idx[4]:idx[5]])
 			ret = bytes.Replace(ret, src[idx[0]:idx[1]], []byte(title), -1)
 		}
 	}
