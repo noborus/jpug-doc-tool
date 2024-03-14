@@ -7,6 +7,9 @@ import (
 // <para> </para> に一致させる
 var REPARA = regexp.MustCompile(`(?s)(<para>\n*)(.*?)(\s*</para>)`)
 
+// <para>の単独タグ(\s+<programlisting>\nなど)に一致させる
+var REPARABLOCK = regexp.MustCompile(`^\s*<([^>]+)>\n`)
+
 // <para> <screen>|<programlisting> に一致させる
 var REPARASCREEN = regexp.MustCompile(`(?s)(<para>\n*)(.*?)(\s*(</para>|<screen>|<programlisting>))`)
 
@@ -74,6 +77,7 @@ func StripEntry(src []byte) []byte {
 var RECOMMENT = regexp.MustCompile(`(?s)<!--(.*?)-->`)
 
 var COMMENTSTART = regexp.MustCompile(`<!--`)
+var COMMENTEND = regexp.MustCompile(`-->`)
 
 // コメントが含まれていれば true
 func containComment(src []byte) bool {
