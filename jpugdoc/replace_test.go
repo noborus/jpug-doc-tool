@@ -83,7 +83,6 @@ func TestRep_findSimilar(t *testing.T) {
 		prompt   bool
 	}
 	type args struct {
-		src   []byte
 		enStr string
 	}
 	tests := []struct {
@@ -105,7 +104,6 @@ func TestRep_findSimilar(t *testing.T) {
 				similar: 50,
 			},
 			args: args{
-				src:   []byte("This is a test1.\n"),
 				enStr: "This is a test1.",
 			},
 			want:  "これはテストです。",
@@ -123,7 +121,6 @@ func TestRep_findSimilar(t *testing.T) {
 				similar: 50,
 			},
 			args: args{
-				src:   []byte("This is a test.\n"),
 				enStr: "This is a test.",
 			},
 			want:  "これはテストです。",
@@ -140,7 +137,7 @@ func TestRep_findSimilar(t *testing.T) {
 				mt:       tt.fields.mt,
 				prompt:   tt.fields.prompt,
 			}
-			got, got1 := rep.findSimilar(tt.args.src, tt.args.enStr)
+			got, got1 := rep.findSimilar(tt.args.enStr)
 			if got != tt.want {
 				t.Errorf("Rep.findSimilar() got = %v, want %v", got, tt.want)
 			}
