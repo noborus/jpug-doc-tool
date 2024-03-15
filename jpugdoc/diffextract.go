@@ -247,6 +247,69 @@ func prefixBlock(s []string) []string {
 	return s
 }
 
+func splitBlock(src []byte) [][]byte {
+	block := bytes.Buffer{}
+	ret := [][]byte{}
+	srcBuff := bytes.NewBuffer(src)
+	tag := "none"
+	for {
+		line, err := srcBuff.ReadString('\n')
+		if err != nil {
+			block.WriteString(line)
+			r := block.String()
+			if len(r) > 0 {
+				ret = appendBlock(ret, tag, []byte(r))
+			}
+			break
+		}
+		if sub := REPARABLOCK.FindAllStringSubmatch(line, 1); sub != nil {
+			preTag := sub[0][1]
+			if len(preTag) < 30 {
+				r := block.String()
+				str := REPARABLOCK.ReplaceAllString(r, "")
+				if len(str) > 0 {
+					ret = appendBlock(ret, tag, []byte(r))
+				}
+				block.Reset()
+				tag = preTag
+			}
+		}
+		block.WriteString(line)
+	}
+	return ret
+}
+
+func appendBlock(blocks [][]byte, tag string, block []byte) [][]byte {
+	b := REPARABLOCK.ReplaceAll(block, []byte(""))
+	str := string(b)
+	if strings.TrimSpace(str) == "" {
+		return blocks
+	}
+	if tag == "programlisting" || tag == "screen" || tag == "synopsis" || tag == "/varlistentry" {
+		return blocks
+	}
+	if tag != "para" && !strings.HasPrefix(tag, "/programlisting") && !strings.HasPrefix(tag, "/screen") && !strings.HasPrefix(tag, "/synopsis") {
+		return blocks
+	}
+	rSrc := removeEmptyLines(str)
+	if strings.Contains(rSrc, "<!--") || strings.Contains(rSrc, "-->") {
+		return blocks
+	}
+	// <para>が含まれている場合は改行されていないのでスキップ
+	if strings.Contains(rSrc, "<para>") || strings.Contains(rSrc, "</para>") {
+		return blocks
+	}
+	if strings.Contains(rSrc, "<title>") {
+		return blocks
+	}
+	// <returnvalue>が含まれていたらスキップ
+	if strings.Contains(rSrc, "<returnvalue>") {
+		return blocks
+	}
+	blocks = append(blocks, []byte(rSrc))
+	return blocks
+}
+
 func noTransPara(catalogs []Catalog, fileName string) ([]Catalog, error) {
 	f, err := os.Open(fileName)
 	if err != nil {
@@ -258,9 +321,10 @@ func noTransPara(catalogs []Catalog, fileName string) ([]Catalog, error) {
 		return catalogs, fmt.Errorf("noTransPara: %w", err)
 	}
 
-	paras := REPARA.FindAll(src, -1)
+	paras := splitBlock(src)
 	for _, para := range paras {
-		paraStr := extPara(para)
+		//paraStr := extPara(para)
+		paraStr := stripNL(string(para))
 		// 既に翻訳済みの場合はスキップ
 		if strings.HasPrefix(paraStr, "<!--") {
 			continue
