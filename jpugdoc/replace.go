@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"regexp"
 	"strings"
 
 	"github.com/Songmu/prompter"
@@ -311,22 +310,40 @@ func (rep *Rep) paraBlockReplace(src []byte) []byte {
 	block := bytes.Buffer{}
 	ret := bytes.Buffer{}
 	para := bytes.NewBuffer(src)
+	firstLine := ""
 	tag := "none"
+	preTag := "none"
+	blockF := false
 	for {
 		line, err := para.ReadString('\n')
 		if err != nil {
 			r := rep.blockReplace(tag, block.String())
+			ret.WriteString(firstLine)
 			ret.WriteString(r)
 			break
 		}
+		if CLOSEPARA.MatchString(line) {
+			blockF = true
+			preTag = "none"
+		}
 		if sub := REPARABLOCK.FindAllStringSubmatch(line, 1); sub != nil {
-			preTag := sub[0][1]
-			if len(preTag) < 30 {
-				r := rep.blockReplace(tag, block.String())
-				ret.WriteString(r)
-				block.Reset()
-				tag = preTag
+			preTag = sub[0][1]
+			if len(preTag) < 50 {
+				blockF = true
 			}
+		}
+		if preTag == "/indexterm" {
+			blockF = false
+		}
+		if blockF {
+			r := rep.blockReplace(tag, block.String())
+			ret.WriteString(firstLine)
+			ret.WriteString(r)
+			block.Reset()
+			tag = preTag
+			firstLine = line
+			blockF = false
+			continue
 		}
 		block.WriteString(line)
 	}
@@ -334,45 +351,18 @@ func (rep *Rep) paraBlockReplace(src []byte) []byte {
 }
 
 func (rep *Rep) blockReplace(tag string, src string) string {
-	str := REPARABLOCK.ReplaceAllString(src, "")
-	if strings.TrimSpace(str) == "" {
+	if !isTranslate(tag, src) {
 		return src
 	}
-	if tag == "programlisting" || tag == "screen" || tag == "synopsis" || tag == "/varlistentry" {
-		return src
-	}
-	if tag != "para" && !strings.HasPrefix(tag, "/programlisting") && !strings.HasPrefix(tag, "/screen") && !strings.HasPrefix(tag, "/synopsis") {
-		return src
-	}
-	rSrc := removeEmptyLines(str)
-	// 既に翻訳済みの場合はスキップ
-	if strings.Contains(rSrc, "<!--") || strings.Contains(rSrc, "-->") {
-		return src
-	}
-	// <para>が含まれている場合は改行されていないのでスキップ
-	if strings.Contains(rSrc, "<para>") || strings.Contains(rSrc, "</para>") {
-		return src
-	}
-	if strings.Contains(rSrc, "<title>") {
-		return src
-	}
-	// <returnvalue>が含まれていたらスキップ
-	if strings.Contains(rSrc, "<returnvalue>") {
-		return src
-	}
-
-	if NIHONGO.MatchString(str) {
-		return src
-	}
-	d := removeEmptyLines(str)
-	if d == "" {
-		return src
-	}
+	rSrc := BLANKSLINE.ReplaceAllString(src, "")
 	enStr := stripNL(rSrc)
 	simJa, score := rep.findSimilar(enStr)
+
 	if simJa == "no translation" {
 		return src
 	}
+
+	// 類似文の日本語訳
 	simJa = STRIPPMT.ReplaceAllString(simJa, "")
 	simJa = STRIPM.ReplaceAllString(simJa, "")
 	simJa = strings.TrimLeft(simJa, " ")
@@ -384,13 +374,11 @@ func (rep *Rep) blockReplace(tag string, src string) string {
 		log.Println(err.Error())
 		return src
 	}
-	dst := fmt.Sprintf("<!--\n%s-->\n%s\n", rSrc, ret)
-	return strings.Replace(src, rSrc, dst, 1)
-}
 
-func removeEmptyLines(s string) string {
-	re := regexp.MustCompile(`(?m)^\n+`)
-	return re.ReplaceAllString(s, "")
+	org := REVHIGHHUN2.ReplaceAllString(rSrc, "&#45;&#45;-")
+	org = REVHIGHHUN.ReplaceAllString(org, "&#45;-")
+	dst := fmt.Sprintf("<!--\n%s-->\n%s\n", org, ret)
+	return strings.Replace(src, rSrc, dst, 1)
 }
 
 func newTextra(apiConfig jpugDocConfig) (*textra.TexTra, error) {
@@ -733,6 +721,7 @@ func (rep *Rep) findSimilar(enStr string) (string, float64) {
 	return simJa, maxScore
 }
 
+// 類似文を探す
 func findSimilar(catalogs []Catalog, enStr string) (string, float64) {
 	var maxScore float64
 	var simJa string

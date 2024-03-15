@@ -10,6 +10,12 @@ var REPARA = regexp.MustCompile(`(?s)(<para>\n*)(.*?)(\s*</para>)`)
 // <para>の単独タグ(\s+<programlisting>\nなど)に一致させる
 var REPARABLOCK = regexp.MustCompile(`^\s*<([^>]+)>\n`)
 
+func regParaBlock(src string) []string {
+	return REPARABLOCK.FindAllString(src, -1)
+}
+
+var CLOSEPARA = regexp.MustCompile(`</para>`)
+
 // <para> <screen>|<programlisting> に一致させる
 var REPARASCREEN = regexp.MustCompile(`(?s)(<para>\n*)(.*?)(\s*(</para>|<screen>|<programlisting>))`)
 
@@ -39,6 +45,8 @@ var RETITLE = regexp.MustCompile(`(?s)(<title>\n*)(.*?)(\s*</title>)`)
 var RECHECKTITLE = regexp.MustCompile(`(?s)(<!--\n\s*<title>\n*)(.*?)(\s*</title>\n*\s*-->\n\s*<title>(.*?)</title>)`)
 
 var BLANKLINE = regexp.MustCompile(`^\s*\n`)
+
+var BLANKSLINE = regexp.MustCompile(`(?m)^\n+`)
 
 // 文書から <para> </para>を取得してsliceで返す
 func ParaAll(src []byte) [][]byte {

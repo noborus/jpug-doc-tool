@@ -264,7 +264,7 @@ func splitBlock(src []byte) [][]byte {
 		}
 		if sub := REPARABLOCK.FindAllStringSubmatch(line, 1); sub != nil {
 			preTag := sub[0][1]
-			if len(preTag) < 30 {
+			if len(preTag) < 50 {
 				r := block.String()
 				str := REPARABLOCK.ReplaceAllString(r, "")
 				if len(str) > 0 {
@@ -272,6 +272,7 @@ func splitBlock(src []byte) [][]byte {
 				}
 				block.Reset()
 				tag = preTag
+				continue
 			}
 		}
 		block.WriteString(line)
@@ -279,33 +280,48 @@ func splitBlock(src []byte) [][]byte {
 	return ret
 }
 
-func appendBlock(blocks [][]byte, tag string, block []byte) [][]byte {
-	b := REPARABLOCK.ReplaceAll(block, []byte(""))
-	str := string(b)
-	if strings.TrimSpace(str) == "" {
-		return blocks
-	}
+// 翻訳が必要な場合はtrueを返す
+func isTranslate(tag string, src string) bool {
+	str := REPARABLOCK.ReplaceAllString(src, "")
 	if tag == "programlisting" || tag == "screen" || tag == "synopsis" || tag == "/varlistentry" {
-		return blocks
+		return false
 	}
 	if tag != "para" && !strings.HasPrefix(tag, "/programlisting") && !strings.HasPrefix(tag, "/screen") && !strings.HasPrefix(tag, "/synopsis") {
-		return blocks
+		return false
 	}
-	rSrc := removeEmptyLines(str)
-	if strings.Contains(rSrc, "<!--") || strings.Contains(rSrc, "-->") {
-		return blocks
+	if strings.TrimSpace(str) == "" {
+		return false
+	}
+	if NIHONGO.MatchString(str) {
+		return false
+	}
+	// 既に翻訳済みの場合はスキップ
+	if strings.Contains(src, "<!--") || strings.Contains(src, "-->") {
+		return false
 	}
 	// <para>が含まれている場合は改行されていないのでスキップ
-	if strings.Contains(rSrc, "<para>") || strings.Contains(rSrc, "</para>") {
-		return blocks
+	if strings.Contains(str, "<para>") {
+		return false
 	}
-	if strings.Contains(rSrc, "<title>") {
-		return blocks
+	if strings.Contains(str, "<title>") {
+		return false
 	}
 	// <returnvalue>が含まれていたらスキップ
-	if strings.Contains(rSrc, "<returnvalue>") {
+	if strings.Contains(str, "<returnvalue>") {
+		return false
+	}
+	// <footnote>が含まれていたらスキップ
+	if strings.Contains(str, "<footnote>") {
+		return false
+	}
+	return true
+}
+
+func appendBlock(blocks [][]byte, tag string, block []byte) [][]byte {
+	if !isTranslate(tag, string(block)) {
 		return blocks
 	}
+	rSrc := BLANKSLINE.ReplaceAll(block, []byte(""))
 	blocks = append(blocks, []byte(rSrc))
 	return blocks
 }
