@@ -506,3 +506,43 @@ func Test_titleMatch2(t *testing.T) {
 		})
 	}
 }
+
+func Test_regParaBlock(t *testing.T) {
+	type args struct {
+		src string
+	}
+	tests := []struct {
+		name string
+		args args
+		want []string
+	}{
+		{
+			name: "test1",
+			args: args{
+				src: ` <programlisting>
+`,
+			},
+			want: []string{
+				" <programlisting>\n",
+			},
+		},
+		{
+			name: "test2",
+			args: args{
+				src: `  <itemizedlist spacing="compact" mark="bullet">
+`,
+			},
+			want: []string{
+				`  <itemizedlist spacing="compact" mark="bullet">
+`,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := regParaBlock(tt.args.src); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("regParaBlock() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
