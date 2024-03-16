@@ -31,6 +31,7 @@ func similarBlank(src []byte) [][]byte {
 
 var STRIPPMT = regexp.MustCompile(`(?s)《機械翻訳》.*`)
 
+// 《》で囲まれた文字列（作業中）に一致させる
 var STRIPM = regexp.MustCompile(`《.*》`)
 
 var BLANKBRACKET2 = regexp.MustCompile(`(?s)(.*?)-->\n(.*?)(《》)\n`)
