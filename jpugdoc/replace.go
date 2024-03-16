@@ -307,53 +307,15 @@ func (rep *Rep) unmatchedReplace(fileName string, src []byte) ([]byte, error) {
 }
 
 func (rep *Rep) paraBlockReplace(src []byte) []byte {
-	block := bytes.Buffer{}
-	ret := bytes.Buffer{}
-	para := bytes.NewBuffer(src)
-	firstLine := ""
-	tag := "none"
-	preTag := "none"
-	blockF := false
-	for {
-		line, err := para.ReadString('\n')
-		if err != nil {
-			r := rep.blockReplace(tag, block.String())
-			ret.WriteString(firstLine)
-			ret.WriteString(r)
-			break
-		}
-		if CLOSEPARA.MatchString(line) {
-			blockF = true
-			preTag = "none"
-		}
-		if sub := REPARABLOCK.FindAllStringSubmatch(line, 1); sub != nil {
-			preTag = sub[0][1]
-			if len(preTag) < 50 {
-				blockF = true
-			}
-		}
-		if preTag == "/indexterm" {
-			blockF = false
-		}
-		if blockF {
-			r := rep.blockReplace(tag, block.String())
-			ret.WriteString(firstLine)
-			ret.WriteString(r)
-			block.Reset()
-			tag = preTag
-			firstLine = line
-			blockF = false
-			continue
-		}
-		block.WriteString(line)
+	blocks := splitBlock(src)
+	for _, block := range blocks {
+		ret := rep.blockReplace(string(block))
+		src = bytes.Replace(src, block, []byte(ret), 1)
 	}
-	return ret.Bytes()
+	return src
 }
 
-func (rep *Rep) blockReplace(tag string, src string) string {
-	if !isTranslate(tag, src) {
-		return src
-	}
+func (rep *Rep) blockReplace(src string) string {
 	rSrc := BLANKSLINE.ReplaceAllString(src, "")
 	enStr := stripNL(rSrc)
 	simJa, score := rep.findSimilar(enStr)
@@ -409,30 +371,6 @@ func stripNL(src string) string {
 	return str
 }
 
-/*
-func (rep Rep) updateReplace(src []byte) []byte {
-	pair, left, err := newCatalog(src)
-	if err != nil {
-		return src
-	}
-	en, _, _ := splitComment(src)
-	for _, c := range rep.catalogs {
-		if stripNL(c.en) == pair.en {
-			if c.ja == pair.ja {
-				return src
-			}
-			fmt.Println("更新", pair.en)
-			para := fmt.Sprintf("$1<!--%s-->\n%s$3", en, strings.TrimRight(c.ja, "\n"))
-			ret := REPARA.ReplaceAll(src, []byte(para))
-			fmt.Println(string(left))
-			ret = append(ret, left...)
-			return ret
-		}
-	}
-	return src
-}
-*/
-
 // srcを新しいcatalogの日本語訳に置き換えて更新する
 func (rep Rep) updateFromCatalog(fileName string, src []byte) ([]byte, error) {
 	srcDiff, err := getDiff(rep.vTag, fileName)
@@ -469,158 +407,10 @@ func updateReplaceCatalog(src []byte, catalogs []Catalog, o Catalog, wip bool) [
 	if !wip && STRIPM.Match([]byte(ja)) {
 		return src
 	}
+	if strings.Contains(ja, "<title>") {
+		return src
+	}
 	return bytes.ReplaceAll(src, []byte(o.ja), []byte(ja))
-}
-
-// <para><screen>の置き換え
-// ReplaceAllFuncで呼び出される
-func (rep *Rep) paraScreenReplace(src []byte) []byte {
-	subMatch := REPARASCREEN.FindSubmatch(src)
-	// <para>\nで改行されていない場合はスキップ
-	if !bytes.HasPrefix(subMatch[1][6:], []byte("\n")) {
-		return src
-	}
-	// <screen>、<programlisting>、<synopsis>が含まれていない場合はスキップ
-	if !containsAny(subMatch[3], [][]byte{[]byte("<screen>"), []byte("<programlisting>"), []byte("<synopsis>")}) {
-		return src
-	}
-
-	para := subMatch[2]
-	if len(bytes.TrimSpace(para)) == 0 {
-		return src
-	}
-	// 既に翻訳済みの場合はスキップ
-	if bytes.Contains(para, []byte("<!--")) {
-		return src
-	}
-
-	org := strings.TrimRight(string(para), "\n")
-	org = REVHIGHHUN2.ReplaceAllString(org, "&#45;&#45;-")
-	org = REVHIGHHUN.ReplaceAllString(org, "&#45;-")
-	stripOrg := stripNL(string(para))
-	// 類似文、機械翻訳置き換え
-	ret, err := rep.simMtReplace(src, "", org, stripOrg, "")
-	if err != nil {
-		log.Println(err.Error())
-	}
-	if ret == nil {
-		return src
-	}
-	if rep.prompt {
-		return promptReplace(src, ret)
-	}
-	return REPARASCREEN.ReplaceAll(src, ret)
-}
-
-func containsAny(b []byte, subs [][]byte) bool {
-	for _, sub := range subs {
-		if bytes.Contains(b, sub) {
-			return true
-		}
-	}
-	return false
-}
-
-// <para></para>の置き換え
-// ReplaceAllFuncで呼び出される
-func (rep *Rep) paraReplace(src []byte) []byte {
-	subMatch := REPARA.FindSubmatch(src)
-	tag := string(subMatch[1])
-	para := subMatch[2]
-	// </para>の前に改行がない場合はスキップ
-	if !bytes.Contains(subMatch[3], []byte("\n")) {
-		return src
-	}
-	org := strings.TrimRight(string(para), "\n")
-	org = REVHIGHHUN2.ReplaceAllString(org, "&#45;&#45;-")
-	org = REVHIGHHUN.ReplaceAllString(org, "&#45;-")
-	stripOrg := stripNL(string(para))
-	// <para>\nで改行されていない場合はスキップ
-	if !strings.Contains(tag, "\n") {
-		return src
-	}
-	// 既に翻訳済みの場合はスキップ
-	if strings.HasPrefix(stripOrg, "<!--") {
-		return src
-	}
-	// 既に翻訳済みの場合はスキップ
-	if strings.Contains(stripOrg, "<para>") && strings.Contains(stripOrg, "<!--") {
-		return src
-	}
-	// 空白のみの場合はスキップ
-	if strings.Trim(stripOrg, " ") == "" {
-		return src
-	}
-	// 既に日本語がある場合はスキップ
-	if NIHONGO.MatchString(stripOrg) {
-		return src
-	}
-	pre, org, stripOrg, post, err := lastBlock(para, org, stripOrg)
-	if err != nil {
-		return src
-	}
-	// <returnvalue>,<screen>が含まれている場合はスキップ
-	if strings.Contains(org, "<returnvalue>") || strings.Contains(org, "<screen>") || strings.Contains(org, "<programlisting>") {
-		return src
-	}
-	// 翻訳不要の場合はスキップ
-	for _, catalog := range rep.catalogs {
-		if catalog.ja == "no translation" {
-			if catalog.en == stripOrg {
-				if Verbose {
-					log.Printf("skip: %s\n", stripOrg)
-				}
-				return src
-			}
-		}
-	}
-	// 類似文、機械翻訳置き換え
-	ret, err := rep.simMtReplace(src, pre, org, stripOrg, post)
-	if err != nil {
-		log.Println(err.Error())
-	}
-	if ret == nil {
-		return src
-	}
-	if rep.prompt {
-		return promptReplace(src, ret)
-	}
-
-	return REPARA.ReplaceAll(src, ret)
-}
-
-// para内の最後のブロックを返す
-func lastBlock(para []byte, org string, stripOrg string) (string, string, string, string, error) {
-	pre := ""
-	post := ""
-	p := 0
-	// <para>が含まれている場合は次の<para>を置き換え
-	if strings.Contains(stripOrg, "<para>") {
-		l := bytes.Index(para, []byte("<para>"))
-		// <para>の後が改行で終わっていない場合はスキップ
-		if !bytes.HasPrefix(para[l+6:], []byte("\n")) {
-			return "", "", "", "", fmt.Errorf("no para")
-		}
-		p = l + len("<para>\n")
-	} else if strings.Contains(stripOrg, "</screen>") {
-		// </screen>が含まれている場合は</screen>の後を置き換え
-		p = bytes.LastIndex(para, []byte("</screen>")) + len("</screen>\n")
-	} else if strings.Contains(stripOrg, "</programlisting>") {
-		// </programlisting>が含まれている場合は</programlisting>の後を置き換え
-		p = bytes.LastIndex(para, []byte("</programlisting>")) + len("</programlisting>\n")
-	} else {
-		return pre, org, stripOrg, post, nil
-	}
-
-	if p > len(para) {
-		return "", "", "", "", fmt.Errorf("no para")
-	}
-
-	pre = string(para[:p])
-	para = para[p:]
-	org = string(para)
-	stripOrg = stripNL(string(para))
-	return pre, org, stripOrg, post, nil
 }
 
 // <!-- -->《》に実際のマッチ度、機械翻訳を入れて置き換え
