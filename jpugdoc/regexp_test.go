@@ -540,7 +540,7 @@ func Test_regParaBlock(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := regParaBlock(tt.args.src); !reflect.DeepEqual(got, tt.want) {
+			if got := regTagBlock(tt.args.src); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("regParaBlock() = %v, want %v", got, tt.want)
 			}
 		})

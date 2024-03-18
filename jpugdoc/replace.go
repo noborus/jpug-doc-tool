@@ -309,15 +309,27 @@ func (rep *Rep) unmatchedReplace(fileName string, src []byte) ([]byte, error) {
 func (rep *Rep) paraBlockReplace(src []byte) []byte {
 	blocks := splitBlock(src)
 	for _, block := range blocks {
-		ret := rep.blockReplace(string(block))
+		blockSrc := string(block)
+		ret := rep.blockReplace(string(blockSrc))
+		if blockSrc == ret {
+			continue
+		}
 		src = bytes.Replace(src, block, []byte(ret), 1)
 	}
 	return src
 }
 
 func (rep *Rep) blockReplace(src string) string {
-	rSrc := BLANKSLINE.ReplaceAllString(src, "")
-	enStr := stripNL(rSrc)
+	rSrc := strings.TrimLeft(src, "\n")
+	rSrc = strings.TrimRight(rSrc, "\n")
+	srcBlock := strings.Split(rSrc, "\n")
+	if len(srcBlock) < 3 {
+		return src
+	}
+	pre := srcBlock[0]
+	post := srcBlock[len(srcBlock)-1]
+	body := strings.Join(srcBlock[1:len(srcBlock)-1], "\n")
+	enStr := stripNL(body)
 	simJa, score := rep.findSimilar(enStr)
 
 	if simJa == "no translation" {
@@ -333,13 +345,12 @@ func (rep *Rep) blockReplace(src string) string {
 	mtJa := rep.mtMark(enStr, score)
 	ret, err := replaceDst(score, simJa, mtJa)
 	if err != nil {
-		log.Println(err.Error())
 		return src
 	}
 
-	org := REVHIGHHUN2.ReplaceAllString(rSrc, "&#45;&#45;-")
+	org := REVHIGHHUN2.ReplaceAllString(body, "&#45;&#45;-")
 	org = REVHIGHHUN.ReplaceAllString(org, "&#45;-")
-	dst := fmt.Sprintf("<!--\n%s-->\n%s\n", org, ret)
+	dst := fmt.Sprintf("%s\n<!--\n%s\n-->\n%s\n%s", pre, org, ret, post)
 	return strings.Replace(src, rSrc, dst, 1)
 }
 

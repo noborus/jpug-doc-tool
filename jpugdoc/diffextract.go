@@ -262,18 +262,41 @@ func splitBlock(src []byte) [][]byte {
 			}
 			break
 		}
-		if sub := REPARABLOCK.FindAllStringSubmatch(line, 1); sub != nil {
+		if sub := RETAGBLOCK.FindAllStringSubmatch(line, 1); sub != nil {
 			preTag := sub[0][1]
 			if len(preTag) < 50 {
+				block.WriteString(line)
 				r := block.String()
-				str := REPARABLOCK.ReplaceAllString(r, "")
+				str := RETAGBLOCK.ReplaceAllString(r, "")
 				if len(str) > 0 {
+					// <para が含まれていたら<para〜以降を切り出す
+					if idx := strings.Index(r, "<para "); idx > 0 {
+						tag = "para"
+						r = r[idx:]
+					}
 					ret = appendBlock(ret, tag, []byte(r))
 				}
 				block.Reset()
 				tag = preTag
+				block.WriteString(line)
 				continue
 			}
+		}
+		if CLOSEPARA.MatchString(line) {
+			block.WriteString(line)
+			r := block.String()
+			para := REPARA2.FindAllStringSubmatch(r, -1)
+			if para != nil {
+				p := para[len(para)-1][1]
+				p = strings.TrimRight(p, " ")
+				if len(p) > 0 {
+					ret = appendBlock(ret, "para", []byte(r))
+				}
+				block.Reset()
+			}
+			tag = "none"
+			block.WriteString(line)
+			continue
 		}
 		block.WriteString(line)
 	}
@@ -282,25 +305,27 @@ func splitBlock(src []byte) [][]byte {
 
 // 翻訳が必要な場合はtrueを返す
 func isTranslate(tag string, src string) bool {
-	str := REPARABLOCK.ReplaceAllString(src, "")
 	if tag == "programlisting" || tag == "screen" || tag == "synopsis" || tag == "/varlistentry" {
 		return false
 	}
-	if tag != "para" && !strings.HasPrefix(tag, "/programlisting") && !strings.HasPrefix(tag, "/screen") && !strings.HasPrefix(tag, "/synopsis") {
-		return false
-	}
-	if strings.TrimSpace(str) == "" {
-		return false
-	}
-	if NIHONGO.MatchString(str) {
+	if tag != "none" && tag != "para" && tag != "/indexterm" && !strings.HasPrefix(tag, "/programlisting") && !strings.HasPrefix(tag, "/screen") && !strings.HasPrefix(tag, "/synopsis") {
 		return false
 	}
 	// 既に翻訳済みの場合はスキップ
 	if strings.Contains(src, "<!--") || strings.Contains(src, "-->") {
 		return false
 	}
-	// <para>が含まれている場合は改行されていないのでスキップ
-	if strings.Contains(str, "<para>") {
+
+	str := RETAGBLOCK.ReplaceAllString(src, "")
+	lines := strings.Split(str, "\n")
+	if len(lines) < 3 {
+		return false
+	}
+	body := strings.Join(lines[1:len(lines)-2], "\n")
+	if !containsLetter(body) {
+		return false
+	}
+	if NIHONGO.MatchString(body) {
 		return false
 	}
 	if strings.Contains(str, "<title>") {
@@ -317,12 +342,24 @@ func isTranslate(tag string, src string) bool {
 	return true
 }
 
+func containsLetter(s string) bool {
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+			return true
+		}
+	}
+	return false
+}
+
 func appendBlock(blocks [][]byte, tag string, block []byte) [][]byte {
-	if !isTranslate(tag, string(block)) {
+	if n := bytes.Trim(block, "\n"); len(n) == 0 {
 		return blocks
 	}
-	rSrc := BLANKSLINE.ReplaceAll(block, []byte(""))
-	blocks = append(blocks, []byte(rSrc))
+	blockSrc := string(block)
+	if !isTranslate(tag, blockSrc) {
+		return blocks
+	}
+	blocks = append(blocks, block)
 	return blocks
 }
 
@@ -339,8 +376,12 @@ func noTransPara(catalogs []Catalog, fileName string) ([]Catalog, error) {
 
 	paras := splitBlock(src)
 	for _, para := range paras {
-		//paraStr := extPara(para)
-		paraStr := stripNL(string(para))
+		lines := strings.Split(string(para), "\n")
+		body := string(para)
+		if len(lines) > 3 {
+			body = strings.Join(lines[1:len(lines)-2], "\n")
+		}
+		paraStr := stripNL(body)
 		// 既に翻訳済みの場合はスキップ
 		if strings.HasPrefix(paraStr, "<!--") {
 			continue
@@ -354,12 +395,6 @@ func noTransPara(catalogs []Catalog, fileName string) ([]Catalog, error) {
 		catalogs = addCatalogs(catalogs, "", en, ja, "", "")
 	}
 	return catalogs, nil
-}
-
-func extPara(src []byte) string {
-	re := REPARA.FindSubmatch(src)
-	enStr := stripNL(string(re[2]))
-	return enStr
 }
 
 func addCatalogs(catalogs []Catalog, pre string, en strings.Builder, ja strings.Builder, preCDATA string, post string) []Catalog {

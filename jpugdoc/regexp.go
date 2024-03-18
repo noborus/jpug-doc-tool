@@ -7,12 +7,17 @@ import (
 // <para> </para> に一致させる
 var REPARA = regexp.MustCompile(`(?s)(<para>\n*)(.*?)(\s*</para>)`)
 
-// <para>の単独タグ(\s+<programlisting>\nなど)に一致させる
-var REPARABLOCK = regexp.MustCompile(`^\s*<([^>]+)>\n`)
+// タグと一致させる
+var RETAG = regexp.MustCompile(`<[^>]+>`)
 
-func regParaBlock(src string) []string {
-	return REPARABLOCK.FindAllString(src, -1)
+// 単独タグ(\s+<programlisting>\nなど)に一致させる
+var RETAGBLOCK = regexp.MustCompile(`^\s*<([^>]+)>\n`)
+
+func regTagBlock(src string) []string {
+	return RETAGBLOCK.FindAllString(src, -1)
 }
+
+var REPARA2 = regexp.MustCompile(`(?s)<para>\n(.*?)</para>`)
 
 var CLOSEPARA = regexp.MustCompile(`</para>`)
 
