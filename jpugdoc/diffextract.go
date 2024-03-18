@@ -316,8 +316,20 @@ func isTranslate(tag string, src string) bool {
 		return false
 	}
 
-	str := RETAGBLOCK.ReplaceAllString(src, "")
-	lines := strings.Split(str, "\n")
+	if strings.Contains(src, "<title>") {
+		return false
+	}
+	// <returnvalue>が含まれていたらスキップ
+	if strings.Contains(src, "<returnvalue>") {
+		return false
+	}
+	// <footnote>が含まれていたらスキップ
+	if strings.Contains(src, "<footnote>") {
+		return false
+	}
+
+	//str := RETAGBLOCK.ReplaceAllString(src, "")
+	lines := strings.Split(src, "\n")
 	if len(lines) < 3 {
 		return false
 	}
@@ -326,17 +338,6 @@ func isTranslate(tag string, src string) bool {
 		return false
 	}
 	if NIHONGO.MatchString(body) {
-		return false
-	}
-	if strings.Contains(str, "<title>") {
-		return false
-	}
-	// <returnvalue>が含まれていたらスキップ
-	if strings.Contains(str, "<returnvalue>") {
-		return false
-	}
-	// <footnote>が含まれていたらスキップ
-	if strings.Contains(str, "<footnote>") {
 		return false
 	}
 	return true
