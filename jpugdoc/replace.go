@@ -310,7 +310,7 @@ func (rep *Rep) paraBlockReplace(src []byte) []byte {
 	blocks := splitBlock(src)
 	for _, block := range blocks {
 		blockSrc := string(block)
-		ret := rep.blockReplace(string(blockSrc))
+		ret := rep.blockReplace(blockSrc)
 		if blockSrc == ret {
 			continue
 		}
@@ -326,9 +326,17 @@ func (rep *Rep) blockReplace(src string) string {
 	if len(srcBlock) < 3 {
 		return src
 	}
-	pre := srcBlock[0]
-	post := srcBlock[len(srcBlock)-1]
-	body := strings.Join(srcBlock[1:len(srcBlock)-1], "\n")
+	b := 1
+	for srcBlock[b] == "" {
+		b += 1
+	}
+	pre := strings.Join(srcBlock[0:b], "\n")
+	a := len(srcBlock) - 1
+	for srcBlock[a-1] == "" {
+		a -= 1
+	}
+	post := strings.Join(srcBlock[a:], "\n")
+	body := strings.Join(srcBlock[b:a], "\n")
 	enStr := stripNL(body)
 	simJa, score := rep.findSimilar(enStr)
 
