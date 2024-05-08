@@ -346,7 +346,7 @@ func checkPara(ignoreList IgnoreList, f *os.File) []result {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := scanner.Text()
-		//log.Println(paraFlag, commentFlag, line)
+		// log.Println(paraFlag, commentFlag, line)
 		if !commentFlag && !paraFlag && strings.Contains(line, "<para>") {
 			if !strings.Contains(line, "</para>") {
 				paraFlag = true

@@ -90,8 +90,10 @@ func StripEntry(src []byte) []byte {
 // XMLのコメントに一致
 var RECOMMENT = regexp.MustCompile(`(?s)<!--(.*?)-->`)
 
-var COMMENTSTART = regexp.MustCompile(`<!--`)
-var COMMENTEND = regexp.MustCompile(`-->`)
+var (
+	COMMENTSTART = regexp.MustCompile(`<!--`)
+	COMMENTEND   = regexp.MustCompile(`-->`)
+)
 
 // コメントが含まれていれば true
 func containComment(src []byte) bool {
@@ -151,8 +153,10 @@ func splitComment(src []byte) (en []byte, ja []byte, ex []byte) {
 }
 
 // 複数のスペースと一致
-var MultiSpace = regexp.MustCompile(`\s+`)
-var MultiNL = regexp.MustCompile(`\n+`)
+var (
+	MultiSpace = regexp.MustCompile(`\s+`)
+	MultiNL    = regexp.MustCompile(`\n+`)
+)
 
 // カタログから英語と日本語を取得
 var SPLITCATALOG = regexp.MustCompile(`(?s)␝(.*?)␟(.*?)␟(.*?)␞(.*?)␞(.*?)␞`)
@@ -195,8 +199,10 @@ func stripNONJA(src []byte) []byte {
 	return STRIPNONJA.ReplaceAll(src, []byte(""))
 }
 
-var KUTEN = regexp.MustCompile(`。`)
-var KUTEN2 = regexp.MustCompile(`。）? ?`)
+var (
+	KUTEN  = regexp.MustCompile(`。`)
+	KUTEN2 = regexp.MustCompile(`。）? ?`)
+)
 
 var REPHIGHHUN = regexp.MustCompile(`&#0?45;`)
 

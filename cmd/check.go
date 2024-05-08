@@ -31,10 +31,8 @@ func setCheckFlag(cmd *cobra.Command) (*jpugdoc.CheckFlag, error) {
 		Num:    false,
 		Author: false,
 	}
+	cf.VTag = vtag
 	var err error
-	if cf.VTag, err = cmd.PersistentFlags().GetString("vtag"); err != nil {
-		return nil, err
-	}
 	if cf.Para, err = cmd.PersistentFlags().GetBool("para"); err != nil {
 		return nil, err
 	}
@@ -64,7 +62,6 @@ func setCheckFlag(cmd *cobra.Command) (*jpugdoc.CheckFlag, error) {
 
 func init() {
 	rootCmd.AddCommand(checkCmd)
-	checkCmd.PersistentFlags().StringP("vtag", "v", "", "original version tag")
 	checkCmd.PersistentFlags().BoolP("para", "p", false, "para check")
 	checkCmd.PersistentFlags().BoolP("word", "w", false, "Word check")
 	checkCmd.PersistentFlags().BoolP("tag", "t", false, "Tag check")

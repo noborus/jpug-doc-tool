@@ -71,6 +71,7 @@ jpug-doc の翻訳を補助ツール。
 前バージョンの翻訳を新しいバージョンに適用したり、
 翻訳のチェックが可能です。`,
 }
+var vtag string
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
@@ -87,12 +88,12 @@ func init() {
 	_ = rootCmd.RegisterFlagCompletionFunc("", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	})
-
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.jpug-doc-tool.yaml)")
 	_ = rootCmd.RegisterFlagCompletionFunc("config", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{"yaml"}, cobra.ShellCompDirectiveFilterFileExt
 	})
 	rootCmd.PersistentFlags().BoolVarP(&jpugdoc.Verbose, "verbose", "", false, "verbose output")
+	rootCmd.PersistentFlags().StringVarP(&vtag, "vtag", "v", "", "original version tag")
 }
 
 // initConfig reads in config file and ENV variables if set.
