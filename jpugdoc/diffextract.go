@@ -13,10 +13,13 @@ import (
 
 // ファイル名の配列を受け取り、それぞれのファイル名のdiffから原文と日本語訳の対の配列を抽出し、
 // それぞれのファイル名に対応するカタログファイル(filename.sgml.t)を作成する
-func Extract(fileNames []string) error {
-	vTag, err := versionTag()
-	if err != nil {
-		return err
+func Extract(vTag string, fileNames []string) error {
+	if vTag == "" {
+		v, err := versionTag()
+		if err != nil {
+			return err
+		}
+		vTag = v
 	}
 
 	for _, fileName := range fileNames {
@@ -328,7 +331,7 @@ func isTranslate(tag string, src string) bool {
 		return false
 	}
 
-	//str := RETAGBLOCK.ReplaceAllString(src, "")
+	// str := RETAGBLOCK.ReplaceAllString(src, "")
 	lines := strings.Split(src, "\n")
 	if len(lines) < 3 {
 		return false

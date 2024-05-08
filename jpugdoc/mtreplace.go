@@ -31,7 +31,7 @@ func MTReplace(fileNames []string, limit int, prompt bool) error {
 	if err != nil {
 		return err
 	}
-	var mt = MTType{
+	mt := MTType{
 		APIAutoTranslateType: Config.APIAutoTranslateType, // PostgreSQLマニュアル翻訳
 		cli:                  cli,
 		maxTranslate:         limit,

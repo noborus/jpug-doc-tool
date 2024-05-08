@@ -11,7 +11,7 @@ import (
 // MT はoriginを機械翻訳し出力します。
 func MT(w io.Writer, origin string) error {
 	// 翻訳タイプ
-	var translates = []string{
+	translates := []string{
 		Config.APIAutoTranslateType, // PostgreSQLマニュアル翻訳
 		textra.GENERAL_EN_JA,        // 一般翻訳
 	}

@@ -169,7 +169,7 @@ func TestExtraction2(t *testing.T) {
 						t.Errorf("Extraction().CDATA = %v\n, want %v\n", v.preCDATA, tt.want[i].preCDATA)
 					}
 				}
-				//t.Errorf("Extraction() = %s\n, want %s\n", got, tt.want)
+				// t.Errorf("Extraction() = %s\n, want %s\n", got, tt.want)
 			}
 		})
 	}

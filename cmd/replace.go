@@ -12,7 +12,6 @@ var replaceCmd = &cobra.Command{
 	Long: `抽出した辞書に基づいて文書を「<!--英語-->日本語翻訳」に置き換える。
 文書により完全一致、類似文、機械翻訳で置き換える。`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var vtag string
 		var update bool
 		var mt bool
 		var similar int
@@ -24,9 +23,6 @@ var replaceCmd = &cobra.Command{
 			return err
 		}
 		if update, err = cmd.PersistentFlags().GetBool("update"); err != nil {
-			return err
-		}
-		if vtag, err = cmd.PersistentFlags().GetString("vtag"); err != nil {
 			return err
 		}
 		if mts, err = cmd.PersistentFlags().GetInt("mts"); err != nil {
@@ -54,7 +50,6 @@ func init() {
 	rootCmd.AddCommand(replaceCmd)
 	replaceCmd.PersistentFlags().IntP("similar", "s", 0, "Degree of similarity")
 	replaceCmd.PersistentFlags().BoolP("update", "u", false, "Update")
-	replaceCmd.PersistentFlags().StringP("vtag", "v", "", "original version tag")
 	replaceCmd.PersistentFlags().BoolP("mt", "", false, "Mark with machine translation")
 	replaceCmd.PersistentFlags().IntP("mts", "", 0, "Use machine translation with similarity %")
 	replaceCmd.PersistentFlags().BoolP("wip", "a", false, "Update even while work is in progress")
