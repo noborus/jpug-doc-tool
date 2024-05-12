@@ -62,7 +62,7 @@ var titleData = `
 <title>Optimizer</title>,<title>オプティマイザ</title>
 <title>General Performance</title>,<title>性能一般</title>
 <title>Server Configuration</title>,<title>サーバ設定</title>
-<title><link linkend="charset">Localization</link></title>,<title><link linkend="charset">多言語対応</link></title>
+<title><link linkend="charset">Localization</link></title>,<title><link linkend="charset">ローカライゼーション</link></title>
 <title><link linkend="logical-replication">Logical Replication</link></title>,<title><link linkend="logical-replication">論理レプリケーション</link></title>
 <title>Utility Commands</title>,<title>ユーティリティコマンド</title>
 <title>General Queries</title>,<title>問い合わせ一般</title>
@@ -73,6 +73,7 @@ var titleData = `
 <title>Acknowledgments</title>,<title>謝辞</title>
 <title><acronym>Authentication</acronym></title>,<title><acronym>認証</acronym></title>
 <title>Documentation</title>,<title>ドキュメンテーション</title>
+<title>Privileges</title>,<title>権限</title>
 `
 
 func titleMap() map[string]string {

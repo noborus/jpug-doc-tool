@@ -114,7 +114,7 @@ func (mt *MTType) machineTranslate(origin string) (string, error) {
 		translated, err := mt.cli.Translate(mt.APIAutoTranslateType, origin)
 		if err != nil {
 			log.Println("machineTranslate:", err)
-			return "", err
+			return "", fmt.Errorf("textra err: [%s] %w", origin, err)
 		}
 		ja.WriteString(translated)
 	}
