@@ -80,7 +80,7 @@ func getDiff(vTag string, fileName string) ([]byte, error) {
 func Extraction(diffSrc []byte) []Catalog {
 	var en, ja, addja, index, indexj strings.Builder
 
-	prefixes := make([]string, 10)
+	prefixes := make([]string, 5)
 	prefix := ""
 	preCDATA := ""
 	postfix := ""
