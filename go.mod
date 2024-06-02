@@ -1,6 +1,6 @@
 module github.com/noborus/jpug-doc-tool
 
-go 1.19
+go 1.21
 
 require (
 	github.com/Songmu/prompter v0.5.1
@@ -9,7 +9,7 @@ require (
 	github.com/neurosnap/sentences v1.1.2
 	github.com/noborus/go-textra v0.0.0-20230113031853-3e16094015e2
 	github.com/spf13/cobra v1.8.0
-	github.com/spf13/viper v1.18.2
+	github.com/spf13/viper v1.19.0
 	golang.org/x/text v0.15.0
 )
 
@@ -30,7 +30,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect
+	golang.org/x/exp v0.0.0-20240531132922-fd00a4e0eefc // indirect
 	golang.org/x/oauth2 v0.20.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/term v0.20.0 // indirect
