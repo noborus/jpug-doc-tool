@@ -273,7 +273,7 @@ func splitBlock(src []byte) [][]byte {
 				str := RETAGBLOCK.ReplaceAllString(r, "")
 				if len(str) > 0 {
 					// <ulink url=\"&commit_baseurl ふ含まれていたらその前までを対象にする
-					if idx := strings.Index(r, "<ulink url=\"&commit_baseurl"); idx > 0 {
+					if idx := strings.Index(r, "<ulink url=\"&commit_baseurl"); idx >= 0 {
 						tag = "para"
 						r = r[:idx]
 					}
