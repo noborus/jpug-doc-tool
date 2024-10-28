@@ -10,6 +10,8 @@ import (
 
 	"github.com/Songmu/prompter"
 	"github.com/jwalton/gchalk"
+	"github.com/neurosnap/sentences"
+	"github.com/neurosnap/sentences/english"
 	"golang.org/x/text/width"
 )
 
@@ -21,16 +23,17 @@ type result struct {
 
 // CheckFlag represents the item to check.
 type CheckFlag struct {
-	VTag    string
-	Ignore  bool
-	WIP     bool
-	Para    bool
-	Word    bool
-	Tag     bool
-	Num     bool
-	Author  bool
-	Strict  bool
-	members map[string]bool
+	VTag     string
+	Ignore   bool
+	WIP      bool
+	Para     bool
+	Word     bool
+	Tag      bool
+	Num      bool
+	Author   bool
+	Strict   bool
+	Sentence bool
+	members  map[string]bool
 }
 
 // default check
@@ -48,6 +51,14 @@ func Check(fileNames []string, cf CheckFlag) error {
 			return err
 		}
 		cf.members = members
+	}
+
+	{
+		var err error
+		Tokenizer, err = english.NewSentenceTokenizer(nil)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	for _, fileName := range fileNames {
@@ -139,6 +150,14 @@ func enjaCheck(fileName string, catalog Catalog, cf CheckFlag) []result {
 		}
 	}
 
+	if cf.Sentence {
+		unSentence := sentenceCheck(en, ja)
+		if unSentence != "" {
+			r := makeResult(fmt.Sprintf("文の数が足りません[%s]", gchalk.Red(unSentence)), en, ja)
+			results = append(results, r)
+		}
+	}
+
 	return results
 }
 
@@ -209,6 +228,39 @@ func wordCheck(en string, ja string) []string {
 		}
 	}
 	return unWord
+}
+
+var Tokenizer *sentences.DefaultSentenceTokenizer
+
+// 英文のピリオドの数と日本語の「。」の数をチェックする
+func sentenceCheck(en string, ja string) string {
+	en = stripNONPERIOD(en)
+	sentences := Tokenizer.Tokenize(en)
+	nEn := len(sentences)
+	if nEn <= 1 {
+		return ""
+	}
+	nJa := countAny(ja, "。？?！!")
+	if nJa == 0 {
+		nJa = 1
+	}
+	if []rune(ja)[len([]rune(ja))-1] != '。' {
+		nJa++
+	}
+	if nEn > nJa {
+		return fmt.Sprintf("英文:%d 日本語:%d", nEn, nJa)
+	}
+	return ""
+}
+
+func countAny(s string, chars string) int {
+	count := 0
+	for _, r := range s {
+		if strings.ContainsRune(chars, r) {
+			count++
+		}
+	}
+	return count
 }
 
 // diffの内容から英日のブロックを抽出して整合をチェックする

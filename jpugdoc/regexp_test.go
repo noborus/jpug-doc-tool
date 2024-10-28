@@ -546,3 +546,43 @@ func Test_regParaBlock(t *testing.T) {
 		})
 	}
 }
+
+func Test_stripNONPERIOD(t *testing.T) {
+	type args struct {
+		src string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "test1",
+			args: args{
+				src: `A simple <command>INSERT ... VALUES</command> command`,
+			},
+			want: `A simple <command>INSERT  VALUES</command> command`,
+		},
+		{
+			name: "test2",
+			args: args{
+				src: `This means that any languages, procedures, (etc.). added via <literal.>template1</literal.`,
+			},
+			want: `This means that any languages, procedures, (). added via <literal.>template1</literal.`,
+		},
+		{
+			name: "test3",
+			args: args{
+				src: `If <replaceable>c</replaceable> is specified it is the exact value. Eg. Byte2, Byte1('\n').`,
+			},
+			want: `If <replaceable>c</replaceable> is specified it is the exact value.  Byte2, Byte1('\n').`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := stripNONPERIOD(tt.args.src); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("stripNONPERIOD() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

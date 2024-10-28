@@ -199,6 +199,13 @@ func stripNONJA(src []byte) []byte {
 	return STRIPNONJA.ReplaceAll(src, []byte(""))
 }
 
+// 文の終わりではないピリオドを除外
+var NONSTRIPPERIOD = regexp.MustCompile(`\.\.\.|etc\.|Eg\.`)
+
+func stripNONPERIOD(src string) string {
+	return NONSTRIPPERIOD.ReplaceAllString(src, "")
+}
+
 var (
 	KUTEN  = regexp.MustCompile(`。`)
 	KUTEN2 = regexp.MustCompile(`。）? ?`)

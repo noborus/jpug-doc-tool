@@ -22,14 +22,15 @@ var checkCmd = &cobra.Command{
 
 func setCheckFlag(cmd *cobra.Command) (*jpugdoc.CheckFlag, error) {
 	cf := &jpugdoc.CheckFlag{
-		VTag:   "",
-		Ignore: false,
-		WIP:    false,
-		Para:   false,
-		Word:   false,
-		Tag:    false,
-		Num:    false,
-		Author: false,
+		VTag:     "",
+		Ignore:   false,
+		WIP:      false,
+		Para:     false,
+		Word:     false,
+		Tag:      false,
+		Num:      false,
+		Author:   false,
+		Sentence: false,
 	}
 	cf.VTag = vtag
 	var err error
@@ -57,6 +58,9 @@ func setCheckFlag(cmd *cobra.Command) (*jpugdoc.CheckFlag, error) {
 	if cf.Author, err = cmd.PersistentFlags().GetBool("author"); err != nil {
 		return nil, err
 	}
+	if cf.Sentence, err = cmd.PersistentFlags().GetBool("sentence"); err != nil {
+		return nil, err
+	}
 	return cf, nil
 }
 
@@ -70,4 +74,5 @@ func init() {
 	checkCmd.PersistentFlags().BoolP("strict", "s", false, "strict check")
 	checkCmd.PersistentFlags().BoolP("ignore", "i", false, "Prompt before ignore registration")
 	checkCmd.PersistentFlags().BoolP("wip", "a", false, "Work in progress check")
+	checkCmd.PersistentFlags().BoolP("sentence", "e", false, "Sentence check")
 }
