@@ -13,21 +13,22 @@ var listCmd = &cobra.Command{
 	Short: "辞書から英語と日本語訳のリストを出力する",
 	Long:  `抽出した辞書の英語と日本語訳のリストを出力する`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var filename, pre, enOnly, jaOnly, tsv, strip bool
+		var opt jpugdoc.ListOoptions
+		var tsv bool
 		var err error
-		if filename, err = cmd.PersistentFlags().GetBool("filename"); err != nil {
+		if opt.WriteFile, err = cmd.PersistentFlags().GetBool("filename"); err != nil {
 			log.Println(err)
 			return
 		}
-		if pre, err = cmd.PersistentFlags().GetBool("pre"); err != nil {
+		if opt.IsPre, err = cmd.PersistentFlags().GetBool("pre"); err != nil {
 			log.Println(err)
 			return
 		}
-		if enOnly, err = cmd.PersistentFlags().GetBool("en"); err != nil {
+		if opt.ENOnly, err = cmd.PersistentFlags().GetBool("en"); err != nil {
 			log.Println(err)
 			return
 		}
-		if jaOnly, err = cmd.PersistentFlags().GetBool("ja"); err != nil {
+		if opt.JAOnly, err = cmd.PersistentFlags().GetBool("ja"); err != nil {
 			log.Println(err)
 			return
 		}
@@ -35,17 +36,17 @@ var listCmd = &cobra.Command{
 			log.Println(err)
 			return
 		}
-		if strip, err = cmd.PersistentFlags().GetBool("strip"); err != nil {
+		if opt.Strip, err = cmd.PersistentFlags().GetBool("strip"); err != nil {
 			log.Println(err)
 			return
 		}
 
 		fileNames := expandFileNames(args)
 		if tsv {
-			jpugdoc.TSVList(strip, fileNames)
+			jpugdoc.TSVList(true, fileNames)
 			return
 		}
-		jpugdoc.List(filename, pre, enOnly, jaOnly, strip, fileNames)
+		jpugdoc.List(opt, fileNames)
 	},
 }
 

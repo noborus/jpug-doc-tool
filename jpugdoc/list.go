@@ -10,57 +10,64 @@ import (
 	"github.com/jwalton/gchalk"
 )
 
-// 英日辞書の内容を表示する
-// wf: ファイル名を表示する
-// pre: preタグを表示する
-// enOnly: 英文のみ表示する
-// jaOnly: 日本語のみ表示する
-// fileNames: ファイル名のリスト
-func List(wf bool, pre bool, enOnly bool, jaOnly bool, strip bool, fileNames []string) {
-	w := io.Writer(os.Stdout)
-	list(w, wf, pre, enOnly, jaOnly, strip, fileNames)
+type ListOoptions struct {
+	WriteFile bool // wf: ファイル名を表示する
+	IsPre     bool // pre: preタグを表示する
+	ENOnly    bool // enOnly: 英文のみ表示する
+	JAOnly    bool // jaOnly: 日本語のみ表示する
+	Strip     bool // strip: 空白を削除する
+	Sentence  bool // sentence: 文で改行する
 }
 
-func list(w io.Writer, wf bool, pre bool, enOnly bool, jaOnly bool, strip bool, fileNames []string) {
+// 英日辞書の内容を表示する
+// fileNames: ファイル名のリスト
+func List(opt ListOoptions, fileNames []string) {
+	w := io.Writer(os.Stdout)
+	list(w, opt, fileNames)
+}
+
+func list(w io.Writer, opt ListOoptions, fileNames []string) {
 	for _, fileName := range fileNames {
-		if wf {
+		if opt.WriteFile {
 			fmt.Fprintln(w, gchalk.Red(fileName))
 		}
 		catalogs, err := loadCatalog(fileName)
 		if err != nil {
 			log.Println(err)
 		}
-		writeCatalog(w, catalogs, pre, enOnly, jaOnly, strip)
+		writeCatalog(w, catalogs, opt)
 	}
 }
 
-func writeCatalog(w io.Writer, catalogs []Catalog, suffix bool, enOnly bool, jaOnly bool, strip bool) {
+func writeCatalog(w io.Writer, catalogs []Catalog, opt ListOoptions) {
 	for _, catalog := range catalogs {
 		en := catalog.en
-		if strip {
+		if opt.Strip {
 			en = stripNL(en)
 			en = strings.Join(strings.Fields(en), " ")
 		}
 		en = strings.Trim(en, "\n")
-		if !suffix && en == "" {
+		if !opt.IsPre && en == "" {
 			continue
 		}
 
-		if suffix {
+		if opt.IsPre {
 			fmt.Fprintln(w, gchalk.Blue(strings.Trim(catalog.pre, "\n")))
 		}
-		if !jaOnly {
+		if !opt.JAOnly {
 			fmt.Fprintln(w, gchalk.Green(en))
 		}
-		ja := catalog.ja
-		if strip {
-			ja = stripNL(ja)
-			ja = strings.Join(strings.Fields(ja), " ")
-		}
-		if !enOnly {
+
+		if !opt.ENOnly {
+			ja := catalog.ja
+			if opt.Strip {
+				ja = stripNL(ja)
+				ja = strings.Join(strings.Fields(ja), " ")
+			}
 			fmt.Fprintln(w, strings.Trim(ja, "\n"))
 		}
-		if suffix {
+
+		if opt.IsPre {
 			fmt.Fprintln(w, gchalk.Blue(strings.Trim(catalog.post, "\n")))
 		}
 		fmt.Fprintln(w)
