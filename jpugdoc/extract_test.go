@@ -277,3 +277,55 @@ func Test_trimPrefix(t *testing.T) {
 		})
 	}
 }
+func TestSplitEntry(t *testing.T) {
+	tests := []struct {
+		name     string
+		catalog  Catalog
+		wantBool bool
+		want     Catalogs
+	}{
+		{
+			name: "Single entry",
+			catalog: Catalog{
+				en: "<entry>Single Entry</entry>",
+			},
+			wantBool: false,
+			want: Catalogs{
+				{en: "<entry>Single Entry</entry>", ja: ""},
+			},
+		},
+		{
+			name: "Multiple entries",
+			catalog: Catalog{
+				en: "<entry>Yes</entry> <entry>Yes</entry> <entry>1&ndash;3</entry>",
+				ja: "<entry>はい</entry> <entry>はい</entry> <entry>1&ndash;3</entry>",
+			},
+			wantBool: true,
+			want: Catalogs{
+				{en: "<entry>Yes</entry>", ja: " <entry>はい</entry>"},
+				{en: "<entry>Yes</entry>", ja: " <entry>はい</entry>"},
+				{en: "<entry>1&ndash;3</entry>", ja: " <entry>1&ndash;3</entry>"},
+			},
+		},
+		{
+			name: "No entry",
+			catalog: Catalog{
+				en: "No Entry",
+			},
+			wantBool: false,
+			want:     Catalogs{{en: "No Entry", ja: ""}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ok, got := splitEntry(tt.catalog)
+			if ok != tt.wantBool {
+				t.Errorf("splitEntry() = %v, want %v", ok, tt.wantBool)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("splitEntry() = \n%#v, want \n%#v", got, tt.want)
+			}
+		})
+	}
+}

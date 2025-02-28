@@ -8,13 +8,17 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
+
+	"github.com/jwalton/gchalk"
 )
 
 // Catalog は原文と日本語訳の対を保持する構造体
 type Catalog struct {
 	pre      string
 	en       string
+	enReg    *regexp.Regexp
 	ja       string
 	preCDATA string
 	post     string
@@ -24,33 +28,222 @@ func (c Catalog) String() string {
 	return fmt.Sprintf("p:%s\ne:%s\nj:%s\nc:%sq:%s\n", c.pre, c.en, c.ja, c.preCDATA, c.post)
 }
 
+type Catalogs []Catalog
+
+func (cs Catalogs) String() string {
+	return fmt.Sprintf("total: %d", len(cs))
+}
+
 // ファイル名の配列を受け取り、それぞれのファイル名のdiffから原文と日本語訳の対の配列を抽出し、
 // それぞれのファイル名に対応するカタログファイル(filename.sgml.t)を作成する
 func Extract(vTag string, fileNames []string) error {
+	_, err := extract(vTag, false, fileNames)
+	return err
+}
+
+func ExtractCommon(vTag string, fileNames []string) error {
+	common, err := extract(vTag, true, fileNames)
+	if err != nil {
+		return err
+	}
+	common = catalogsSplits(common)
+	seen := toSeen(common)
+
+	duplicates := findAllSameCommon(seen)
+	if len(duplicates) > 0 {
+		saveCatalog("common", duplicates)
+	}
+	notEq := findNotSameCommon(seen)
+	for _, catalog := range notEq {
+		fmt.Println(gchalk.Green(catalog.en))
+		fmt.Println(catalog.ja)
+		fmt.Println()
+	}
+	return nil
+}
+
+func findAllSameCommon(seen map[string][]string) Catalogs {
+	unique := make(map[string]Catalog)
+	for en, jas := range seen {
+		if len(jas) <= 1 {
+			continue
+		}
+		if allSame(jas) {
+			unique[en] = Catalog{en: en, ja: jas[0]}
+		}
+	}
+
+	uniques := Catalogs{}
+	for _, catalog := range unique {
+		uniques = append(uniques, catalog)
+	}
+	return uniques
+}
+
+func findNotSameCommon(seen map[string][]string) Catalogs {
+	unique := make(map[string]Catalog)
+	for en, jas := range seen {
+		if len(jas) <= 1 {
+			continue
+		}
+		uniqJa := uniqueStrings(jas)
+		if len(uniqJa) > 1 {
+			unique[en] = Catalog{en: en}
+		}
+	}
+
+	uniques := Catalogs{}
+	for _, catalog := range unique {
+		uniques = append(uniques, catalog)
+	}
+	return uniques
+}
+func uniqueStrings(slice []string) []string {
+	seen := make(map[string]bool)
+	unique := []string{}
+
+	for _, v := range slice {
+		j := stripNL(v)
+		if !seen[j] {
+			seen[j] = true
+			unique = append(unique, v)
+		}
+	}
+
+	return unique
+}
+
+// toSeen はカタログの配列を原文をキーとして、日本語訳の配列を値とするマップに変換する
+func toSeen(catalogs Catalogs) map[string][]string {
+	seen := make(map[string][]string)
+	for _, catalog := range catalogs {
+		if catalog.en == "" || catalog.ja == "" || catalog.ja == "no translation" {
+			continue
+		}
+		en := stripNL(catalog.en)
+		en = strings.Join(strings.Fields(en), " ")
+		// 最初の連続スペースを一つのスペースに変換
+		ja := STARTSPACE.ReplaceAllString(catalog.ja, " ")
+		seen[en] = append(seen[en], ja)
+	}
+	seen = addTitle(seen)
+	return seen
+}
+
+func catalogsSplits(catalogs Catalogs) Catalogs {
+	var newCatalogs Catalogs
+	for _, catalog := range catalogs {
+		ok, splits := splitEntry(catalog)
+		if ok {
+			newCatalogs = append(newCatalogs, splits...)
+		} else {
+			newCatalogs = append(newCatalogs, catalog)
+		}
+	}
+	return newCatalogs
+}
+
+// <entry>1</entry>\n<entry>2</entry>のよう複数ある<entry>を分割する
+func splitEntry(catalog Catalog) (bool, Catalogs) {
+	if !strings.Contains(catalog.en, "<entry>") || !strings.Contains(catalog.en, "</entry>") {
+		return false, Catalogs{catalog}
+	}
+	// <entry>が改行を含む場合は分割しない
+	if containsNewlineInEntry(catalog.en) {
+		return false, Catalogs{catalog}
+	}
+	// 逆に改行なしで複数の<entry>の場合は分割しない
+	if !strings.Contains(catalog.en, "\n") {
+		return false, Catalogs{catalog}
+	}
+	entryStart := " <entry>"
+	// enがスペースで始まっていない？
+	if !strings.HasPrefix(catalog.en, " ") {
+		entryStart = "<entry>"
+	}
+	en := stripNL(catalog.en)
+	ens := strings.Split(en, "<entry>")
+	ja := stripNL(catalog.ja)
+	jas := strings.Split(ja, "<entry>")
+	if len(ens) != len(jas) {
+		return false, Catalogs{catalog}
+	}
+
+	var catalogs Catalogs
+	for i, entry := range ens {
+		entry = strings.TrimSpace(entry)
+		if entry != "" {
+			catalogs = append(catalogs, Catalog{en: "<entry>" + entry, ja: entryStart + strings.TrimSpace(jas[i])})
+		}
+	}
+	return true, catalogs
+
+}
+func containsNewlineInEntry(content string) bool {
+	matches := ENTRYNEWLINE.FindAllStringSubmatch(content, -1)
+
+	for _, match := range matches {
+		entryContent := match[1]
+		if strings.Contains(entryContent, "\n") {
+			return true
+		}
+	}
+	return false
+}
+
+// titleMapを追加する
+func addTitle(seen map[string][]string) map[string][]string {
+	titleMap := titleMap()
+	for en, ja := range titleMap {
+		seen[en] = append(seen[en], " "+ja)
+	}
+	return seen
+}
+
+// allSame checks if all elements in the slice are the same
+func allSame(slice []string) bool {
+	if len(slice) == 0 {
+		return true
+	}
+	first := slice[0]
+	for _, v := range slice {
+		if v != first {
+			return false
+		}
+	}
+	return true
+}
+
+func extract(vTag string, common bool, fileNames []string) (Catalogs, error) {
 	if vTag == "" {
 		v, err := versionTag()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		vTag = v
 	}
 
+	var commonCatalogs Catalogs
 	for _, fileName := range fileNames {
 		if Verbose {
 			log.Printf("Extract: %s\n", fileName)
 		}
 		diffSrc, err := getDiff(vTag, fileName)
 		if err != nil {
-			return fmt.Errorf("getDiff: %w", err)
+			return nil, fmt.Errorf("getDiff: %w", err)
 		}
 		catalogs := Extraction(diffSrc)
+		catalogs = catalogsSplits(catalogs)
 		catalogs, err = noTransPara(catalogs, fileName)
 		if err != nil {
 			log.Println(err)
 		}
 		saveCatalog(fileName, catalogs)
+		if common {
+			commonCatalogs = append(commonCatalogs, catalogs...)
+		}
 	}
-	return nil
+	return commonCatalogs, nil
 }
 
 // skip diff header

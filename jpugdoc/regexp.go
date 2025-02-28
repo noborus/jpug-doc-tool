@@ -54,6 +54,9 @@ var BLANKLINE = regexp.MustCompile(`^\s*\n`)
 
 var BLANKSLINE = regexp.MustCompile(`(?m)^\n+`)
 
+// 最初の連続スペースを一つのスペースに変換
+var STARTSPACE = regexp.MustCompile(`^\s+`)
+
 // 文書から <para> </para>を取得してsliceで返す
 func ParaAll(src []byte) [][]byte {
 	return CHECKPARA.FindAll(src, -1)
@@ -253,3 +256,5 @@ func titleMatch2(src []byte) ([]byte, []byte) {
 }
 
 var RELEASENUM = regexp.MustCompile(`[0-9\.]+`)
+
+var ENTRYNEWLINE = regexp.MustCompile(`(?s)<entry>(.*?)</entry>`)

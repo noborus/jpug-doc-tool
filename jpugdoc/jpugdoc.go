@@ -109,7 +109,7 @@ func ReadAllFile(fileName string) ([]byte, error) {
 }
 
 // saveCatalog saves the specified catalog to a file.
-func saveCatalog(fileName string, catalogs []Catalog) {
+func saveCatalog(fileName string, catalogs Catalogs) {
 	catalogName := filepath.Join(DicDir, fileName+".t")
 	f, err := os.Create(catalogName)
 	if err != nil {

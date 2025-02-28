@@ -39,6 +39,19 @@ func list(w io.Writer, opt ListOoptions, fileNames []string) {
 	}
 }
 
+func ListCommon(opt ListOoptions) {
+	w := io.Writer(os.Stdout)
+	listCommon(w, opt)
+}
+
+func listCommon(w io.Writer, opt ListOoptions) {
+	catalogs, err := loadCatalog("common")
+	if err != nil {
+		log.Println(err)
+	}
+	writeCatalog(w, catalogs, opt)
+}
+
 func writeCatalog(w io.Writer, catalogs []Catalog, opt ListOoptions) {
 	for _, catalog := range catalogs {
 		en := catalog.en

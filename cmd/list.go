@@ -14,8 +14,13 @@ var listCmd = &cobra.Command{
 	Long:  `抽出した辞書の英語と日本語訳のリストを出力する`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var opt jpugdoc.ListOoptions
+		var common bool
 		var tsv bool
 		var err error
+		if common, err = cmd.PersistentFlags().GetBool("common"); err != nil {
+			log.Println(err)
+			return
+		}
 		if opt.WriteFile, err = cmd.PersistentFlags().GetBool("filename"); err != nil {
 			log.Println(err)
 			return
@@ -40,6 +45,10 @@ var listCmd = &cobra.Command{
 			log.Println(err)
 			return
 		}
+		if common {
+			jpugdoc.ListCommon(opt)
+			return
+		}
 
 		fileNames := expandFileNames(args)
 		if tsv {
@@ -53,6 +62,7 @@ var listCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(listCmd)
 	listCmd.PersistentFlags().BoolP("filename", "f", false, "filename")
+	listCmd.PersistentFlags().BoolP("common", "c", false, "common")
 	listCmd.PersistentFlags().BoolP("pre", "p", false, "prefix")
 	listCmd.PersistentFlags().BoolP("en", "e", false, "English")
 	listCmd.PersistentFlags().BoolP("ja", "j", false, "Japanese")

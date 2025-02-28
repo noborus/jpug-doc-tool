@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/Songmu/prompter"
@@ -20,8 +21,8 @@ const (
 
 // Rep は置き換えを行う構造体
 type Rep struct {
+	common   []Catalog
 	catalogs []Catalog
-	titles   map[string]string
 	vTag     string
 	update   bool
 	similar  int
@@ -36,10 +37,16 @@ func Replace(fileNames []string, vTag string, update bool, similar int, mt int, 
 	if err != nil {
 		return err
 	}
-	rep.titles = titleMap()
 	if Verbose {
 		log.Printf("マッチ度 %d 以上を採用。マッチ度 %d 以下であれば機械翻訳を追加\n", rep.similar, rep.mt)
 	}
+
+	rep.common, err = loadCatalog("common")
+	if err != nil {
+		log.Print(err.Error())
+		return err
+	}
+	rep.common = regCompile(rep.common)
 
 	for _, fileName := range fileNames {
 		rep.catalogs, err = loadCatalog(fileName)
@@ -119,11 +126,16 @@ func (rep *Rep) replaceAll(fileName string, src []byte) ([]byte, error) {
 
 // 一致文置き換え
 func (rep *Rep) matchReplace(src []byte) []byte {
-	src = rep.replaceTitle(src)
 	// 追加形式の翻訳文を追加
 	for _, catalog := range rep.catalogs {
 		if catalog.en == "" {
 			src = rep.matchAdditional(src, catalog)
+		}
+	}
+	// 共通の翻訳文を追加
+	for _, catalog := range rep.common {
+		if catalog.enReg != nil {
+			src = rep.matchCommon(src, catalog)
 		}
 	}
 	// コメント形式の翻訳文を追加
@@ -133,50 +145,6 @@ func (rep *Rep) matchReplace(src []byte) []byte {
 		}
 	}
 	return src
-}
-
-func (rep *Rep) replaceTitle(src []byte) []byte {
-	idxes := TITLE2.FindAllSubmatchIndex(src, -1)
-	ret := src
-	for _, idx := range idxes {
-		en := src[idx[2]:idx[3]]
-		ja := src[idx[4]:idx[5]]
-		if nja, ok := rep.titles[string(en)]; ok {
-			if nja != string(ja) {
-				ret = bytes.Replace(ret, ja, []byte(nja), -1)
-			}
-		}
-	}
-
-	idexes := TITLE.FindAllSubmatchIndex(src, -1)
-	for _, idx := range idexes {
-		en := src[idx[2]:idx[3]]
-		ent := strings.TrimLeft(string(en), " ")
-		spc := len(en) - len(ent)
-		nja := ""
-		if strings.Contains(ent, "Release ") {
-			v := RELEASENUM.Find(en)
-			if v != nil {
-				nja = "<title>リリース" + string(v) + "</title>"
-			}
-		}
-
-		if strings.Contains(ent, "Migration to Version") {
-			v := RELEASENUM.Find(en)
-			if v != nil {
-				nja = "<title>バージョン" + string(v) + "への移行</title>"
-			}
-		}
-
-		if j, ok := rep.titles[ent]; ok {
-			nja = j
-		}
-		if len(nja) > 0 {
-			title := fmt.Sprintf("\n<!--\n%s\n-->\n%s%s\n%s", en, strings.Repeat(" ", spc), nja, src[idx[4]:idx[5]])
-			ret = bytes.Replace(ret, src[idx[0]:idx[1]], []byte(title), -1)
-		}
-	}
-	return ret
 }
 
 // カタログを一つづつ置き換える
@@ -197,7 +165,11 @@ func (rep Rep) matchComment(src []byte, catalog Catalog) []byte {
 			ret = append(ret, src[p:]...)
 			break
 		}
-
+		count := 0
+		if catalog.ja != "" && catalog.ja[0] == ' ' {
+			count = countLeadingSpaces(src, p+pp)
+		}
+		pp -= count
 		if catalog.post == "" {
 			// 一致前が改行でない場合はスキップ
 			if p+pp < len(src) && p+pp > 0 {
@@ -228,6 +200,9 @@ func (rep Rep) matchComment(src []byte, catalog Catalog) []byte {
 			} else {
 				ret = append(ret, []byte("<!--\n")...)
 			}
+			for range count {
+				ret = append(ret, ' ')
+			}
 			ret = append(ret, hen...)
 			if inCDATA(src[:p+pp]) {
 				ret = append(ret, []byte("--><![CDATA[\n")...)
@@ -236,19 +211,57 @@ func (rep Rep) matchComment(src []byte, catalog Catalog) []byte {
 			}
 
 			if catalog.ja != "" {
+				for range count - 1 {
+					ret = append(ret, ' ')
+				}
 				ret = append(ret, []byte(catalog.ja)...)
-				ret = append(ret, src[p+pp+len(catalog.en):]...)
+				ret = append(ret, src[p+pp+count+len(catalog.en):]...)
 			} else {
-				ret = append(ret, src[p+pp+len(catalog.en)+1:]...)
+				ret = append(ret, src[p+pp+count+len(catalog.en)+1:]...)
 			}
 			break
 		}
 
 		// Already in Japanese.
-		ret = append(ret, src[p:p+pp+len(catalog.en)]...)
-		p = p + pp + len(catalog.en)
+		ret = append(ret, src[p:p+pp+count+len(catalog.en)]...)
+		p = p + pp + count + len(catalog.en)
 	}
 	return ret
+}
+
+func countLeadingSpaces(src []byte, pp int) int {
+	count := 0
+	for i := pp - 1; i >= 0; i-- {
+		if src[i] == ' ' {
+			count++
+		} else {
+			break
+		}
+	}
+	return count
+}
+
+// 共通カタログを一つづつ置き換える
+func (rep Rep) matchCommon(src []byte, catalog Catalog) []byte {
+	if !bytes.Contains(src, []byte(catalog.en)) {
+		return src
+	}
+	log.Printf("matchCommon: %s\n", catalog.en)
+	// src からcatalog.enRegに一致する箇所を正規表現で探す
+	matches := catalog.enReg.FindAllIndex(src, -1)
+	for _, match := range matches {
+		start := match[0]
+		end := match[1]
+		src = bytes.Replace(src, src[start:end], []byte("新しいテキスト"), 1)
+	}
+	return src
+}
+
+func regCompile(catalogs Catalogs) Catalogs {
+	for i := range catalogs {
+		catalogs[i].enReg = regexp.MustCompile(`(?s)(\s*)` + regexp.QuoteMeta(catalogs[i].en) + `$`)
+	}
+	return catalogs
 }
 
 func inComment(src []byte) bool {
@@ -557,3 +570,49 @@ func rewriteFile(fileName string, body []byte) error {
 	_, err = fmt.Fprint(out, string(body))
 	return err
 }
+
+/*
+func (rep *Rep) replaceTitle(src []byte) []byte {
+	idxes := TITLE2.FindAllSubmatchIndex(src, -1)
+	ret := src
+	for _, idx := range idxes {
+		en := src[idx[2]:idx[3]]
+		ja := src[idx[4]:idx[5]]
+		if nja, ok := rep.titles[string(en)]; ok {
+			if nja != string(ja) {
+				ret = bytes.Replace(ret, ja, []byte(nja), -1)
+			}
+		}
+	}
+
+	idexes := TITLE.FindAllSubmatchIndex(src, -1)
+	for _, idx := range idexes {
+		en := src[idx[2]:idx[3]]
+		ent := strings.TrimLeft(string(en), " ")
+		spc := len(en) - len(ent)
+		nja := ""
+		if strings.Contains(ent, "Release ") {
+			v := RELEASENUM.Find(en)
+			if v != nil {
+				nja = "<title>リリース" + string(v) + "</title>"
+			}
+		}
+
+		if strings.Contains(ent, "Migration to Version") {
+			v := RELEASENUM.Find(en)
+			if v != nil {
+				nja = "<title>バージョン" + string(v) + "への移行</title>"
+			}
+		}
+
+		if j, ok := rep.titles[ent]; ok {
+			nja = j
+		}
+		if len(nja) > 0 {
+			title := fmt.Sprintf("\n<!--\n%s\n-->\n%s%s\n%s", en, strings.Repeat(" ", spc), nja, src[idx[4]:idx[5]])
+			ret = bytes.Replace(ret, src[idx[0]:idx[1]], []byte(title), -1)
+		}
+	}
+	return ret
+}
+*/
