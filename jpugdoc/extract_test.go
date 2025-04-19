@@ -297,8 +297,12 @@ func TestSplitEntry(t *testing.T) {
 		{
 			name: "Multiple entries",
 			catalog: Catalog{
-				en: "<entry>Yes</entry> <entry>Yes</entry> <entry>1&ndash;3</entry>",
-				ja: "<entry>はい</entry> <entry>はい</entry> <entry>1&ndash;3</entry>",
+				en: `    <entry>Yes</entry>
+    <entry>Yes</entry>
+    <entry>1&ndash;3</entry>`,
+				ja: `    <entry>はい</entry>
+    <entry>はい</entry>
+    <entry>1&ndash;3</entry>`,
 			},
 			wantBool: true,
 			want: Catalogs{

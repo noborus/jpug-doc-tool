@@ -2,6 +2,7 @@ package jpugdoc
 
 import (
 	"reflect"
+	"regexp"
 	"testing"
 )
 
@@ -143,6 +144,54 @@ func TestRep_findSimilar(t *testing.T) {
 			}
 			if got1 < tt.want1 {
 				t.Errorf("Rep.findSimilar() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}
+func TestMatchCommon(t *testing.T) {
+	tests := []struct {
+		name    string
+		src     []byte
+		catalog Catalog
+		want    []byte
+	}{
+		{
+			name: "Match and replace text",
+			src:  []byte("   This is a test.\nAnother line."),
+			catalog: Catalog{
+				en:    "This is a test.",
+				ja:    " 新しいテキスト",
+				enReg: regexp.MustCompile(`(?s)(\s*)This is a test.\n`),
+			},
+			want: []byte("<!--\n   This is a test.\n-->\n   新しいテキスト\nAnother line."),
+		},
+		{
+			name: "No match, no replacement",
+			src:  []byte("No matching text here.\nAnother line."),
+			catalog: Catalog{
+				en:    "This is a test.",
+				ja:    "新しいテキスト",
+				enReg: regexp.MustCompile(`(?s)(\s*)This is a test.\n`),
+			},
+			want: []byte("No matching text here.\nAnother line."),
+		},
+		{
+			name: "Multiple matches",
+			src:  []byte("This is a test.\nThis is a test.\nAnother line."),
+			catalog: Catalog{
+				en:    "This is a test.",
+				ja:    "新しいテキスト",
+				enReg: regexp.MustCompile(`(?s)(\s*)This is a test.\n`),
+			},
+			want: []byte("<!--\nThis is a test.\n-->\n新しいテキスト\n<!--\nThis is a test.\n-->\n新しいテキスト\nAnother line."),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := matchCommon(tt.src, tt.catalog)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("matchCommon() = \n%s, want \n%s", string(got), string(tt.want))
 			}
 		})
 	}

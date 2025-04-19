@@ -102,7 +102,7 @@ func (mt *MTType) machineTranslate(origin string) (string, error) {
 	}
 
 	var origins []string
-	if len(origin) > 500 {
+	if len(origin) > 4000 {
 		origins = mt.splitSentences(origin)
 	} else {
 		origins = []string{origin}

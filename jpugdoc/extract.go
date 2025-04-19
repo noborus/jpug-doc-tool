@@ -179,6 +179,7 @@ func splitEntry(catalog Catalog) (bool, Catalogs) {
 	return true, catalogs
 
 }
+
 func containsNewlineInEntry(content string) bool {
 	matches := ENTRYNEWLINE.FindAllStringSubmatch(content, -1)
 
@@ -478,11 +479,6 @@ func splitBlock(src []byte) [][]byte {
 				r := block.String()
 				str := RETAGBLOCK.ReplaceAllString(r, "")
 				if len(str) > 0 {
-					// <ulink url=\"&commit_baseurl ふ含まれていたらその前までを対象にする
-					if idx := strings.Index(r, "<ulink url=\"&commit_baseurl"); idx >= 0 {
-						tag = "para"
-						r = r[:idx]
-					}
 					// <para が含まれていたら<para〜以降を切り出す
 					if idx := strings.Index(r, "<para "); idx > 0 {
 						tag = "para"

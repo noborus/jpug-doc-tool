@@ -31,22 +31,41 @@ type Rep struct {
 	prompt   bool
 }
 
+// NewRep はRep構造体を初期化する関数
+func NewRep(vTag string, update bool, similar int, mt int, prompt bool) (*Rep, error) {
+	rep := &Rep{
+		similar: similar,
+		update:  update,
+		mt:      mt,
+		prompt:  prompt,
+	}
+	if update && vTag == "" {
+		v, err := versionTag()
+		if err != nil {
+			return rep, err
+		}
+		rep.vTag = v
+	} else {
+		rep.vTag = vTag
+	}
+
+	common, err := loadCatalog("common")
+	if err != nil {
+		return rep, err
+	}
+	rep.common = regCompile(common)
+	return rep, nil
+}
+
 // Replace は指定されたファイル名のファイルを置き換える
 func Replace(fileNames []string, vTag string, update bool, similar int, mt int, wip bool, prompt bool) error {
-	rep, err := newOpts(vTag, update, similar, mt, prompt)
+	rep, err := NewRep(vTag, update, similar, mt, prompt)
 	if err != nil {
 		return err
 	}
 	if Verbose {
 		log.Printf("マッチ度 %d 以上を採用。マッチ度 %d 以下であれば機械翻訳を追加\n", rep.similar, rep.mt)
 	}
-
-	rep.common, err = loadCatalog("common")
-	if err != nil {
-		log.Print(err.Error())
-		return err
-	}
-	rep.common = regCompile(rep.common)
 
 	for _, fileName := range fileNames {
 		rep.catalogs, err = loadCatalog(fileName)
@@ -69,24 +88,6 @@ func Replace(fileNames []string, vTag string, update bool, similar int, mt int, 
 		fmt.Printf("replace: %s\n", fileName)
 	}
 	return nil
-}
-
-func newOpts(vTag string, update bool, similar int, mt int, prompt bool) (*Rep, error) {
-	rep := &Rep{
-		similar: similar,
-		update:  update,
-		mt:      mt,
-	}
-	if update && vTag == "" {
-		v, err := versionTag()
-		if err != nil {
-			return rep, err
-		}
-		rep.vTag = v
-	}
-	rep.prompt = prompt
-
-	return rep, nil
 }
 
 // replace はファイルを置き換えた結果を返す
@@ -129,26 +130,26 @@ func (rep *Rep) matchReplace(src []byte) []byte {
 	// 追加形式の翻訳文を追加
 	for _, catalog := range rep.catalogs {
 		if catalog.en == "" {
-			src = rep.matchAdditional(src, catalog)
+			src = matchAdditional(src, catalog)
 		}
 	}
 	// 共通の翻訳文を追加
 	for _, catalog := range rep.common {
 		if catalog.enReg != nil {
-			src = rep.matchCommon(src, catalog)
+			src = matchCommon(src, catalog)
 		}
 	}
 	// コメント形式の翻訳文を追加
 	for _, catalog := range rep.catalogs {
 		if catalog.en != "" {
-			src = rep.matchComment(src, catalog)
+			src = matchComment(src, catalog)
 		}
 	}
 	return src
 }
 
-// カタログを一つづつ置き換える
-func (rep Rep) matchComment(src []byte, catalog Catalog) []byte {
+// カタログを一つずつ置き換える
+func matchComment(src []byte, catalog Catalog) []byte {
 	if catalog.ja == "no translation" {
 		return src
 	}
@@ -241,25 +242,44 @@ func countLeadingSpaces(src []byte, pp int) int {
 	return count
 }
 
-// 共通カタログを一つづつ置き換える
-func (rep Rep) matchCommon(src []byte, catalog Catalog) []byte {
+// 共通カタログを一つずつ置き換える
+func matchCommon(src []byte, catalog Catalog) []byte {
 	if !bytes.Contains(src, []byte(catalog.en)) {
 		return src
 	}
-	log.Printf("matchCommon: %s\n", catalog.en)
-	// src からcatalog.enRegに一致する箇所を正規表現で探す
-	matches := catalog.enReg.FindAllIndex(src, -1)
-	for _, match := range matches {
-		start := match[0]
-		end := match[1]
-		src = bytes.Replace(src, src[start:end], []byte("新しいテキスト"), 1)
-	}
+	// 正規表現にマッチした部分を置き換える
+	src = catalog.enReg.ReplaceAllFunc(src, func(match []byte) []byte {
+		space := ""
+		if catalog.ja[0] == ' ' {
+			space = leftPadSpace(string(match))
+		}
+		// 新しい日本語訳を追加
+		en := REVHIGHHUN.ReplaceAll(match, []byte("&#45;-"))
+		ret := "<!--\n" + string(en) + "-->\n" + space + catalog.ja + "\n"
+		return []byte(ret)
+	})
 	return src
+}
+
+func leftPadSpace(str string) string {
+	spaceCount := 0
+	for i := 0; i < len(str); i++ {
+		if str[i] == ' ' {
+			spaceCount++
+		} else {
+			break
+		}
+	}
+	space := ""
+	if spaceCount > 1 {
+		space = strings.Repeat(" ", spaceCount-1)
+	}
+	return space
 }
 
 func regCompile(catalogs Catalogs) Catalogs {
 	for i := range catalogs {
-		catalogs[i].enReg = regexp.MustCompile(`(?s)(\s*)` + regexp.QuoteMeta(catalogs[i].en) + `$`)
+		catalogs[i].enReg = regexp.MustCompile(`(?s)[^\n]*` + regexp.QuoteMeta(catalogs[i].en) + `\n`)
 	}
 	return catalogs
 }
@@ -277,7 +297,7 @@ func inCDATA(src []byte) bool {
 }
 
 // コメント後の翻訳文の形式以外の追加文。
-func (rep Rep) matchAdditional(src []byte, catalog Catalog) []byte {
+func matchAdditional(src []byte, catalog Catalog) []byte {
 	p := foundReplace(src, catalog)
 	if p == -1 {
 		return src
@@ -333,7 +353,24 @@ func (rep *Rep) paraBlockReplace(src []byte) []byte {
 }
 
 func (rep *Rep) blockReplace(src string) string {
-	rSrc := strings.TrimLeft(src, "\n")
+	urlPost := ""
+	cName := ""
+	rSrc := src
+	// <ulink url=\"&commit_baseurl 含まれていたらその前までを対象にする
+	if idx := strings.Index(rSrc, "<ulink url=\"&commit_baseurl"); idx >= 0 {
+		//urlPost = rSrc[idx:]
+		rSrc = rSrc[:idx]
+		// src内の最後の()を含む内容をcNameに入れる
+		if submatches := regexp.MustCompile(`\([^)]*\)`).FindAllStringSubmatch(rSrc, -1); len(submatches) > 0 {
+			cName = submatches[len(submatches)-1][0] // 最後のマッチを取得
+		}
+		// cName内の改行と連続スペースを一つのスペースに変換
+		cName = strings.ReplaceAll(cName, "\n", " ")                   // 改行をスペースに変換
+		cName = regexp.MustCompile(`\s+`).ReplaceAllString(cName, " ") // 連続スペースを一つのスペースに変換
+		//log.Println("blockReplace:", cName, urlPost)
+	}
+
+	rSrc = strings.TrimLeft(rSrc, "\n")
 	rSrc = strings.TrimRight(rSrc, "\n")
 	srcBlock := strings.Split(rSrc, "\n")
 	if len(srcBlock) < 3 {
@@ -363,7 +400,11 @@ func (rep *Rep) blockReplace(src string) string {
 	simJa = strings.TrimLeft(simJa, " ")
 	simJa = strings.TrimRight(simJa, "\n")
 	// 機械翻訳のためのマークを付ける
-	mtJa := rep.mtMark(enStr, score)
+	mtStr := enStr
+	if cName != "" {
+		mtStr = mtStr[:len(mtStr)-len(cName)]
+	}
+	mtJa := rep.mtMark(mtStr, score)
 	ret, err := replaceDst(score, simJa, mtJa)
 	if err != nil {
 		return src
@@ -371,7 +412,10 @@ func (rep *Rep) blockReplace(src string) string {
 
 	org := REVHIGHHUN2.ReplaceAllString(body, "&#45;&#45;-")
 	org = REVHIGHHUN.ReplaceAllString(org, "&#45;-")
-	dst := fmt.Sprintf("%s\n<!--\n%s\n-->\n%s\n%s", pre, org, ret, post)
+	if cName != "" && !strings.HasSuffix(cName, "\n") {
+		cName += "\n"
+	}
+	dst := fmt.Sprintf("%s\n<!--\n%s\n-->\n%s\n%s%s%s", pre, org, ret, cName, urlPost, post)
 	return strings.Replace(src, rSrc, dst, 1)
 }
 
@@ -412,6 +456,7 @@ func (rep Rep) updateFromCatalog(fileName string, src []byte) ([]byte, error) {
 	org := Extraction(srcDiff)
 	for _, o := range org {
 		src = updateReplaceCatalog(src, rep.catalogs, o, rep.wip)
+		src = updateReplaceCatalog(src, rep.common, o, rep.wip)
 	}
 	return src, nil
 }
