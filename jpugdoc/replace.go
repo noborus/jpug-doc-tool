@@ -135,7 +135,7 @@ func (rep *Rep) matchReplace(src []byte) []byte {
 	}
 	// 共通の翻訳文を追加
 	for _, catalog := range rep.common {
-		if catalog.enReg != nil {
+		if catalog.commonReg != nil {
 			src = matchCommon(src, catalog)
 		}
 	}
@@ -248,14 +248,41 @@ func matchCommon(src []byte, catalog Catalog) []byte {
 		return src
 	}
 	// 正規表現にマッチした部分を置き換える
-	src = catalog.enReg.ReplaceAllFunc(src, func(match []byte) []byte {
+	src = catalog.commonReg.ReplaceAllFunc(src, func(match []byte) []byte {
+		// 前の行を判定するためにサブマッチを取得
+		submatches := catalog.commonReg.FindSubmatch(match)
+
+		// 前の行が<!--\nの場合は置き換えをスキップ
+		if len(submatches) > 1 && submatches[1] != nil {
+			prevLine := string(submatches[1])
+			if strings.HasSuffix(prevLine, "<!--\n") {
+				return match // 置き換えをスキップ
+			}
+		}
+
+		// マッチした内容から前の行を除外して処理する
+		var content []byte
+		if len(submatches) > 1 && submatches[1] != nil {
+			content = match[len(submatches[1]):]
+		} else {
+			content = match
+		}
+
 		space := ""
 		if catalog.ja[0] == ' ' {
-			space = leftPadSpace(string(match))
+			space = leftPadSpace(string(content))
 		}
-		// 新しい日本語訳を追加
-		en := REVHIGHHUN.ReplaceAll(match, []byte("&#45;-"))
-		ret := "<!--\n" + string(en) + "-->\n" + space + catalog.ja + "\n"
+
+		// コメント内の`--`を置き換える
+		en := REVHIGHHUN.ReplaceAll(content, []byte("&#45;-"))
+
+		// 前の行があれば保持する
+		var prefix []byte
+		if len(submatches) > 1 && submatches[1] != nil {
+			prefix = submatches[1]
+		}
+
+		ret := string(prefix) + "<!--\n" + string(en) + "-->\n" + space + catalog.ja + "\n"
 		return []byte(ret)
 	})
 	return src
@@ -279,7 +306,7 @@ func leftPadSpace(str string) string {
 
 func regCompile(catalogs Catalogs) Catalogs {
 	for i := range catalogs {
-		catalogs[i].enReg = regexp.MustCompile(`(?s)[^\n]*` + regexp.QuoteMeta(catalogs[i].en) + `\n`)
+		catalogs[i].commonReg = regexp.MustCompile(`(.*\n)?[^\n]*` + regexp.QuoteMeta(catalogs[i].en) + `\n`)
 	}
 	return catalogs
 }

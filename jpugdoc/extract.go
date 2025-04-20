@@ -16,12 +16,12 @@ import (
 
 // Catalog は原文と日本語訳の対を保持する構造体
 type Catalog struct {
-	pre      string
-	en       string
-	enReg    *regexp.Regexp
-	ja       string
-	preCDATA string
-	post     string
+	pre       string
+	en        string
+	commonReg *regexp.Regexp
+	ja        string
+	preCDATA  string
+	post      string
 }
 
 func (c Catalog) String() string {
