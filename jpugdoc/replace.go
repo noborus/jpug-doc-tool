@@ -290,7 +290,7 @@ func matchCommon(src []byte, catalog Catalog) []byte {
 
 func leftPadSpace(str string) string {
 	spaceCount := 0
-	for i := 0; i < len(str); i++ {
+	for i := range len(str) {
 		if str[i] == ' ' {
 			spaceCount++
 		} else {

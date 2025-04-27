@@ -22,5 +22,5 @@ var mtreplaceCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(mtreplaceCmd)
-	mtreplaceCmd.PersistentFlags().IntP("limit", "l", 100, "Limit for API queries")
+	mtreplaceCmd.PersistentFlags().IntP("limit", "l", 400, "Limit for API queries")
 }

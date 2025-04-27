@@ -258,3 +258,5 @@ func titleMatch2(src []byte) ([]byte, []byte) {
 var RELEASENUM = regexp.MustCompile(`[0-9\.]+`)
 
 var ENTRYNEWLINE = regexp.MustCompile(`(?s)<entry>(.*?)</entry>`)
+
+var HANKAKUKAKKO = regexp.MustCompile(`\((.*?)\)`)

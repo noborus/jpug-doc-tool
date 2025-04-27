@@ -25,7 +25,7 @@ var MTMARKREG = regexp.MustCompile(`«(.*?)»`)
 func MTReplace(fileNames []string, limit int, prompt bool) error {
 	cli, err := newTextra(Config)
 	if err != nil {
-		return fmt.Errorf("textra: %s", err)
+		return fmt.Errorf("textra: %w", err)
 	}
 	tokenizer, err := english.NewSentenceTokenizer(nil)
 	if err != nil {
@@ -131,11 +131,10 @@ func (mt *MTType) splitSentences(src string) []string {
 }
 
 func postProcess(str string) string {
-	re := regexp.MustCompile(`\((.*?)\)`)
-	str = re.ReplaceAllStringFunc(str, func(m string) string {
+	str = HANKAKUKAKKO.ReplaceAllStringFunc(str, func(m string) string {
 		// Remove the ( and )
 		inner := m[1 : len(m)-1]
-		// Check if the inner string contains any full-width characters
+		// Check if the inner string contains any full-width characters(\u007F is the last ASCII character).
 		for _, r := range inner {
 			if r > '\u007F' {
 				// If it does, replace the brackets with full-width brackets
@@ -145,6 +144,7 @@ func postProcess(str string) string {
 		// If it doesn't, return the match as is
 		return m
 	})
+
 	str = KUTEN2.ReplaceAllStringFunc(str, func(m string) string {
 		if m == "。）" {
 			return "。）\n"
