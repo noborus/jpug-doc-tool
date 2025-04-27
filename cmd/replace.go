@@ -41,7 +41,10 @@ var replaceCmd = &cobra.Command{
 			return err
 		}
 
-		fileNames := expandFileNames(args)
+		fileNames, err := expandFileNames(args)
+		if err != nil {
+			return err
+		}
 		return jpugdoc.Replace(fileNames, vtag, update, similar, mts, wip, prompt)
 	},
 }

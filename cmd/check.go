@@ -15,7 +15,10 @@ var checkCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fileNames := expandFileNames(args)
+		fileNames, err := expandFileNames(args)
+		if err != nil {
+			return err
+		}
 		return jpugdoc.Check(fileNames, *cf)
 	},
 }

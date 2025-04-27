@@ -20,7 +20,10 @@ var wordCmd = &cobra.Command{
 			return err
 		}
 
-		fileNames := expandFileNames(args)
+		fileNames, err := expandFileNames(args)
+		if err != nil {
+			return err
+		}
 		return jpugdoc.CheckWord(en, ja, vtag, fileNames)
 	},
 }

@@ -11,7 +11,10 @@ var extractCmd = &cobra.Command{
 	Short: "英語と日本語翻訳を抽出する",
 	Long:  `jpug-docの文書から英語と日本語翻訳を抽出する`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fileNames := expandFileNames(args)
+		fileNames, err := expandFileNames(args)
+		if err != nil {
+			return err
+		}
 		return jpugdoc.ExtractCommon(vtag, fileNames)
 	},
 }

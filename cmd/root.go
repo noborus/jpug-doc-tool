@@ -32,16 +32,16 @@ func targetFileName() []string {
 	return fileNames
 }
 
-func expandFileNames(args []string) []string {
+func expandFileNames(args []string) ([]string, error) {
 	if len(args) == 0 {
-		return targetFileName()
+		return targetFileName(), nil
 	}
 
 	expandedArgs := []string{}
 	for _, arg := range args {
 		fileInfo, err := os.Stat(arg)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		if fileInfo.IsDir() {
 			err := filepath.Walk(arg, func(path string, info os.FileInfo, err error) error {
@@ -51,14 +51,14 @@ func expandFileNames(args []string) []string {
 				return nil
 			})
 			if err != nil {
-				log.Fatal(err)
+				return nil, err
 			}
 		} else {
 			expandedArgs = append(expandedArgs, arg)
 		}
 	}
 	expandedArgs = jpugdoc.IgnoreFileNames(expandedArgs)
-	return expandedArgs
+	return expandedArgs, nil
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -67,7 +67,7 @@ var rootCmd = &cobra.Command{
 	Version: jpugdoc.Version,
 	Short:   "jpug-doc tool",
 	Long: `
-jpug-doc の翻訳を補助ツール。
+jpug-doc の翻訳を補助するツール。
 前バージョンの翻訳を新しいバージョンに適用したり、
 翻訳のチェックが可能です。`,
 }

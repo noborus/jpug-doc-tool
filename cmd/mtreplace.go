@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/noborus/jpug-doc-tool/jpugdoc"
 	"github.com/spf13/cobra"
 )
@@ -13,9 +15,12 @@ var mtreplaceCmd = &cobra.Command{
 		var limit int
 		var err error
 		if limit, err = cmd.PersistentFlags().GetInt("limit"); err != nil {
+			return fmt.Errorf("failed to get 'limit' flag: %w", err)
+		}
+		fileNames, err := expandFileNames(args)
+		if err != nil {
 			return err
 		}
-		fileNames := expandFileNames(args)
 		return jpugdoc.MTReplace(fileNames, limit, false)
 	},
 }
