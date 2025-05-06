@@ -26,6 +26,7 @@ func CheckWord(en string, ja string, vTag string, fileNames []string) error {
 	w := os.Stdout
 
 	found := false
+	eCount, jCount := 0, 0
 	for _, fileName := range fileNames {
 		src, err := getDiff(vTag, fileName)
 		if err != nil {
@@ -36,9 +37,15 @@ func CheckWord(en string, ja string, vTag string, fileNames []string) error {
 			var eExist, jExist bool
 			if en != "" {
 				eExist = checkPairEn(pair, en)
+				if eExist {
+					eCount++
+				}
 			}
 			if ja != "" {
 				jExist = checkPairJa(pair, en, ja)
+				if jExist {
+					jCount++
+				}
 			}
 
 			writeF := false
@@ -58,7 +65,9 @@ func CheckWord(en string, ja string, vTag string, fileNames []string) error {
 			}
 		}
 	}
-	if !found {
+	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintf(os.Stderr, "[%s](%d):[%s](%d)\n", en, eCount, ja, jCount)
+	if !found && eCount == 0 && jCount == 0 {
 		fmt.Fprintln(os.Stderr, gchalk.Red("Not found", ":", en))
 	}
 	return nil
