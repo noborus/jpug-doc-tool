@@ -1,7 +1,10 @@
 package jpugdoc
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -289,6 +292,87 @@ func Test_authorCheck(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := authorCheck(tt.args.authors, tt.args.en, tt.args.ja); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("authorCheck() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_checkPara(t *testing.T) {
+	type tc struct {
+		name         string
+		content      string
+		wantLen      int
+		wantContains string
+	}
+
+	tests := []tc{
+		{
+			name: "para one word without comment is ignored",
+			content: `<para>
+test
+</para>
+`,
+			wantLen: 0,
+		},
+		{
+			name: "para with space without comment",
+			content: `<para>
+test line
+</para>
+`,
+			wantLen:      1,
+			wantContains: "<para>",
+		},
+		{
+			name: "entry one line without comment",
+			content: `      <entry>External Syntax</entry>
+`,
+			wantLen:      1,
+			wantContains: "<entry>External Syntax</entry>",
+		},
+		{
+			name: "entry one word without comment is ignored",
+			content: `      <entry>Syntax</entry>
+`,
+			wantLen: 0,
+		},
+		{
+			name: "title one line without comment",
+			content: `  <title>Accessing a Database</title>
+`,
+			wantLen:      1,
+			wantContains: "<title>Accessing a Database</title>",
+		},
+		{
+			name: "entry in comment with japanese translation",
+			content: `  <!--
+  <entry>External Syntax</entry>
+  -->
+  <entry>外部構文</entry>
+`,
+			wantLen: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "check.sgml")
+			if err := os.WriteFile(path, []byte(tt.content), 0o600); err != nil {
+				t.Fatalf("failed to write test file: %v", err)
+			}
+
+			f, err := os.Open(path)
+			if err != nil {
+				t.Fatalf("failed to open test file: %v", err)
+			}
+			defer f.Close()
+
+			got := checkPara(nil, f)
+			if len(got) != tt.wantLen {
+				t.Fatalf("checkPara() len = %d, want %d", len(got), tt.wantLen)
+			}
+			if tt.wantLen > 0 && !strings.Contains(got[0].en, tt.wantContains) {
+				t.Fatalf("checkPara() target = %q, want contain %q", got[0].en, tt.wantContains)
 			}
 		})
 	}

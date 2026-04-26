@@ -9,11 +9,26 @@ import (
 	"github.com/jwalton/gchalk"
 )
 
-// CheckWord は英単語に対して日本語の単語が対になっているかをチェックする
-// en: 英単語
-// ja: 日本語の単語
-// vTag: バージョンタグ
-// fileNames: ファイル名
+// CheckWord checks if the given English word (en) is paired with the corresponding Japanese word (ja) in the specified files.
+// If both en and ja are provided, it identifies pairs where the English word exists but the Japanese word does not.
+// If only en is provided, it checks for the presence of the English word.
+// If only ja is provided, it checks for the presence of the Japanese word.
+//
+// Parameters:
+//   - en: The English word to search for.
+//   - ja: The Japanese word to search for.
+//   - vTag: The version tag to use for retrieving file differences. If empty, it will be determined automatically.
+//   - fileNames: A list of file names to search within.
+//
+// Returns:
+//   - An error if there is an issue retrieving the version tag or file differences, or nil if the operation completes successfully.
+//
+// Example:
+//
+//	err := CheckWord("example", "例", "v1.0", []string{"file1.txt", "file2.txt"})
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 func CheckWord(en string, ja string, vTag string, fileNames []string) error {
 	if vTag == "" {
 		v, err := versionTag()
@@ -58,17 +73,17 @@ func CheckWord(en string, ja string, vTag string, fileNames []string) error {
 			}
 
 			if writeF {
-				fmt.Println(gchalk.WithBgYellow().Black(fileName))
+				fmt.Fprintln(w, gchalk.WithBgYellow().Black(fileName))
 				fmt.Fprintln(w, gchalk.Green(pair.en))
 				fmt.Fprintln(w, pair.ja)
 				found = true
 			}
 		}
 	}
-	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(os.Stderr)
 	fmt.Fprintf(os.Stderr, "[%s](%d):[%s](%d)\n", en, eCount, ja, jCount)
 	if !found && eCount == 0 && jCount == 0 {
-		fmt.Fprintln(os.Stderr, gchalk.Red("Not found", ":", en))
+		fmt.Fprintln(os.Stderr, gchalk.Red("Not found: "+en))
 	}
 	return nil
 }

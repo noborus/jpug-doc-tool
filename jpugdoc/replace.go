@@ -153,6 +153,11 @@ func matchComment(src []byte, catalog Catalog) []byte {
 	if catalog.ja == "no translation" {
 		return src
 	}
+	if catalog.en == "This parameter can only be set at server start." {
+		log.Println("matchComment:", catalog.en)
+		return src
+	}
+
 	cen := append([]byte(catalog.en), '\n')
 	hen := REVHIGHHUN2.ReplaceAll(cen, []byte("&#45;&#45;-"))
 	hen = REVHIGHHUN.ReplaceAll(hen, []byte("&#45;-"))
@@ -245,6 +250,10 @@ func countLeadingSpaces(src []byte, pp int) int {
 // 共通カタログを一つずつ置き換える
 func matchCommon(src []byte, catalog Catalog) []byte {
 	if !bytes.Contains(src, []byte(catalog.en)) {
+		return src
+	}
+	if catalog.en == "This parameter can only be set at server start." {
+		log.Println("matchComment:", catalog.en)
 		return src
 	}
 	// 正規表現にマッチした部分を置き換える
@@ -362,6 +371,7 @@ func (rep *Rep) unmatchedReplace(fileName string, src []byte) ([]byte, error) {
 	// <para>ブロックの書き換え
 	ret = rep.paraBlockReplace(ret)
 	// 空カッコ《》の書き換え
+	log.Println("未翻訳箇所の置き換え:", fileName)
 	ret = BLANKBRACKET.ReplaceAllFunc(ret, rep.blankBracketReplace)
 	return ret, nil
 }
@@ -385,7 +395,7 @@ func (rep *Rep) blockReplace(src string) string {
 	rSrc := src
 	// <ulink url=\"&commit_baseurl 含まれていたらその前までを対象にする
 	if idx := strings.Index(rSrc, "<ulink url=\"&commit_baseurl"); idx >= 0 {
-		//urlPost = rSrc[idx:]
+		// urlPost = rSrc[idx:]
 		rSrc = rSrc[:idx]
 		// src内の最後の()を含む内容をcNameに入れる
 		if submatches := regexp.MustCompile(`\([^)]*\)`).FindAllStringSubmatch(rSrc, -1); len(submatches) > 0 {
@@ -394,7 +404,7 @@ func (rep *Rep) blockReplace(src string) string {
 		// cName内の改行と連続スペースを一つのスペースに変換
 		cName = strings.ReplaceAll(cName, "\n", " ")                   // 改行をスペースに変換
 		cName = regexp.MustCompile(`\s+`).ReplaceAllString(cName, " ") // 連続スペースを一つのスペースに変換
-		//log.Println("blockReplace:", cName, urlPost)
+		// log.Println("blockReplace:", cName, urlPost)
 	}
 
 	rSrc = strings.TrimLeft(rSrc, "\n")
@@ -427,6 +437,10 @@ func (rep *Rep) blockReplace(src string) string {
 	simJa = strings.TrimLeft(simJa, " ")
 	simJa = strings.TrimRight(simJa, "\n")
 	// 機械翻訳のためのマークを付ける
+	if len(enStr) < len(cName) {
+		log.Printf("blockReplace: skip because enStr is shorter than cName. enStr: %s, cName: %s\n", enStr, cName)
+		return src
+	}
 	mtStr := enStr
 	if cName != "" {
 		mtStr = mtStr[:len(mtStr)-len(cName)]
@@ -528,6 +542,7 @@ func (rep *Rep) blankBracketReplace(src []byte) []byte {
 	if subMatch == nil {
 		return src
 	}
+	log.Println("blankBracketReplace")
 	enStr := stripNL(string(subMatch[1]))
 	simJa, score := rep.findSimilar(enStr)
 	if simJa == "no translation" {

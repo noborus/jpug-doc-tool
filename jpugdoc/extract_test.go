@@ -277,6 +277,7 @@ func Test_trimPrefix(t *testing.T) {
 		})
 	}
 }
+
 func TestSplitEntry(t *testing.T) {
 	tests := []struct {
 		name     string

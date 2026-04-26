@@ -52,8 +52,11 @@ var listCmd = &cobra.Command{
 
 		fileNames, err := expandFileNames(args)
 		if err != nil {
-			log.Println(err)
-			return
+			if len(args) != 1 {
+				log.Println(err)
+				return
+			}
+			fileNames = []string{args[0]}
 		}
 		if tsv {
 			jpugdoc.TSVList(true, fileNames)

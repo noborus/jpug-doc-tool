@@ -394,35 +394,70 @@ func fileCheck(fileName string, cf CheckFlag) error {
 func checkPara(ignoreList IgnoreList, f *os.File) []result {
 	var results []result
 	var buf strings.Builder
-	var paraFlag, commentFlag bool
+	var blockFlag, commentFlag bool
+	var endTag string
 	scanner := bufio.NewScanner(f)
+	tags := []string{"para", "entry", "title"}
+
+	startBlock := func(line string, tag string) {
+		blockFlag = true
+		endTag = "</" + tag + ">"
+		buf.Reset()
+		buf.WriteString(line)
+		buf.WriteRune('\n')
+	}
+
+	checkSingleLine := func(line string, tag string) bool {
+		start := "<" + tag + ">"
+		end := "</" + tag + ">"
+		if strings.Contains(line, start) && strings.Contains(line, end) {
+			results = checkParaContent(ignoreList, line+"\n", results)
+			return true
+		}
+		return false
+	}
+
 	for scanner.Scan() {
 		line := scanner.Text()
-		// log.Println(paraFlag, commentFlag, line)
-		if !commentFlag && !paraFlag && strings.Contains(line, "<para>") {
-			if !strings.Contains(line, "</para>") {
-				paraFlag = true
-				buf.Reset()
-				buf.WriteString(line)
-				buf.WriteRune('\n')
+		trimmedLine := strings.TrimSpace(line)
+		// log.Println(blockFlag, commentFlag, line)
+
+		if !commentFlag && !blockFlag {
+			matched := false
+			for _, tag := range tags {
+				start := "<" + tag + ">"
+				if !strings.Contains(line, start) {
+					continue
+				}
+				matched = true
+				if checkSingleLine(line, tag) {
+					break
+				}
+				startBlock(line, tag)
+				break
+			}
+			if matched {
 				continue
 			}
 		}
-		if paraFlag {
+
+		if blockFlag {
 			buf.WriteString(line)
 			buf.WriteRune('\n')
 		}
-		if !commentFlag && strings.Contains(line, "</para>") {
-			paraFlag = false
+		if !commentFlag && blockFlag && strings.Contains(line, endTag) {
+			blockFlag = false
+			endTag = ""
 			results = checkParaContent(ignoreList, buf.String(), results)
 			buf.Reset()
 			continue
 		}
-		if !paraFlag && strings.HasPrefix(line, "-->") {
+
+		if !blockFlag && strings.HasPrefix(trimmedLine, "-->") {
 			commentFlag = false
 			continue
 		}
-		if !paraFlag && strings.HasPrefix(line, "<!--") {
+		if !blockFlag && strings.HasPrefix(trimmedLine, "<!--") {
 			commentFlag = true
 			continue
 		}
@@ -432,6 +467,10 @@ func checkPara(ignoreList IgnoreList, f *os.File) []result {
 
 func checkParaContent(ignoreList IgnoreList, para string, results []result) []result {
 	if len(para) == 0 {
+		return results
+	}
+	text := strings.TrimSpace(RETAG.ReplaceAllString(para, ""))
+	if !strings.Contains(text, " ") {
 		return results
 	}
 	if strings.Contains(para, "<!--") {

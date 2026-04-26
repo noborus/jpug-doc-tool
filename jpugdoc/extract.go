@@ -98,6 +98,7 @@ func findNotSameCommon(seen map[string][]string) Catalogs {
 	}
 	return uniques
 }
+
 func uniqueStrings(slice []string) []string {
 	seen := make(map[string]bool)
 	unique := []string{}
@@ -177,7 +178,6 @@ func splitEntry(catalog Catalog) (bool, Catalogs) {
 		}
 	}
 	return true, catalogs
-
 }
 
 func containsNewlineInEntry(content string) bool {
@@ -259,9 +259,11 @@ func skipHeader(scanner *bufio.Scanner) {
 
 // git diffの結果を省略せずに取得する
 func getDiff(vTag string, fileName string) ([]byte, error) {
-	// git diff --histogram -U10000 REL_16_0 doc/src/sgml/ref/backup.sgml
-	args := []string{"diff", "--histogram", "-U10000", vTag, fileName}
-	cmd := exec.Command("git", args...)
+	enFileName := fileName + ".en"
+	cmd := gitDiffCommand(vTag, fileName)
+	if _, err := os.Stat(enFileName); err == nil {
+		cmd = enFileDiffCommand(enFileName, fileName)
+	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, err
@@ -275,6 +277,20 @@ func getDiff(vTag string, fileName string) ([]byte, error) {
 	}
 	cmd.Wait()
 	return src, nil
+}
+
+func gitDiffCommand(vTag string, fileName string) *exec.Cmd {
+	// git diff --histogram -U10000 REL_16_0 doc/src/sgml/ref/backup.sgml
+	args := []string{"diff", "--histogram", "-U10000", vTag, fileName}
+	cmd := exec.Command("git", args...)
+	return cmd
+}
+
+func enFileDiffCommand(enFileName, fileName string) *exec.Cmd {
+	// log.Println("enFileDiffCommand", enFileName, fileName)
+	args := []string{"-U10000", enFileName, fileName}
+	cmd := exec.Command("diff", args...)
+	return cmd
 }
 
 // diff を原文と日本語訳の対(Catalog)の配列に変換する

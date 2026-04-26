@@ -148,6 +148,7 @@ func TestRep_findSimilar(t *testing.T) {
 		})
 	}
 }
+
 func TestMatchCommon(t *testing.T) {
 	tests := []struct {
 		name    string
