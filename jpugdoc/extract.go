@@ -10,8 +10,6 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
-
-	"github.com/jwalton/gchalk"
 )
 
 // Catalog は原文と日本語訳の対を保持する構造体
@@ -41,30 +39,6 @@ func Extract(vTag string, fileNames []string) error {
 	return err
 }
 
-// ExtractCommon は、ファイル名の配列を受け取り、それぞれのファイル名のdiffから原文と日本語訳の対の配列を抽出し、
-// それらをまとめて、原文が同じで日本語訳も同じものを抽出して、common.sgml.tに保存する。
-// また、原文が同じで日本語訳が異なるものを抽出して、標準出力に表示する。
-func ExtractCommon(vTag string, fileNames []string) error {
-	common, err := extract(vTag, true, fileNames)
-	if err != nil {
-		return fmt.Errorf("ExtractCommon: %w", err)
-	}
-	common = catalogsSplits(common)
-	seen := toSeen(common)
-
-	duplicates := findAllSameCommon(seen)
-	if len(duplicates) > 0 {
-		saveCatalog("common", duplicates)
-	}
-	notEq := findNotSameCommon(seen)
-	for _, catalog := range notEq {
-		fmt.Println(gchalk.Green(catalog.en))
-		fmt.Println(catalog.ja)
-		fmt.Println()
-	}
-	return nil
-}
-
 // seenから、原文が同じで日本語訳も同じものを抽出する
 func findAllSameCommon(seen map[string][]string) Catalogs {
 	unique := make(map[string]Catalog)
@@ -77,66 +51,7 @@ func findAllSameCommon(seen map[string][]string) Catalogs {
 		}
 	}
 
-	uniques := Catalogs{}
-	for _, catalog := range unique {
-		uniques = append(uniques, catalog)
-	}
-	return uniques
-}
-
-// seenから、原文が同じで日本語訳が異なるものを抽出する
-func findNotSameCommon(seen map[string][]string) Catalogs {
-	unique := make(map[string]Catalog)
-	for en, jas := range seen {
-		if len(en) <= 12 { // 原文が12文字以下のものは除外する
-			continue
-		}
-		if len(jas) <= 1 {
-			continue
-		}
-		uniqJa := uniqueStrings(jas)
-		if len(uniqJa) > 1 {
-			unique[en] = Catalog{en: en}
-		}
-	}
-
-	uniques := Catalogs{}
-	for _, catalog := range unique {
-		uniques = append(uniques, catalog)
-	}
-	return uniques
-}
-
-func uniqueStrings(slice []string) []string {
-	seen := make(map[string]bool)
-	unique := []string{}
-
-	for _, v := range slice {
-		j := stripNL(v)
-		if !seen[j] {
-			seen[j] = true
-			unique = append(unique, v)
-		}
-	}
-
-	return unique
-}
-
-// toSeen はカタログの配列を原文をキーとして、日本語訳の配列を値とするマップに変換する
-func toSeen(catalogs Catalogs) map[string][]string {
-	seen := make(map[string][]string)
-	for _, catalog := range catalogs {
-		if catalog.en == "" || catalog.ja == "" || catalog.ja == "no translation" {
-			continue
-		}
-		en := stripNL(catalog.en)
-		en = strings.Join(strings.Fields(en), " ")
-		// 最初の連続スペースを一つのスペースに変換
-		ja := STARTSPACE.ReplaceAllString(catalog.ja, " ")
-		seen[en] = append(seen[en], ja)
-	}
-	seen = addTitle(seen)
-	return seen
+	return sortedCatalogs(unique)
 }
 
 func catalogsSplits(catalogs Catalogs) Catalogs {

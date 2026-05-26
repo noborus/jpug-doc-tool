@@ -15,7 +15,7 @@ var extractCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return jpugdoc.ExtractCommon(vtag, fileNames)
+		return jpugdoc.Extract(vtag, fileNames)
 	},
 }
 
