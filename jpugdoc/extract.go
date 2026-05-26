@@ -41,10 +41,13 @@ func Extract(vTag string, fileNames []string) error {
 	return err
 }
 
+// ExtractCommon は、ファイル名の配列を受け取り、それぞれのファイル名のdiffから原文と日本語訳の対の配列を抽出し、
+// それらをまとめて、原文が同じで日本語訳も同じものを抽出して、common.sgml.tに保存する。
+// また、原文が同じで日本語訳が異なるものを抽出して、標準出力に表示する。
 func ExtractCommon(vTag string, fileNames []string) error {
 	common, err := extract(vTag, true, fileNames)
 	if err != nil {
-		return err
+		return fmt.Errorf("ExtractCommon: %w", err)
 	}
 	common = catalogsSplits(common)
 	seen := toSeen(common)
@@ -62,6 +65,7 @@ func ExtractCommon(vTag string, fileNames []string) error {
 	return nil
 }
 
+// seenから、原文が同じで日本語訳も同じものを抽出する
 func findAllSameCommon(seen map[string][]string) Catalogs {
 	unique := make(map[string]Catalog)
 	for en, jas := range seen {
@@ -80,9 +84,13 @@ func findAllSameCommon(seen map[string][]string) Catalogs {
 	return uniques
 }
 
+// seenから、原文が同じで日本語訳が異なるものを抽出する
 func findNotSameCommon(seen map[string][]string) Catalogs {
 	unique := make(map[string]Catalog)
 	for en, jas := range seen {
+		if len(en) <= 12 { // 原文が12文字以下のものは除外する
+			continue
+		}
 		if len(jas) <= 1 {
 			continue
 		}
@@ -144,7 +152,7 @@ func catalogsSplits(catalogs Catalogs) Catalogs {
 	return newCatalogs
 }
 
-// <entry>1</entry>\n<entry>2</entry>のよう複数ある<entry>を分割する
+// <entry>1</entry>\n<entry>2</entry>のような複数ある<entry>を分割する
 func splitEntry(catalog Catalog) (bool, Catalogs) {
 	if !strings.Contains(catalog.en, "<entry>") || !strings.Contains(catalog.en, "</entry>") {
 		return false, Catalogs{catalog}
@@ -219,7 +227,7 @@ func extract(vTag string, common bool, fileNames []string) (Catalogs, error) {
 	if vTag == "" {
 		v, err := versionTag()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("extract: %w", err)
 		}
 		vTag = v
 	}
@@ -237,7 +245,7 @@ func extract(vTag string, common bool, fileNames []string) (Catalogs, error) {
 		catalogs = catalogsSplits(catalogs)
 		catalogs, err = noTransPara(catalogs, fileName)
 		if err != nil {
-			log.Println(err)
+			log.Println("noTransPara error:", err)
 		}
 		saveCatalog(fileName, catalogs)
 		if common {
