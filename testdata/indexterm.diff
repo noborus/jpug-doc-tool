@@ -1,0 +1,23 @@
+header1
+header2
+header3
+@@
+   <sect1 id="tutorial-accessdb">
++<!--
+    <title>Accessing a Database</title>
++-->
++   <title>データベースへのアクセス</title>
+ 
+    <indexterm zone="tutorial-accessdb">
+     <primary>psql</primary>
+    </indexterm>
+ 
++<!--
+     <indexterm><primary>superuser</primary></indexterm>
+     The last line could also be:
++-->
++    <indexterm><primary>スーパーユーザ</primary></indexterm>
++最後の行は以下のようになっているかもしれません。
+ <screen>
+ mydb=#
+ </screen>
