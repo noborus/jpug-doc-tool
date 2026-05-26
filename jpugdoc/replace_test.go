@@ -164,7 +164,7 @@ func TestMatchCommon(t *testing.T) {
 				ja:        " 新しいテキスト",
 				commonReg: regexp.MustCompile(`(?s)(\s*)This is a test.\n`),
 			},
-			want: []byte("<!--\n   This is a test.\n-->\n   新しいテキスト\nAnother line."),
+			want: []byte("   <!--\nThis is a test.\n-->\n 新しいテキスト\nAnother line."),
 		},
 		{
 			name: "No match, no replacement",
