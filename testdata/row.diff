@@ -1,0 +1,14 @@
+header1
+header2
+header3
+@@
+      <row>
++<!--
+       <entry>External Syntax</entry>
++-->
++      <entry>外部構文</entry>
++<!--
+       <entry>Meaning</entry>
++-->
++      <entry>意味</entry>
+      </row>
