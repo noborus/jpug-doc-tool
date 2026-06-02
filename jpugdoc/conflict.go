@@ -2,14 +2,34 @@ package jpugdoc
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"sort"
 	"strings"
 
 	"github.com/jwalton/gchalk"
 )
 
+const (
+	ConflictFormatText = "text"
+	ConflictFormatGHMD = "gh-md"
+)
+
+type ConflictOption struct {
+	Format string
+}
+
+type conflictCatalog struct {
+	en  string
+	jas map[string]int
+}
+
 // Conflict は、原文が同じで日本語訳が異なるものを抽出して標準出力に表示する。
-func Conflict(vTag string, fileNames []string) error {
+func Conflict(vTag string, fileNames []string, opt ConflictOption) error {
+	if opt.Format == "" {
+		opt.Format = ConflictFormatText
+	}
+
 	common, err := extract(vTag, true, fileNames)
 	if err != nil {
 		return fmt.Errorf("Conflict: %w", err)
@@ -17,11 +37,40 @@ func Conflict(vTag string, fileNames []string) error {
 	common = catalogsSplits(common)
 	seen := toSeen(common)
 
-	notEq := findNotSameCommon(seen)
-	for _, catalog := range notEq {
-		fmt.Println(gchalk.Green(catalog.en))
-		fmt.Println(catalog.ja)
-		fmt.Println()
+	return writeConflict(os.Stdout, findNotSameCommon(seen), opt)
+}
+
+func writeConflict(w io.Writer, catalogs []conflictCatalog, opt ConflictOption) error {
+	switch opt.Format {
+	case ConflictFormatText:
+		for _, catalog := range catalogs {
+			fmt.Fprintln(w, gchalk.Green(catalog.en))
+			for ja := range catalog.jas {
+				fmt.Fprintln(w, ja)
+			}
+			fmt.Fprintln(w)
+		}
+	case ConflictFormatGHMD:
+		for i, catalog := range catalogs {
+			fmt.Fprintf(w, "### Conflict %d\n\n", i+1)
+			fmt.Fprintln(w, "**英語**")
+			fmt.Fprintln(w, "```xml")
+			fmt.Fprintln(w, catalog.en)
+			fmt.Fprintln(w, "```")
+			fmt.Fprintln(w)
+			fmt.Fprintln(w, "**日本語候補**")
+			i := 1
+			for ja := range catalog.jas {
+				fmt.Fprintf(w, "%d. (%d)\n", i, catalog.jas[ja])
+				fmt.Fprintln(w, "```xml")
+				fmt.Fprintln(w, ja)
+				fmt.Fprintln(w, "```")
+				i++
+			}
+			fmt.Fprintln(w)
+		}
+	default:
+		return fmt.Errorf("unsupported conflict format: %s", opt.Format)
 	}
 	return nil
 }
@@ -44,8 +93,8 @@ func toSeen(catalogs Catalogs) map[string][]string {
 }
 
 // seenから、原文が同じで日本語訳が異なるものを抽出する
-func findNotSameCommon(seen map[string][]string) Catalogs {
-	unique := make(map[string]Catalog)
+func findNotSameCommon(seen map[string][]string) []conflictCatalog {
+	uniques := []conflictCatalog{}
 	for en, jas := range seen {
 		if len(en) <= 12 { // 原文が12文字以下のものは除外する
 			continue
@@ -53,13 +102,15 @@ func findNotSameCommon(seen map[string][]string) Catalogs {
 		if len(jas) <= 1 {
 			continue
 		}
-		uniqJa := uniqueStrings(jas)
-		if len(uniqJa) > 1 {
-			unique[en] = Catalog{en: en, ja: strings.Join(uniqJa, "\n")}
+		countJa := countStrings(jas)
+		if len(countJa) > 1 {
+			uniques = append(uniques, conflictCatalog{en: en, jas: countJa})
 		}
 	}
-
-	return sortedCatalogs(unique)
+	sort.Slice(uniques, func(i, j int) bool {
+		return uniques[i].en < uniques[j].en
+	})
+	return uniques
 }
 
 func sortedCatalogs(unique map[string]Catalog) Catalogs {
@@ -73,17 +124,12 @@ func sortedCatalogs(unique map[string]Catalog) Catalogs {
 	return uniques
 }
 
-func uniqueStrings(slice []string) []string {
-	seen := make(map[string]bool)
-	unique := []string{}
-
+// countStrings は、文字列のスライスを受け取り、各文字列の出現回数をマップで返す
+func countStrings(slice []string) map[string]int {
+	counts := make(map[string]int)
 	for _, v := range slice {
 		j := stripNL(v)
-		if !seen[j] {
-			seen[j] = true
-			unique = append(unique, v)
-		}
+		counts[j]++
 	}
-
-	return unique
+	return counts
 }

@@ -51,6 +51,21 @@ jpug-doc-tool extract
 内部的には `git diff REL_15_4 doc_ja_15`を実行して、変更箇所から英語と日本語を抽出します。
 抽出は`.jpug-doc-tool`ディレクトリに`ファイル名.sgml.t`ファイルを作成します。
 
+### Conflictコマンド
+
+`conflict`サブコマンドは、同じ英文に対して日本語訳が複数ある候補を表示します。
+
+```console
+jpug-doc-tool conflict
+```
+
+GitHubのIssue/PRに貼り付ける場合は、`--format gh-md`を指定するとMarkdown形式で出力されます。
+本文は`xml`のコードブロックで囲まれるため、タグが解釈されません。
+
+```console
+jpug-doc-tool conflict --format gh-md
+```
+
 ### 置き換えコマンド
 
 `replace`サブコマンドにより、英文、翻訳文の抽出した翻訳文（doc/src/sgml/.jpug-doc-toolディレクトリにあるファイル）を新しいバージョンに適用して、英語のみの文書から英語、翻訳文の形式に置き換えます。

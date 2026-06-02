@@ -5,6 +5,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var conflictFormat string
+
 // conflictCmd represents the conflict command
 var conflictCmd = &cobra.Command{
 	Use:   "conflict",
@@ -15,10 +17,12 @@ var conflictCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return jpugdoc.Conflict(vtag, fileNames)
+		opt := jpugdoc.ConflictOption{Format: conflictFormat}
+		return jpugdoc.Conflict(vtag, fileNames, opt)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(conflictCmd)
+	conflictCmd.PersistentFlags().StringVar(&conflictFormat, "format", jpugdoc.ConflictFormatText, "output format: text|gh-md")
 }
