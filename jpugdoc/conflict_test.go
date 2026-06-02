@@ -35,11 +35,11 @@ func TestWriteConflictGHMD(t *testing.T) {
 		"**日本語候補**",
 		"1. (1)",
 		"```xml",
-		"<para>データベースへのアクセス</para>",
+		"<para>DBアクセス</para>",
 		"```",
 		"2. (1)",
 		"```xml",
-		"<para>DBアクセス</para>",
+		"<para>データベースへのアクセス</para>",
 		"```",
 		"",
 	}, "\n")

@@ -60,7 +60,12 @@ func writeConflict(w io.Writer, catalogs []conflictCatalog, opt ConflictOption) 
 			fmt.Fprintln(w)
 			fmt.Fprintln(w, "**日本語候補**")
 			i := 1
+			jas := make([]string, 0, len(catalog.jas))
 			for ja := range catalog.jas {
+				jas = append(jas, ja)
+			}
+			sort.Strings(jas)
+			for _, ja := range jas {
 				fmt.Fprintf(w, "%d. (%d)\n", i, catalog.jas[ja])
 				fmt.Fprintln(w, "```xml")
 				fmt.Fprintln(w, ja)
