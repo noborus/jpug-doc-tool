@@ -462,6 +462,9 @@ func checkPara(ignoreList IgnoreList, f *os.File) []result {
 			continue
 		}
 	}
+	if err := scanner.Err(); err != nil {
+		return results
+	}
 	return results
 }
 

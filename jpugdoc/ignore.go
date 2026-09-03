@@ -30,6 +30,9 @@ func readIgnore(f io.Reader) IgnoreList {
 	for scanner.Scan() {
 		ignores[scanner.Text()] = true
 	}
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
 	return ignores
 }
 

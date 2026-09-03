@@ -210,5 +210,8 @@ func getMember(f *os.File) map[string]bool {
 			members[m] = true
 		}
 	}
+	if err := scanner.Err(); err != nil {
+		log.Printf("reading member file: %v", err)
+	}
 	return members
 }

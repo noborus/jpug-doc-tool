@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -398,8 +399,8 @@ func Extraction(diffSrc []byte) []Catalog {
 // 逆から最初のブロックを残す
 func prefixBlock(s []string) []string {
 	blockF := false
-	for i := len(s) - 1; i >= 0; i-- {
-		if s[i] == "" && i < len(s)-3 { // 最低3行は残す
+	for i, v := range slices.Backward(s) {
+		if v == "" && i < len(s)-3 { // 最低3行は残す
 			if blockF {
 				return s[i+1:]
 			}
