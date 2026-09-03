@@ -3,6 +3,7 @@ package jpugdoc
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -35,8 +36,14 @@ func (cs Catalogs) String() string {
 // ファイル名の配列を受け取り、それぞれのファイル名のdiffから原文と日本語訳の対の配列を抽出し、
 // それぞれのファイル名に対応するカタログファイル(filename.sgml.t)を作成する
 func Extract(vTag string, fileNames []string) error {
-	_, err := extract(vTag, false, fileNames)
-	return err
+	common, err := extract(vTag, true, fileNames)
+	if err != nil {
+		return err
+	}
+	seen := toSeen(common)
+	common = findAllSameCommon(seen)
+	saveCatalog("common", common)
+	return nil
 }
 
 // seenから、原文が同じで日本語訳も同じものを抽出する
@@ -54,6 +61,7 @@ func findAllSameCommon(seen map[string][]string) Catalogs {
 	return sortedCatalogs(unique)
 }
 
+// catalogsSplits は、各カタログを分割して新しいカタログの配列を返す
 func catalogsSplits(catalogs Catalogs) Catalogs {
 	var newCatalogs Catalogs
 	for _, catalog := range catalogs {
@@ -192,13 +200,19 @@ func getDiff(vTag string, fileName string) ([]byte, error) {
 		return nil, err
 	}
 
-	var src []byte
-	cmd.Start()
-	src, err = io.ReadAll(stdout)
-	if err != nil {
-		log.Fatal("getDiff", err)
+	if err := cmd.Start(); err != nil {
+		return nil, err
 	}
-	cmd.Wait()
+	src, err := io.ReadAll(stdout)
+	if err != nil {
+		return nil, err
+	}
+	if err := cmd.Wait(); err != nil {
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+			return nil, err
+		}
+	}
 	return src, nil
 }
 
