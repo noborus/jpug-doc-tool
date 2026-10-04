@@ -10,8 +10,8 @@ var REPARA = regexp.MustCompile(`(?s)(<para>\n*)(.*?)(\s*</para>)`)
 // タグと一致させる
 var RETAG = regexp.MustCompile(`<[^>]+>`)
 
-// 単独タグ(\s+<programlisting>\nなど)に一致させる
-var RETAGBLOCK = regexp.MustCompile(`^\s*<([^>]+)>\n`)
+// 単独タグ(\s+<programlisting>\nなど)に一致させる。<programlisting><![CDATA[ も同様に扱う
+var RETAGBLOCK = regexp.MustCompile(`^\s*<([^>]+)>(?:<!\[CDATA\[)?\n`)
 
 func regTagBlock(src string) []string {
 	return RETAGBLOCK.FindAllString(src, -1)

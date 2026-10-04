@@ -53,7 +53,7 @@ func NewRep(vTag string, update bool, similar int, mt int, prompt bool) (*Rep, e
 	if err != nil {
 		return rep, err
 	}
-	rep.common = regCompile(common)
+	rep.common = append(regCompile(common), commonCatalogs()...)
 	return rep, nil
 }
 
@@ -199,6 +199,13 @@ func matchComment(src []byte, catalog Catalog) []byte {
 			}
 		}
 
+		// preが<para>の場合は直前の行も一致した場合のみ置き換える
+		if strings.TrimSpace(catalog.pre) == "<para>" && !prevLineIs(src[:p+pp], "<para>") {
+			ret = append(ret, src[p:p+pp+count+len(catalog.en)]...)
+			p = p + pp + count + len(catalog.en)
+			continue
+		}
+
 		if !inComment(src[:p+pp]) {
 			ret = append(ret, src[p:p+pp]...)
 			if inCDATA(src[:p+pp]) {
@@ -235,6 +242,18 @@ func matchComment(src []byte, catalog Catalog) []byte {
 	return ret
 }
 
+// prevLineIs は src 末尾（行頭位置）の直前行が空白を除いて want と一致するか返す
+func prevLineIs(src []byte, want string) bool {
+	if len(src) == 0 || src[len(src)-1] != '\n' {
+		return false
+	}
+	line := src[:len(src)-1]
+	if i := bytes.LastIndexByte(line, '\n'); i >= 0 {
+		line = line[i+1:]
+	}
+	return strings.TrimSpace(string(line)) == want
+}
+
 func countLeadingSpaces(src []byte, pp int) int {
 	count := 0
 	for i := pp - 1; i >= 0; i-- {
@@ -249,7 +268,7 @@ func countLeadingSpaces(src []byte, pp int) int {
 
 // 共通カタログを一つずつ置き換える
 func matchCommon(src []byte, catalog Catalog) []byte {
-	if !bytes.Contains(src, []byte(catalog.en)) {
+	if !catalog.isRegexp && !bytes.Contains(src, []byte(catalog.en)) {
 		return src
 	}
 	if catalog.en == "This parameter can only be set at server start." {
@@ -291,7 +310,14 @@ func matchCommon(src []byte, catalog Catalog) []byte {
 			prefix = submatches[1]
 		}
 
-		ret := string(prefix) + "<!--\n" + string(en) + "-->\n" + space + catalog.ja + "\n"
+		ja := catalog.ja
+		if catalog.isRegexp {
+			for i := 1; i < len(submatches)-1; i++ {
+				ja = strings.ReplaceAll(ja, fmt.Sprintf("%s%d", commonRefMark, i), string(submatches[i+1]))
+			}
+		}
+
+		ret := string(prefix) + "<!--\n" + string(en) + "-->\n" + space + ja + "\n"
 		return []byte(ret)
 	})
 	return src
