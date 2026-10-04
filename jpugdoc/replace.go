@@ -422,8 +422,10 @@ func (rep *Rep) blockReplace(src string) string {
 	urlPost := ""
 	cName := ""
 	rSrc := src
+	cut := false
 	// <ulink url=\"&commit_baseurl 含まれていたらその前までを対象にする
 	if idx := strings.Index(rSrc, "<ulink url=\"&commit_baseurl"); idx >= 0 {
+		cut = true
 		// urlPost = rSrc[idx:]
 		rSrc = rSrc[:idx]
 		// src内の最後の()を含む内容をcNameに入れる
@@ -439,19 +441,28 @@ func (rep *Rep) blockReplace(src string) string {
 	rSrc = strings.TrimLeft(rSrc, "\n")
 	rSrc = strings.TrimRight(rSrc, "\n")
 	srcBlock := strings.Split(rSrc, "\n")
-	if len(srcBlock) < 3 {
+	// <ulink>で切った場合は閉じタグ行がないため本文は最終行まで
+	minLines := 3
+	if cut {
+		minLines = 2
+	}
+	if len(srcBlock) < minLines {
 		return src
 	}
 	b := 1
-	for srcBlock[b] == "" {
+	for b < len(srcBlock)-1 && srcBlock[b] == "" {
 		b += 1
 	}
 	pre := strings.Join(srcBlock[0:b], "\n")
-	a := len(srcBlock) - 1
-	for srcBlock[a-1] == "" {
-		a -= 1
+	a := len(srcBlock)
+	post := ""
+	if !cut {
+		a = len(srcBlock) - 1
+		for srcBlock[a-1] == "" {
+			a -= 1
+		}
+		post = strings.Join(srcBlock[a:], "\n")
 	}
-	post := strings.Join(srcBlock[a:], "\n")
 	body := strings.Join(srcBlock[b:a], "\n")
 	enStr := stripNL(body)
 	simJa, score := rep.findSimilar(enStr)
@@ -486,6 +497,10 @@ func (rep *Rep) blockReplace(src string) string {
 		cName += "\n"
 	}
 	dst := fmt.Sprintf("%s\n<!--\n%s\n-->\n%s\n%s%s%s", pre, org, ret, cName, urlPost, post)
+	if cut {
+		// 後続の<ulink>行の前に空行を作らない
+		dst = strings.TrimRight(dst, "\n")
+	}
 	return strings.Replace(src, rSrc, dst, 1)
 }
 
