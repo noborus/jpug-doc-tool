@@ -18,6 +18,9 @@ const (
 	MTTransEnd   = "»"
 	MTL          = len(MTTransStart)
 )
+const TagMismatchMark = "《タグ不一致》"
+
+var TAGREG = regexp.MustCompile(`<[^<>]+>`)
 
 // Rep は置き換えを行う構造体
 type Rep struct {
@@ -472,7 +475,7 @@ func (rep *Rep) blockReplace(src string) string {
 		mtStr = mtStr[:len(mtStr)-len(cName)]
 	}
 	mtJa := rep.mtMark(mtStr, score)
-	ret, err := replaceDst(score, simJa, mtJa)
+	ret, err := replaceDst(score, enStr, simJa, mtJa)
 	if err != nil {
 		return src
 	}
@@ -578,9 +581,9 @@ func (rep *Rep) blankBracketReplace(src []byte) []byte {
 	simJa = STRIPM.ReplaceAllString(simJa, "")
 	simJa = strings.TrimLeft(simJa, " ")
 	simJa = strings.TrimRight(simJa, "\n")
-	// 機械翻訳のためのマークを付ける
+
 	mtJa := rep.mtMark(enStr, score)
-	ret, err := replaceDst(score, simJa, mtJa)
+	ret, err := replaceDst(score, enStr, simJa, mtJa)
 	if err != nil {
 		log.Println(err.Error())
 		return src
@@ -616,7 +619,7 @@ func (rep *Rep) simMtReplace(src []byte, pre string, org string, enStr string, p
 	// 機械翻訳のためのマークを付ける
 	mtJa := rep.mtMark(enStr, score)
 
-	ej, err := replaceDst(score, simJa, mtJa)
+	ej, err := replaceDst(score, enStr, simJa, mtJa)
 	if err != nil {
 		log.Println(err.Error())
 		return nil, nil
@@ -625,7 +628,10 @@ func (rep *Rep) simMtReplace(src []byte, pre string, org string, enStr string, p
 	return []byte(para), nil
 }
 
-func replaceDst(score float64, simJa string, mtJa string) (string, error) {
+func replaceDst(score float64, enStr string, simJa string, mtJa string) (string, error) {
+	if simJa != "" && !sameTags(enStr, simJa) {
+		simJa = TagMismatchMark + simJa
+	}
 	switch {
 	case simJa != "" && mtJa != "":
 		return fmt.Sprintf("《マッチ度[%f]》%s\n《機械翻訳》%s", score, simJa, mtJa), nil
@@ -682,6 +688,23 @@ func rewriteFile(fileName string, body []byte) error {
 
 	_, err = fmt.Fprint(out, string(body))
 	return err
+}
+
+// sameTags は原文と訳文のタグ(属性値を含む)の出現数が一致するかを返す。
+func sameTags(en, ja string) bool {
+	count := map[string]int{}
+	for _, t := range TAGREG.FindAllString(en, -1) {
+		count[t]++
+	}
+	for _, t := range TAGREG.FindAllString(ja, -1) {
+		count[t]--
+	}
+	for _, n := range count {
+		if n != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 /*

@@ -86,6 +86,9 @@ func (mt *MTType) ReplaceText(src string) (string, error) {
 			return m
 		}
 		// Return the translated text
+		if !sameTags(englishText, japaneseText) {
+			return TagMismatchMark + japaneseText
+		}
 		return japaneseText
 	})
 	return ret, globalErr
