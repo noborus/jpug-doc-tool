@@ -2,6 +2,7 @@ package jpugdoc
 
 import (
 	"log"
+	"regexp"
 	"strings"
 )
 
@@ -75,6 +76,65 @@ var titleData = `
 <title>Documentation</title>,<title>ドキュメンテーション</title>
 <title>Privileges</title>,<title>権限</title>
 `
+
+// commonRefMark は commonData の訳文中で正規表現のN番目のグループを参照する記号(§1 など)。
+const commonRefMark = "§"
+
+// commonData はリリースノートの定型句。各項目は "----" 行、原文(正規表現)と訳文は "====" 行で区切る。
+var commonData = `<title>Release (\d+(?:\.\d+)?)</title>
+====
+ <title>リリース§1</title>
+----
+<title>Migration to Version (\d+(?:\.\d+)?)</title>
+====
+ <title>バージョン§1への移行</title>
+----
+<productname>PostgreSQL</productname> (\d+(?:\.\d+)?) contains many new features
+\s+and enhancements, including:
+====
+<productname>PostgreSQL</productname> §1には、以下をはじめとする多数の新機能と拡張が含まれています。
+----
+The above items and other new features of
+\s+<productname>PostgreSQL</productname> (\d+(?:\.\d+)?) are explained in more detail
+\s+in the sections below\.
+====
+<productname>PostgreSQL</productname> §1の上記の項目とその他の新機能は次節でより詳しく説明されます。
+----
+Version (\d+(?:\.\d+)?) contains a number of changes that may affect compatibility
+\s+with previous releases\.\s+Observe the following incompatibilities:
+====
+バージョン§1には、以前のバージョンとの互換性に影響するかもしれない多数の変更点が含まれています。
+以下の非互換性に注意してください。
+----
+Below you will find a detailed account of the changes between
+\s+<productname>PostgreSQL</productname> (\d+(?:\.\d+)?) and the previous major
+\s+release\.
+====
+<productname>PostgreSQL</productname> §1と前メジャーリリースとの詳細な変更点を記載しました。`
+
+// regexpCatalog は原文を正規表現として扱う共通カタログを作る。
+func regexpCatalog(en, ja string) Catalog {
+	return Catalog{
+		en:        en,
+		ja:        ja,
+		isRegexp:  true,
+		commonReg: regexp.MustCompile(`(.*\n)?[^\n]*` + en + `\n`),
+	}
+}
+
+// commonCatalogs は commonData を Catalog の配列に変換する。
+func commonCatalogs() []Catalog {
+	var catalogs []Catalog
+	for entry := range strings.SplitSeq(commonData, "\n----\n") {
+		en, ja, ok := strings.Cut(entry, "\n====\n")
+		if !ok {
+			log.Printf("Unexpected format in commonData: %s", entry)
+			continue
+		}
+		catalogs = append(catalogs, regexpCatalog(en, ja))
+	}
+	return catalogs
+}
 
 func titleMap() map[string]string {
 	lines := strings.Split(titleData, "\n")

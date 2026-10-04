@@ -19,6 +19,7 @@ type Catalog struct {
 	pre       string
 	en        string
 	commonReg *regexp.Regexp
+	isRegexp  bool // enが正規表現の共通カタログ(jaの§NをN番目のグループで置換)
 	ja        string
 	preCDATA  string
 	post      string

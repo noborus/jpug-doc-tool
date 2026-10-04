@@ -18,6 +18,9 @@ const (
 	MTTransEnd   = "»"
 	MTL          = len(MTTransStart)
 )
+const TagMismatchMark = "《タグ不一致》"
+
+var TAGREG = regexp.MustCompile(`<[^<>]+>`)
 
 // Rep は置き換えを行う構造体
 type Rep struct {
@@ -53,7 +56,7 @@ func NewRep(vTag string, update bool, similar int, mt int, prompt bool) (*Rep, e
 	if err != nil {
 		return rep, err
 	}
-	rep.common = regCompile(common)
+	rep.common = append(regCompile(common), commonCatalogs()...)
 	return rep, nil
 }
 
@@ -199,6 +202,13 @@ func matchComment(src []byte, catalog Catalog) []byte {
 			}
 		}
 
+		// preが<para>の場合は直前の行も一致した場合のみ置き換える
+		if strings.TrimSpace(catalog.pre) == "<para>" && !prevLineIs(src[:p+pp], "<para>") {
+			ret = append(ret, src[p:p+pp+count+len(catalog.en)]...)
+			p = p + pp + count + len(catalog.en)
+			continue
+		}
+
 		if !inComment(src[:p+pp]) {
 			ret = append(ret, src[p:p+pp]...)
 			if inCDATA(src[:p+pp]) {
@@ -235,6 +245,18 @@ func matchComment(src []byte, catalog Catalog) []byte {
 	return ret
 }
 
+// prevLineIs は src 末尾（行頭位置）の直前行が空白を除いて want と一致するか返す
+func prevLineIs(src []byte, want string) bool {
+	if len(src) == 0 || src[len(src)-1] != '\n' {
+		return false
+	}
+	line := src[:len(src)-1]
+	if i := bytes.LastIndexByte(line, '\n'); i >= 0 {
+		line = line[i+1:]
+	}
+	return strings.TrimSpace(string(line)) == want
+}
+
 func countLeadingSpaces(src []byte, pp int) int {
 	count := 0
 	for i := pp - 1; i >= 0; i-- {
@@ -249,7 +271,7 @@ func countLeadingSpaces(src []byte, pp int) int {
 
 // 共通カタログを一つずつ置き換える
 func matchCommon(src []byte, catalog Catalog) []byte {
-	if !bytes.Contains(src, []byte(catalog.en)) {
+	if !catalog.isRegexp && !bytes.Contains(src, []byte(catalog.en)) {
 		return src
 	}
 	if catalog.en == "This parameter can only be set at server start." {
@@ -291,7 +313,14 @@ func matchCommon(src []byte, catalog Catalog) []byte {
 			prefix = submatches[1]
 		}
 
-		ret := string(prefix) + "<!--\n" + string(en) + "-->\n" + space + catalog.ja + "\n"
+		ja := catalog.ja
+		if catalog.isRegexp {
+			for i := 1; i < len(submatches)-1; i++ {
+				ja = strings.ReplaceAll(ja, fmt.Sprintf("%s%d", commonRefMark, i), string(submatches[i+1]))
+			}
+		}
+
+		ret := string(prefix) + "<!--\n" + string(en) + "-->\n" + space + ja + "\n"
 		return []byte(ret)
 	})
 	return src
@@ -393,8 +422,10 @@ func (rep *Rep) blockReplace(src string) string {
 	urlPost := ""
 	cName := ""
 	rSrc := src
+	cut := false
 	// <ulink url=\"&commit_baseurl 含まれていたらその前までを対象にする
 	if idx := strings.Index(rSrc, "<ulink url=\"&commit_baseurl"); idx >= 0 {
+		cut = true
 		// urlPost = rSrc[idx:]
 		rSrc = rSrc[:idx]
 		// src内の最後の()を含む内容をcNameに入れる
@@ -410,19 +441,28 @@ func (rep *Rep) blockReplace(src string) string {
 	rSrc = strings.TrimLeft(rSrc, "\n")
 	rSrc = strings.TrimRight(rSrc, "\n")
 	srcBlock := strings.Split(rSrc, "\n")
-	if len(srcBlock) < 3 {
+	// <ulink>で切った場合は閉じタグ行がないため本文は最終行まで
+	minLines := 3
+	if cut {
+		minLines = 2
+	}
+	if len(srcBlock) < minLines {
 		return src
 	}
 	b := 1
-	for srcBlock[b] == "" {
+	for b < len(srcBlock)-1 && srcBlock[b] == "" {
 		b += 1
 	}
 	pre := strings.Join(srcBlock[0:b], "\n")
-	a := len(srcBlock) - 1
-	for srcBlock[a-1] == "" {
-		a -= 1
+	a := len(srcBlock)
+	post := ""
+	if !cut {
+		a = len(srcBlock) - 1
+		for srcBlock[a-1] == "" {
+			a -= 1
+		}
+		post = strings.Join(srcBlock[a:], "\n")
 	}
-	post := strings.Join(srcBlock[a:], "\n")
 	body := strings.Join(srcBlock[b:a], "\n")
 	enStr := stripNL(body)
 	simJa, score := rep.findSimilar(enStr)
@@ -446,7 +486,7 @@ func (rep *Rep) blockReplace(src string) string {
 		mtStr = mtStr[:len(mtStr)-len(cName)]
 	}
 	mtJa := rep.mtMark(mtStr, score)
-	ret, err := replaceDst(score, simJa, mtJa)
+	ret, err := replaceDst(score, enStr, simJa, mtJa)
 	if err != nil {
 		return src
 	}
@@ -457,6 +497,10 @@ func (rep *Rep) blockReplace(src string) string {
 		cName += "\n"
 	}
 	dst := fmt.Sprintf("%s\n<!--\n%s\n-->\n%s\n%s%s%s", pre, org, ret, cName, urlPost, post)
+	if cut {
+		// 後続の<ulink>行の前に空行を作らない
+		dst = strings.TrimRight(dst, "\n")
+	}
 	return strings.Replace(src, rSrc, dst, 1)
 }
 
@@ -552,9 +596,9 @@ func (rep *Rep) blankBracketReplace(src []byte) []byte {
 	simJa = STRIPM.ReplaceAllString(simJa, "")
 	simJa = strings.TrimLeft(simJa, " ")
 	simJa = strings.TrimRight(simJa, "\n")
-	// 機械翻訳のためのマークを付ける
+
 	mtJa := rep.mtMark(enStr, score)
-	ret, err := replaceDst(score, simJa, mtJa)
+	ret, err := replaceDst(score, enStr, simJa, mtJa)
 	if err != nil {
 		log.Println(err.Error())
 		return src
@@ -590,7 +634,7 @@ func (rep *Rep) simMtReplace(src []byte, pre string, org string, enStr string, p
 	// 機械翻訳のためのマークを付ける
 	mtJa := rep.mtMark(enStr, score)
 
-	ej, err := replaceDst(score, simJa, mtJa)
+	ej, err := replaceDst(score, enStr, simJa, mtJa)
 	if err != nil {
 		log.Println(err.Error())
 		return nil, nil
@@ -599,7 +643,10 @@ func (rep *Rep) simMtReplace(src []byte, pre string, org string, enStr string, p
 	return []byte(para), nil
 }
 
-func replaceDst(score float64, simJa string, mtJa string) (string, error) {
+func replaceDst(score float64, enStr string, simJa string, mtJa string) (string, error) {
+	if simJa != "" && !sameTags(enStr, simJa) {
+		simJa = TagMismatchMark + simJa
+	}
 	switch {
 	case simJa != "" && mtJa != "":
 		return fmt.Sprintf("《マッチ度[%f]》%s\n《機械翻訳》%s", score, simJa, mtJa), nil
@@ -656,6 +703,23 @@ func rewriteFile(fileName string, body []byte) error {
 
 	_, err = fmt.Fprint(out, string(body))
 	return err
+}
+
+// sameTags は原文と訳文のタグ(属性値を含む)の出現数が一致するかを返す。
+func sameTags(en, ja string) bool {
+	count := map[string]int{}
+	for _, t := range TAGREG.FindAllString(en, -1) {
+		count[t]++
+	}
+	for _, t := range TAGREG.FindAllString(ja, -1) {
+		count[t]--
+	}
+	for _, n := range count {
+		if n != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 /*
