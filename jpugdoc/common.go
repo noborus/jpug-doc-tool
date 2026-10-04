@@ -125,7 +125,7 @@ func regexpCatalog(en, ja string) Catalog {
 // commonCatalogs は commonData を Catalog の配列に変換する。
 func commonCatalogs() []Catalog {
 	var catalogs []Catalog
-	for _, entry := range strings.Split(commonData, "\n----\n") {
+	for entry := range strings.SplitSeq(commonData, "\n----\n") {
 		en, ja, ok := strings.Cut(entry, "\n====\n")
 		if !ok {
 			log.Printf("Unexpected format in commonData: %s", entry)
