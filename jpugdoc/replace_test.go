@@ -3,6 +3,7 @@ package jpugdoc
 import (
 	"reflect"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -71,6 +72,103 @@ This is a test.
 				t.Errorf("Rep.matchReplace() = \n%v\nwant \n%v\n", string(got), string(tt.want))
 			}
 		})
+	}
+}
+
+func TestRep_matchReplaceCommonSkipsCommentedText(t *testing.T) {
+	rep := Rep{
+		catalogs: []Catalog{
+			{
+				en: "First line.\nCommon phrase.",
+				ja: "翻訳文",
+			},
+		},
+		common: regCompile(Catalogs{
+			{
+				en: "Common phrase.",
+				ja: "共通訳",
+			},
+		}),
+	}
+	src := []byte("First line.\nCommon phrase.\n")
+	want := []byte("<!--\nFirst line.\nCommon phrase.\n-->\n翻訳文\n")
+
+	if got := rep.matchReplace(src); !reflect.DeepEqual(got, want) {
+		t.Errorf("Rep.matchReplace() = \n%s\nwant \n%s\n", string(got), string(want))
+	}
+}
+
+func TestBlockReplaceUlinkPreservesLinkLines(t *testing.T) {
+	rep := Rep{
+		similar: 1,
+		mt:      100,
+		catalogs: []Catalog{
+			{
+				en: "Reject calls from SQL to functions that take or return type <type>internal</type> (Tom Lane)",
+				ja: "SQLから<type>internal</type>型を取る、または返す関数の呼び出しを拒否します。(Tom Lane)",
+			},
+		},
+	}
+	src := "<para>\n" +
+		"  Reject calls from SQL to functions that take or return\n" +
+		"  type <type>internal</type> (Tom Lane)\n" +
+		"  \n" +
+		"  <ulink url=\"&commit_baseurl;eb9e55297\">&sect;</ulink>\n" +
+		"  <ulink url=\"&commit_baseurl;83d0a083f\">&sect;</ulink>\n" +
+		" </para>"
+
+	got := rep.blockReplace(src)
+	commentEnd := strings.Index(got, "\n-->")
+	if commentEnd < 0 {
+		t.Fatalf("blockReplace() output has no comment end:\n%s", got)
+	}
+	if got == src {
+		t.Fatal("blockReplace() did not replace the matching paragraph")
+	}
+	if strings.HasSuffix(got[:commentEnd], "\n  ") {
+		t.Errorf("comment contains a trailing whitespace-only line:\n%s", got)
+	}
+	linkLines := "  <ulink url=\"&commit_baseurl;eb9e55297\">&sect;</ulink>\n" +
+		"  <ulink url=\"&commit_baseurl;83d0a083f\">&sect;</ulink>\n </para>"
+	if n := strings.Count(got, "<ulink"); n != 2 {
+		t.Errorf("ulink count = %d, want 2:\n%s", n, got)
+	}
+	if n := strings.Count(got, "</para>"); n != 1 {
+		t.Errorf("</para> count = %d, want 1:\n%s", n, got)
+	}
+	if !strings.HasSuffix(got, linkLines) {
+		t.Errorf("ulink lines changed or moved:\n%s", got)
+	}
+}
+
+func TestBlockReplaceCVELineExcluded(t *testing.T) {
+	rep := Rep{
+		similar: 1,
+		mt:      100,
+		catalogs: []Catalog{
+			{
+				en: "Fix a bug in the parser.",
+				ja: "パーサのバグを修正します。",
+			},
+		},
+	}
+	src := "<para>\n" +
+		"      Fix a bug in the parser.\n" +
+		"      (CVE-2026-6472)\n" +
+		"     </para>"
+
+	got := rep.blockReplace(src)
+	if got == src {
+		t.Fatal("blockReplace() did not replace the paragraph")
+	}
+	if !strings.HasSuffix(got, "\n      (CVE-2026-6472)\n     </para>") {
+		t.Errorf("CVE line changed or moved:\n%s", got)
+	}
+	if n := strings.Count(got, "CVE-2026-6472"); n != 1 {
+		t.Errorf("CVE count = %d, want 1:\n%s", n, got)
+	}
+	if end := strings.Index(got, "-->"); strings.Contains(got[:end], "CVE-") {
+		t.Errorf("CVE line is inside the comment:\n%s", got)
 	}
 }
 

@@ -36,6 +36,9 @@ func similarBlank(src []byte) [][]byte {
 
 var STRIPPMT = regexp.MustCompile(`(?s)《機械翻訳》.*`)
 
+// CVELINE は (CVE-2026-6472) のように単独で置かれたCVE番号の行
+var CVELINE = regexp.MustCompile(`(?m)^[ \t]*\(CVE-\d+-\d+(?:,\s*CVE-\d+-\d+)*\)[ \t]*$`)
+
 // 《》で囲まれた文字列（作業中）に一致させる
 var STRIPM = regexp.MustCompile(`《.*》`)
 

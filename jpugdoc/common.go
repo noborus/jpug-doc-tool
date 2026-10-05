@@ -110,7 +110,26 @@ Below you will find a detailed account of the changes between
 \s+<productname>PostgreSQL</productname> (\d+(?:\.\d+)?) and the previous major
 \s+release\.
 ====
-<productname>PostgreSQL</productname> §1と前メジャーリリースとの詳細な変更点を記載しました。`
+<productname>PostgreSQL</productname> §1と前メジャーリリースとの詳細な変更点を記載しました。
+----
+This release contains a small number of fixes from (\d+(?:\.\d+)?).
+\s+For information about new features in major release (\d+(?:\.\d+)?), see
+\s+<xref linkend="release-(\d+(?:\-\d+)?)"/>.
+====
+このリリースは§1に対し、少数の不具合を修正したものです。
+§2メジャーリリースにおける新機能については、<xref linkend="release-§3"/>を参照してください。
+----
+This release contains a variety of fixes from (\d+(?:\.\d+)?).
+\s+For information about new features in major release (\d+(?:\.\d+)?), see
+\s+<xref linkend="release-(\d+(?:\-\d+)?)"/>.
+====
+このリリースは§1に対し、様々な不具合を修正したものです。
+§2メジャーリリースにおける新機能については、<xref linkend="release-§3"/>を参照してください。
+----
+Also, if you are upgrading from a version earlier than (\d+(?:\.\d+)?),
+\s+see <xref linkend="release-(\d+(?:\-\d+)?)"/>.
+====
+また、§1より前のバージョンからアップグレードする場合は、<xref linkend="release-§2"/>を参照してください。`
 
 // regexpCatalog は原文を正規表現として扱う共通カタログを作る。
 func regexpCatalog(en, ja string) Catalog {

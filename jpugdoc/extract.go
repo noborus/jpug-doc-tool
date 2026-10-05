@@ -267,6 +267,7 @@ func Extraction(diffSrc []byte) []Catalog {
 			catalogs = addCatalogs(catalogs, prefix, en, ja, preCDATA, postfix)
 			en.Reset()
 			ja.Reset()
+			prefix = prefixes[len(prefixes)-1]
 			if len(m[0]) == 1 {
 				en.WriteString("\n")
 				englishF = true
