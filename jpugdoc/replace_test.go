@@ -118,14 +118,14 @@ func TestBlockReplaceUlinkPreservesLinkLines(t *testing.T) {
 		" </para>"
 
 	got := rep.blockReplace(src)
-	commentEnd := strings.Index(got, "\n-->")
-	if commentEnd < 0 {
+	before, _, ok := strings.Cut(got, "\n-->")
+	if !ok {
 		t.Fatalf("blockReplace() output has no comment end:\n%s", got)
 	}
 	if got == src {
 		t.Fatal("blockReplace() did not replace the matching paragraph")
 	}
-	if strings.HasSuffix(got[:commentEnd], "\n  ") {
+	if strings.HasSuffix(before, "\n  ") {
 		t.Errorf("comment contains a trailing whitespace-only line:\n%s", got)
 	}
 	linkLines := "  <ulink url=\"&commit_baseurl;eb9e55297\">&sect;</ulink>\n" +
@@ -167,7 +167,7 @@ func TestBlockReplaceCVELineExcluded(t *testing.T) {
 	if n := strings.Count(got, "CVE-2026-6472"); n != 1 {
 		t.Errorf("CVE count = %d, want 1:\n%s", n, got)
 	}
-	if end := strings.Index(got, "-->"); strings.Contains(got[:end], "CVE-") {
+	if before, _, _ := strings.Cut(got, "-->"); strings.Contains(before, "CVE-") {
 		t.Errorf("CVE line is inside the comment:\n%s", got)
 	}
 }
