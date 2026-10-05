@@ -136,16 +136,16 @@ func (rep *Rep) matchReplace(src []byte) []byte {
 			src = matchAdditional(src, catalog)
 		}
 	}
-	// 共通の翻訳文を追加
-	for _, catalog := range rep.common {
-		if catalog.commonReg != nil {
-			src = matchCommon(src, catalog)
-		}
-	}
 	// コメント形式の翻訳文を追加
 	for _, catalog := range rep.catalogs {
 		if catalog.en != "" {
 			src = matchComment(src, catalog)
+		}
+	}
+	// 共通の翻訳文を追加
+	for _, catalog := range rep.common {
+		if catalog.commonReg != nil {
+			src = matchCommon(src, catalog)
 		}
 	}
 	return src
@@ -193,7 +193,7 @@ func matchComment(src []byte, catalog Catalog) []byte {
 			start := p + pp + len(cen)
 			if start > len(src) {
 				ret = append(ret, src[p:]...)
-				break
+				return ret
 			}
 			if !bytes.HasPrefix(src[start:], []byte(catalog.post)) {
 				ret = append(ret, src[p:p+pp+len(catalog.en)]...)
@@ -235,7 +235,7 @@ func matchComment(src []byte, catalog Catalog) []byte {
 			} else {
 				ret = append(ret, src[p+pp+count+len(catalog.en)+1:]...)
 			}
-			break
+			return ret
 		}
 
 		// Already in Japanese.
@@ -279,26 +279,41 @@ func matchCommon(src []byte, catalog Catalog) []byte {
 		return src
 	}
 	// 正規表現にマッチした部分を置き換える
-	src = catalog.commonReg.ReplaceAllFunc(src, func(match []byte) []byte {
-		// 前の行を判定するためにサブマッチを取得
-		submatches := catalog.commonReg.FindSubmatch(match)
+	matches := catalog.commonReg.FindAllSubmatchIndex(src, -1)
+	if len(matches) == 0 {
+		return src
+	}
+	ret := make([]byte, 0, len(src))
+	last := 0
+	for _, indices := range matches {
+		start, end := indices[0], indices[1]
+		ret = append(ret, src[last:start]...)
 
-		// 前の行が<!--\nの場合は置き換えをスキップ
-		if len(submatches) > 1 && submatches[1] != nil {
-			prevLine := string(submatches[1])
-			if strings.HasSuffix(prevLine, "<!--\n") {
-				return match // 置き換えをスキップ
+		submatches := make([][]byte, len(indices)/2)
+		for i := range submatches {
+			subStart, subEnd := indices[i*2], indices[i*2+1]
+			if subStart >= 0 {
+				submatches[i] = src[subStart:subEnd]
 			}
 		}
+		match := src[start:end]
+		contentStart := start
+		if len(submatches) > 1 && submatches[1] != nil {
+			contentStart += len(submatches[1])
+		}
+		// コメント内の原文は、開始位置から離れていても置き換えない。
+		if inComment(src[:contentStart]) {
+			ret = append(ret, match...)
+			last = end
+			continue
+		}
 
-		// マッチした内容から前の行を除外して処理する
 		var content []byte
 		if len(submatches) > 1 && submatches[1] != nil {
 			content = match[len(submatches[1]):]
 		} else {
 			content = match
 		}
-
 		space := ""
 		if catalog.ja[0] == ' ' {
 			space = leftPadSpace(string(content))
@@ -320,10 +335,14 @@ func matchCommon(src []byte, catalog Catalog) []byte {
 			}
 		}
 
-		ret := string(prefix) + "<!--\n" + string(en) + "-->\n" + space + ja + "\n"
-		return []byte(ret)
-	})
-	return src
+		ret = append(ret, prefix...)
+		ret = append(ret, []byte("<!--\n")...)
+		ret = append(ret, en...)
+		ret = append(ret, []byte("-->\n"+space+ja+"\n")...)
+		last = end
+	}
+	ret = append(ret, src[last:]...)
+	return ret
 }
 
 func leftPadSpace(str string) string {
@@ -344,7 +363,7 @@ func leftPadSpace(str string) string {
 
 func regCompile(catalogs Catalogs) Catalogs {
 	for i := range catalogs {
-		catalogs[i].commonReg = regexp.MustCompile(`(.*\n)?[^\n]*` + regexp.QuoteMeta(catalogs[i].en) + `\n`)
+		catalogs[i].commonReg = regexp.MustCompile(`(?m)(.*\n)?^[ \t]*` + regexp.QuoteMeta(catalogs[i].en) + `\n`)
 	}
 	return catalogs
 }
@@ -368,29 +387,72 @@ func matchAdditional(src []byte, catalog Catalog) []byte {
 		return src
 	}
 	ret := make([]byte, 0)
-	ret = append(ret, src[:p+len(catalog.pre)]...)
+	ret = append(ret, src[:p]...)
 	ret = append(ret, catalog.ja...)
 	ret = append(ret, '\n')
-	ret = append(ret, src[p+len(catalog.pre):]...)
+	ret = append(ret, src[p:]...)
 	return ret
 }
 
+// preRegexp は catalog.pre にマッチする正規表現を返す。
+// 先行する置き換えで行が <!-- 原文 --> 翻訳文 の形式に書き換えられていてもマッチする。
+func preRegexp(pre string) *regexp.Regexp {
+	lines := strings.SplitAfter(pre, "\n")
+	var sb strings.Builder
+	for i, line := range lines {
+		if line == "" {
+			continue
+		}
+		body, hasNL := strings.CutSuffix(line, "\n")
+		if !hasNL {
+			sb.WriteString(regexp.QuoteMeta(body))
+			continue
+		}
+		last := true
+		for _, l := range lines[i+1:] {
+			if l != "" {
+				last = false
+			}
+		}
+		sb.WriteString(`(?:<!--\n)?`)
+		sb.WriteString(regexp.QuoteMeta(body))
+		if last {
+			sb.WriteString(`\n(?:-->\n[^\n]*\n)?`)
+		} else {
+			// 途中の行の後ろには、追加された翻訳行(日本語を含む行)があってもよい
+			sb.WriteString(`\n(?:-->\n(?:[^\n]*\n)*?)?(?:[^\n]*[^\x00-\x7f][^\n]*\n)*`)
+		}
+	}
+	re, err := regexp.Compile(sb.String())
+	if err != nil {
+		return regexp.MustCompile(regexp.QuoteMeta(pre))
+	}
+	return re
+}
+
+// foundReplace は翻訳文を挿入する位置(preの直後)を返す。見つからない場合は-1を返す。
 func foundReplace(src []byte, catalog Catalog) int {
+	re := preRegexp(catalog.pre)
 	for p := 0; p < len(src); {
-		i := bytes.Index(src[p:], []byte(catalog.pre))
-		if i == -1 {
+		loc := re.FindIndex(src[p:])
+		if loc == nil {
 			return -1
 		}
-		j := bytes.Index(src[p+i:], []byte("\n"+catalog.ja))
+		start, end := p+loc[0], p+loc[1]
+		j := bytes.Index(src[start:], []byte("\n"+catalog.ja))
 		if j == -1 {
 			// before conversion.
-			return p + i
+			return end
 		}
 		if strings.Contains(catalog.ja, "split-") {
 			break
 		}
 		// Already converted.
-		p = p + i + j + len(catalog.pre) + 1
+		next := start + j + (end - start) + 1
+		if next <= p {
+			next = end
+		}
+		p = next
 	}
 	return -1
 }
@@ -423,19 +485,29 @@ func (rep *Rep) blockReplace(src string) string {
 	cName := ""
 	rSrc := src
 	cut := false
+	// 独立した (CVE-xxxx-xxxx) 行は翻訳対象から除く
+	cveStart := -1
+	if loc := CVELINE.FindStringIndex(rSrc); loc != nil {
+		cveStart = loc[0]
+	}
 	// <ulink url=\"&commit_baseurl 含まれていたらその前までを対象にする
 	if idx := strings.Index(rSrc, "<ulink url=\"&commit_baseurl"); idx >= 0 {
-		cut = true
-		// urlPost = rSrc[idx:]
-		rSrc = rSrc[:idx]
-		// src内の最後の()を含む内容をcNameに入れる
-		if submatches := regexp.MustCompile(`\([^)]*\)`).FindAllStringSubmatch(rSrc, -1); len(submatches) > 0 {
-			cName = submatches[len(submatches)-1][0] // 最後のマッチを取得
+		lineStart := strings.LastIndex(rSrc[:idx], "\n") + 1
+		if cveStart < 0 || lineStart < cveStart {
+			cut = true
+			rSrc = rSrc[:lineStart]
+			// src内の最後の()を含む内容をcNameに入れる
+			if submatches := regexp.MustCompile(`\([^)]*\)`).FindAllStringSubmatch(rSrc, -1); len(submatches) > 0 {
+				cName = submatches[len(submatches)-1][0] // 最後のマッチを取得
+			}
+			// cName内の改行と連続スペースを一つのスペースに変換
+			cName = strings.ReplaceAll(cName, "\n", " ")                   // 改行をスペースに変換
+			cName = regexp.MustCompile(`\s+`).ReplaceAllString(cName, " ") // 連続スペースを一つのスペースに変換
 		}
-		// cName内の改行と連続スペースを一つのスペースに変換
-		cName = strings.ReplaceAll(cName, "\n", " ")                   // 改行をスペースに変換
-		cName = regexp.MustCompile(`\s+`).ReplaceAllString(cName, " ") // 連続スペースを一つのスペースに変換
-		// log.Println("blockReplace:", cName, urlPost)
+	}
+	if !cut && cveStart >= 0 {
+		cut = true
+		rSrc = rSrc[:cveStart]
 	}
 
 	rSrc = strings.TrimLeft(rSrc, "\n")
@@ -464,6 +536,9 @@ func (rep *Rep) blockReplace(src string) string {
 		post = strings.Join(srcBlock[a:], "\n")
 	}
 	body := strings.Join(srcBlock[b:a], "\n")
+	if cut {
+		body = strings.TrimRight(body, " \t\r\n")
+	}
 	enStr := stripNL(body)
 	simJa, score := rep.findSimilar(enStr)
 
@@ -666,6 +741,10 @@ func (rep *Rep) findSimilar(enStr string) (string, float64) {
 	}
 	// 機械翻訳の類似文を除外
 	if strings.Contains(simJa, "《機械翻訳》") {
+		return "", 0
+	}
+	// "The <productname>PostgreSQL</productname> Project thanks" の文は類似文から除外
+	if strings.Contains(enStr, "The <productname>PostgreSQL</productname> Project thanks") {
 		return "", 0
 	}
 	// すでに類似文マークがある場合はマークを外す
